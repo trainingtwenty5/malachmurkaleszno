@@ -351,8 +351,8 @@
     <div class="discounts reveal">
       <h3>Zniżki</h3>
       <ul class="discount-list">
-        <li><span class="discount-label">do 6 miesiąca</span><span class="discount-value">za darmo</span></li>
-        <li><span class="discount-label">od 6 miesiąca do 1 roku</span><span class="discount-value">50%</span></li>
+        <li><span class="discount-label">dzieci do 6. miesiąca życia</span><span class="discount-value">za darmo</span></li>
+        <li><span class="discount-label">dzieci od 6. miesiąca do 1. roku życia</span><span class="discount-value">50%</span></li>
         <li><span class="discount-label">rodzeństwo</span><span class="discount-value">−20%</span></li>
       </ul>
     </div>
@@ -492,7 +492,13 @@
   </div>
 </footer>
 
-<button class="to-top" id="toTop" aria-label="Wróć na górę">↑</button>
+<button class="to-top" id="toTop" aria-label="Wróć na górę">
+  <svg class="to-top-ring" viewBox="0 0 48 48" aria-hidden="true">
+    <circle class="to-top-track" cx="24" cy="24" r="21"/>
+    <circle class="to-top-bar" id="toTopBar" cx="24" cy="24" r="21"/>
+  </svg>
+  <span class="to-top-arrow" aria-hidden="true">↑</span>
+</button>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Podgląd zdjęcia" hidden>

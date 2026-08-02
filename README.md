@@ -59,8 +59,9 @@ Stawki wpisane w sekcji `#cennik` pochodzą z grafiki cennikowej z Instagrama:
 | 2 h        | 40 zł   | 45 zł          |
 | bez limitu | 50 zł   | 55 zł          |
 
-Zniżki: do 6 miesiąca — za darmo · od 6 miesiąca do 1 roku — 50% ·
-rodzeństwo — −20%. Opiekun wchodzi bezpłatnie.
+Zniżki liczone według wieku dziecka: do 6. miesiąca życia — za darmo ·
+od 6. miesiąca do 1. roku życia — 50% · rodzeństwo — −20%.
+Opiekun wchodzi bezpłatnie.
 
 ## Do uzupełnienia przed publikacją
 

@@ -16,11 +16,21 @@
      --------------------------------------------------------------- */
   var header = document.querySelector('.site-header');
   var toTop = document.getElementById('toTop');
+  var toTopBar = document.getElementById('toTopBar');
+  var RING = 131.95;   // obwód okręgu o promieniu 21
 
   function onScroll() {
     var y = window.scrollY;
     if (header) header.classList.toggle('is-scrolled', y > 60);
     if (toTop) toTop.classList.toggle('is-visible', y > 600);
+
+    // pierścień postępu: 0 = początek strony, pełny okrąg = koniec
+    if (toTopBar) {
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      var progress = max > 0 ? Math.min(1, Math.max(0, y / max)) : 0;
+      toTopBar.style.strokeDashoffset = (RING * (1 - progress)).toFixed(2);
+    }
+
     highlightNav();
   }
 
@@ -66,6 +76,13 @@
     // Zamknij przy powrocie do widoku desktopowego
     window.addEventListener('resize', function () {
       if (window.innerWidth > 860) closeNav();
+    });
+
+    // Zamknij po dotknięciu poza menu
+    document.addEventListener('click', function (e) {
+      if (!navMenu.classList.contains('is-open')) return;
+      if (navMenu.contains(e.target) || navToggle.contains(e.target)) return;
+      closeNav();
     });
   }
 
