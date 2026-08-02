@@ -474,52 +474,96 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
    ========================================================================== */
 .pricing {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 26px;
-  align-items: center;
+  max-width: 860px;
+  margin-inline: auto;
+  align-items: stretch;
 }
 .price-card {
   position: relative;
   background: var(--white);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 38px 28px;
+  padding: 40px 34px 34px;
   text-align: center;
   transition: transform .3s var(--ease), box-shadow .3s var(--ease);
 }
 .price-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); }
+.price-card h3 { color: var(--brand-deep); margin-bottom: .9em; }
 .price-card-featured {
   background: linear-gradient(160deg, #fff 0%, var(--brand-pale) 100%);
   border-color: var(--brand);
-  padding-block: 50px;
   box-shadow: var(--shadow);
 }
 .price-badge {
   position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
   white-space: nowrap;
-  background: var(--wood); color: #fff;
+  background: var(--brand-deep); color: #fff;
   font-family: var(--font-head); font-weight: 600; font-size: .78rem;
   letter-spacing: .04em;
   padding: .45em 1.15em; border-radius: 999px;
-  box-shadow: 0 5px 14px rgba(169, 131, 79, .34);
+  box-shadow: 0 5px 14px rgba(62, 124, 137, .32);
 }
-.price {
+
+/* Wiersz ceny: nazwa — kropkowana linia — kwota */
+.price-list li {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 13px 0;
+  font-size: 1.06rem;
+}
+.price-list li + li { border-top: 1px solid rgba(147, 199, 207, .3); }
+.price-time { color: var(--muted); white-space: nowrap; }
+.price-dot {
+  flex: 1;
+  border-bottom: 2px dotted rgba(147, 199, 207, .7);
+  transform: translateY(-4px);
+}
+.price-amount {
   font-family: var(--font-head);
-  font-size: clamp(2.1rem, 4vw, 2.9rem);
   font-weight: 700;
+  font-size: 1.5rem;
   color: var(--navy);
-  line-height: 1;
-  margin: .25em 0 .45em;
+  white-space: nowrap;
 }
-/* Wyróżnienie kwot do uzupełnienia — usuń tę regułę po wpisaniu cen */
-.price-todo {
-  background: repeating-linear-gradient(45deg, #F6E7C8, #F6E7C8 6px, #EFDCB6 6px, #EFDCB6 12px);
-  border-radius: 8px;
-  padding: 0 .12em;
-  color: var(--wood-dark);
+
+/* Pasek zniżek */
+.discounts {
+  max-width: 860px;
+  margin: 30px auto 0;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+  border-radius: var(--radius-lg);
+  padding: 32px clamp(24px, 4vw, 44px);
+  color: #fff;
+  box-shadow: var(--shadow);
 }
-.price-desc { color: var(--muted); font-size: .95rem; margin: 0; }
-.price-note { text-align: center; margin: 38px 0 0; color: var(--muted); }
+.discounts h3 {
+  color: #fff;
+  text-align: center;
+  font-size: 1.1rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  margin-bottom: 1.1em;
+}
+.discount-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px 26px;
+}
+.discount-list li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .26);
+}
+.discount-label { font-size: .97rem; color: rgba(255, 255, 255, .92); }
+.discount-value {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.08rem;
+  white-space: nowrap;
+}
+
+.price-note { text-align: center; margin: 34px auto 0; max-width: 640px; color: var(--muted); }
 
 /* ==========================================================================
    GALERIA

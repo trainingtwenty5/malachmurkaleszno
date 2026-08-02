@@ -49,16 +49,23 @@ obsługuje wszystkie warianty kolorystyczne — barwę ustawia `background-color
 Hero z karuzelą → szybkie fakty → O nas → Oferta (3 karty) → Strefy zabawy →
 Kawiarnia → Urodzinki i wynajem → Cennik → Galeria → Kontakt → Stopka
 
+## Cennik
+
+Stawki wpisane w sekcji `#cennik` pochodzą z grafiki cennikowej z Instagrama:
+
+| Wejście    | Pon–Czw | Pt–Nd i święta |
+|------------|---------|----------------|
+| 1 h        | 25 zł   | 30 zł          |
+| 2 h        | 40 zł   | 45 zł          |
+| bez limitu | 50 zł   | 55 zł          |
+
+Zniżki: do 6 miesiąca — za darmo · od 6 miesiąca do 1 roku — 50% ·
+rodzeństwo — −20%. Opiekun wchodzi bezpłatnie.
+
 ## Do uzupełnienia przed publikacją
 
-Dwie rzeczy zostały oznaczone w kodzie i wymagają Waszych danych:
-
-1. **Cennik** (`index.html`, sekcja `#cennik`) — kwoty są zastępcze,
-   wyróżnione na żółto klasą `.price-todo`. Po wpisaniu prawdziwych stawek
-   usuńcie tę klasę oraz regułę `.price-todo` z `css/style.css`.
-
-2. **Godziny otwarcia** (`index.html`, sekcja `#kontakt`) — przepisane
-   z grafiki na ferie, trzeba je zweryfikować i podmienić na stałe godziny.
+**Godziny otwarcia** (`index.html`, sekcja `#kontakt`) — przepisane
+z grafiki na ferie, trzeba je zweryfikować i podmienić na stałe godziny.
 
 ## Dane kontaktowe użyte na stronie
 

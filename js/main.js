@@ -95,6 +95,37 @@
   }
 
   /* ---------------------------------------------------------------
+     3b. Klikanie w nawigację — płynne przejście do sekcji
+     Liczymy pozycję sami, bo nagłówek jest przyklejony i zmienia
+     wysokość po przewinięciu. Adres w pasku też aktualizujemy.
+     --------------------------------------------------------------- */
+  document.addEventListener('click', function (e) {
+    var link = e.target.closest('a[href^="#"]');
+    if (!link) return;
+
+    var hash = link.getAttribute('href');
+    if (!hash || hash === '#') return;
+
+    var target = document.querySelector(hash);
+    if (!target) return;
+
+    e.preventDefault();
+    closeNav();
+
+    // odstęp = realna wysokość nagłówka w stanie przewiniętym + oddech
+    var offset = hash === '#top' ? 0 : (header ? header.offsetHeight : 0) + 14;
+    var top = target.getBoundingClientRect().top + window.scrollY - offset;
+
+    window.scrollTo({
+      top: Math.max(0, top),
+      behavior: reducedMotion ? 'auto' : 'smooth'
+    });
+
+    // zachowaj kotwicę w adresie, ale bez skoku strony
+    if (history.pushState) history.pushState(null, '', hash);
+  });
+
+  /* ---------------------------------------------------------------
      4. Karuzela w hero
      --------------------------------------------------------------- */
   var slidesWrap = document.getElementById('heroSlides');
