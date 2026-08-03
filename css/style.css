@@ -853,6 +853,9 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   padding: 16px;
   animation: cookie-wjazd .35s var(--ease) both;
 }
+/* Na wszelki wypadek, gdyby kiedyś ta reguła dostała własne display —
+   patrz wyjaśnienie przy .cookie-panel[hidden] wyżej w pliku. */
+.cookie-banner[hidden] { display: none; }
 @keyframes cookie-wjazd {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -917,6 +920,12 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   background: rgba(42, 65, 89, .58);
   overflow-y: auto;
 }
+/* Bez tego atrybut hidden nic nie daje: powyższe display:grid jest
+   regułą autorską i wygrywa z domyślnym [hidden]{display:none}
+   przeglądarki, więc okno zostawałoby na ekranie na stałe.
+   Ten sam mechanizm psuł kiedyś .lightbox — patrz niżej w pliku. */
+.cookie-panel[hidden] { display: none; }
+
 body.cookie-open { overflow: hidden; }
 
 /* Okno jest kolumną: nagłówek i przyciski stoją w miejscu, przewija się
