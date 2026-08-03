@@ -647,7 +647,25 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 }
 .contact-list dd { margin: 0; font-size: 1.05rem; }
 .map-link { display: inline-block; margin-top: .5em; font-size: .93rem; font-weight: 600; }
-.social { display: flex; gap: 18px; }
+.social { display: flex; gap: 12px; }
+
+/* ---------- Ikony social media ----------
+   Te same okrągłe przyciski w sekcji kontaktu i w stopce. */
+.social-link {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(169, 198, 221, .16);
+  color: var(--sky);
+  transition: background-color .2s var(--ease), color .2s var(--ease), transform .2s var(--ease);
+}
+.social-link svg { width: 21px; height: 21px; fill: currentColor; display: block; }
+.social-link:hover,
+.social-link:focus-visible {
+  background: var(--sky);
+  color: var(--navy-deep);
+  transform: translateY(-2px);
+}
 
 .access-note {
   background: rgba(169, 198, 221, .13);
@@ -696,7 +714,10 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .footer-tagline { font-family: var(--font-head); font-size: 1.02rem; line-height: 1.6; margin: 0; }
 .footer-nav li { margin-bottom: .5em; }
 .footer-contact p { margin-bottom: .8em; font-size: .96rem; }
-.footer-social { display: flex; gap: 16px; }
+.footer-social { display: flex; gap: 12px; margin-top: 4px; }
+.site-footer .social-link { color: rgba(233, 240, 246, .82); }
+.site-footer .social-link:hover,
+.site-footer .social-link:focus-visible { color: var(--navy-deep); }
 
 .footer-bottom {
   border-top: 1px solid rgba(255, 255, 255, .12);
