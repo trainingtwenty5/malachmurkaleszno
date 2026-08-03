@@ -18,6 +18,29 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+
+<!-- ============================================================
+     Zgody — Google Consent Mode v2
+     Musi stać przed jakimkolwiek skryptem Google. Domyślnie
+     odmawiamy wszystkiego poza tym, co niezbędne do działania
+     strony. Samo gtag.js wczytuje js/cookies.js dopiero po
+     zgodzie, więc do Google nie idzie wcześniej ani jedno
+     zapytanie — także takie bez ciasteczek.
+     ============================================================ -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'denied',
+    functionality_storage: 'denied',
+    personalization_storage: 'denied',
+    security_storage: 'granted'
+  });
+</script>
 </head>
 <body>
 
@@ -570,6 +593,9 @@
 
   <div class="container footer-bottom">
     <p>&copy; <span id="year">2026</span> Mała Chmurka, Leszno. Wszelkie prawa zastrzeżone.</p>
+    <p class="footer-legal">
+      <button type="button" class="link-button" id="cookieSettingsLink">Ustawienia ciasteczek</button>
+    </p>
   </div>
 </footer>
 
@@ -590,6 +616,83 @@
   <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="Następne zdjęcie">›</button>
 </div>
 
+<!-- ============ BANER ZGÓD ============ -->
+<div class="cookie-banner" id="cookieBanner" role="dialog"
+     aria-labelledby="cookieBannerTitle" aria-describedby="cookieBannerText" hidden>
+  <div class="cookie-banner-box">
+    <div class="cookie-banner-text">
+      <h2 id="cookieBannerTitle">Ciasteczka na naszej stronie</h2>
+      <p id="cookieBannerText">
+        Do samego działania strony używamy tylko tego, co niezbędne. Chcielibyśmy dodatkowo
+        korzystać z Google Analytics, żeby wiedzieć, które części strony są dla Was przydatne.
+        Bez Waszej zgody nie uruchamiamy analityki i nie wysyłamy do Google żadnych danych —
+        możecie spokojnie odmówić, strona działa tak samo.
+      </p>
+    </div>
+
+    <div class="cookie-banner-actions">
+      <button type="button" class="cookie-btn cookie-btn-main" id="cookieAcceptAll">Akceptuję wszystkie</button>
+      <button type="button" class="cookie-btn cookie-btn-main" id="cookieRejectAll">Odrzucam wszystkie</button>
+      <button type="button" class="cookie-btn cookie-btn-ghost" id="cookieCustomize">Skonfiguruj sam</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ USTAWIENIA ZGÓD ============ -->
+<div class="cookie-panel" id="cookiePanel" role="dialog" aria-modal="true"
+     aria-labelledby="cookiePanelTitle" hidden>
+  <div class="cookie-panel-box">
+    <button type="button" class="cookie-panel-close" id="cookiePanelClose" aria-label="Zamknij ustawienia">&times;</button>
+
+    <h2 id="cookiePanelTitle">Ustawienia ciasteczek</h2>
+    <p class="cookie-panel-lead">
+      Zdecydujcie sami, na co się zgadzacie. Wybór możecie zmienić w każdej chwili —
+      odnośnik „Ustawienia ciasteczek" jest na dole strony.
+    </p>
+
+    <div class="cookie-cat">
+      <div class="cookie-cat-head">
+        <h3>Niezbędne</h3>
+        <span class="cookie-always">Zawsze aktywne</span>
+      </div>
+      <p>
+        Zapamiętują wyłącznie Waszą decyzję z tego okna. Bez nich pytalibyśmy o zgodę
+        przy każdym wejściu na stronę. Nic nie trafia do nikogo poza Waszą przeglądarką.
+      </p>
+      <dl class="cookie-details">
+        <div><dt>mch-zgody</dt><dd>zapis Waszego wyboru &middot; pamięć lokalna przeglądarki &middot; 12 miesięcy</dd></div>
+      </dl>
+    </div>
+
+    <div class="cookie-cat">
+      <div class="cookie-cat-head">
+        <h3>Analityczne</h3>
+        <label class="cookie-switch">
+          <input type="checkbox" id="zgodaAnalityka">
+          <span class="cookie-switch-track" aria-hidden="true"></span>
+          <span class="sr-only">Zgoda na ciasteczka analityczne</span>
+        </label>
+      </div>
+      <p>
+        Google Analytics 4 — zbiorcza statystyka odwiedzin: które podstrony są otwierane,
+        z jakich urządzeń i jak długo trwa wizyta. Nie używamy tych danych do reklam ani nie
+        łączymy ich z Waszymi danymi osobowymi. Odbiorcą danych jest Google Ireland Limited.
+      </p>
+      <dl class="cookie-details">
+        <div><dt>_ga</dt><dd>odróżnia użytkowników &middot; 2 lata</dd></div>
+        <div><dt>_ga_G-75Y10VJ9KE</dt><dd>utrzymuje stan sesji &middot; 2 lata</dd></div>
+      </dl>
+    </div>
+
+    <div class="cookie-panel-actions">
+      <button type="button" class="cookie-btn cookie-btn-main" id="cookieSave">Zapisz wybór</button>
+      <button type="button" class="cookie-btn cookie-btn-ghost" id="cookieAcceptAllPanel">Akceptuję wszystkie</button>
+      <button type="button" class="cookie-btn cookie-btn-ghost" id="cookieRejectAllPanel">Odrzucam wszystkie</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/main.js"></script>
+<script src="js/cookies.js"></script>
 </body>
 </html>
