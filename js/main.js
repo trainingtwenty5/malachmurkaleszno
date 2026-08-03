@@ -17,14 +17,21 @@
   var header = document.querySelector('.site-header');
   var toTop = document.getElementById('toTop');
   var toTopBar = document.getElementById('toTopBar');
-  var RING = 131.95;   // obwód okręgu o promieniu 21
+
+  // Długość konturu chmurki bierzemy wprost z kształtu — dzięki temu
+  // zmiana ścieżki w HTML nie wymaga poprawiania liczby tutaj.
+  var RING = toTopBar ? toTopBar.getTotalLength() : 0;
+  if (toTopBar) {
+    toTopBar.style.strokeDasharray = RING;
+    toTopBar.style.strokeDashoffset = RING;
+  }
 
   function onScroll() {
     var y = window.scrollY;
     if (header) header.classList.toggle('is-scrolled', y > 60);
     if (toTop) toTop.classList.toggle('is-visible', y > 600);
 
-    // pierścień postępu: 0 = początek strony, pełny okrąg = koniec
+    // linia postępu: 0 = początek strony, pełny obrys chmurki = koniec
     if (toTopBar) {
       var max = document.documentElement.scrollHeight - window.innerHeight;
       var progress = max > 0 ? Math.min(1, Math.max(0, y / max)) : 0;
