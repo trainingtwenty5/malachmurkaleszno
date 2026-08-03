@@ -642,13 +642,17 @@
 <div class="cookie-panel" id="cookiePanel" role="dialog" aria-modal="true"
      aria-labelledby="cookiePanelTitle" hidden>
   <div class="cookie-panel-box">
-    <button type="button" class="cookie-panel-close" id="cookiePanelClose" aria-label="Zamknij ustawienia">&times;</button>
 
-    <h2 id="cookiePanelTitle">Ustawienia ciasteczek</h2>
-    <p class="cookie-panel-lead">
-      Zdecydujcie sami, na co się zgadzacie. Wybór możecie zmienić w każdej chwili —
-      odnośnik „Ustawienia ciasteczek" jest na dole strony.
-    </p>
+    <div class="cookie-panel-head">
+      <button type="button" class="cookie-panel-close" id="cookiePanelClose" aria-label="Zamknij ustawienia">&times;</button>
+      <h2 id="cookiePanelTitle">Ustawienia ciasteczek</h2>
+      <p class="cookie-panel-lead">
+        Zdecydujcie sami, na co się zgadzacie. Wybór możecie zmienić w każdej chwili —
+        odnośnik „Ustawienia ciasteczek" jest na dole strony.
+      </p>
+    </div>
+
+    <div class="cookie-panel-scroll">
 
     <div class="cookie-cat">
       <div class="cookie-cat-head">
@@ -683,6 +687,8 @@
         <div><dt>_ga_G-75Y10VJ9KE</dt><dd>utrzymuje stan sesji &middot; 2 lata</dd></div>
       </dl>
     </div>
+
+    </div><!-- /.cookie-panel-scroll -->
 
     <div class="cookie-panel-actions">
       <button type="button" class="cookie-btn cookie-btn-main" id="cookieSave">Zapisz wybór</button>

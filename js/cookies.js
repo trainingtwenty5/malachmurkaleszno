@@ -172,6 +172,11 @@
   document.getElementById('cookieRejectAllPanel').addEventListener('click', function () { zdecyduj(false); });
   document.getElementById('cookiePanelClose').addEventListener('click', zamknijPanel);
 
+  // Kliknięcie w ciemne tło też zamyka — i tak samo nie jest zgodą.
+  panel.addEventListener('click', function (e) {
+    if (e.target === panel) zamknijPanel();
+  });
+
   var odnosnik = document.getElementById('cookieSettingsLink');
   if (odnosnik) odnosnik.addEventListener('click', otworzPanel);
 
