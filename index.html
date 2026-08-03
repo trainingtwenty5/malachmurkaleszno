@@ -17,7 +17,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<!-- ?v= przy każdym pliku: gdy zmieniamy stronę, przeglądarka pobiera
+     arkusz i skrypty na nowo. Bez tego można trafić na stary CSS
+     doklejony do nowego HTML-a i rozjechany układ. Podbijamy numer
+     przy każdej zmianie w css/ lub js/. -->
+<link rel="stylesheet" href="css/style.css?v=6">
 
 <!-- ============================================================
      Zgody — Google Consent Mode v2
@@ -66,7 +70,7 @@
         <li><a href="#urodzinki">Urodzinki</a></li>
         <li><a href="#cennik">Cennik</a></li>
         <li><a href="#galeria">Galeria</a></li>
-        <li><a href="#materialy">Do pobrania</a></li>
+        <li><a href="#materialy">Oferty</a></li>
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>
@@ -153,7 +157,6 @@
         a dzieci zyskują dużo miejsca na spokojną, kreatywną zabawę. Układ przestrzeni jest
         przemyślany tak, żeby zza stolika dobrze było widać bawiące się dziecko.
       </p>
-      <p class="signature">Weronika i Paweł</p>
     </div>
 
     <div class="split-media reveal">
@@ -413,7 +416,7 @@
 <section class="section section-alt" id="materialy">
   <div class="container">
     <div class="section-head reveal">
-      <p class="eyebrow">Do pobrania</p>
+      <p class="eyebrow">Oferty</p>
       <h2>Nasze materiały</h2>
       <p class="section-sub">
         Ulotka i plakat Małej Chmurki w PDF — do obejrzenia, wydrukowania
@@ -526,11 +529,11 @@
       <div class="hours-card">
         <h3>Godziny otwarcia</h3>
         <ul class="hours">
-          <li><span>Poniedziałek</span><span>11:00 – 19:00</span></li>
-          <li><span>Wtorek</span><span>11:00 – 19:00</span></li>
-          <li><span>Środa</span><span>11:00 – 19:00</span></li>
-          <li><span>Czwartek</span><span>11:00 – 19:00</span></li>
-          <li><span>Piątek</span><span>11:00 – 16:00</span></li>
+          <li><span>Poniedziałek</span><span>15:00 – 19:00</span></li>
+          <li><span>Wtorek</span><span>10:00 – 19:00</span></li>
+          <li><span>Środa</span><span>10:00 – 19:00</span></li>
+          <li><span>Czwartek</span><span>10:00 – 19:00</span></li>
+          <li><span>Piątek</span><span>10:00 – 16:00</span></li>
           <li class="is-weekend"><span>Sobota</span><span>10:00 – 19:00</span></li>
           <li class="is-weekend"><span>Niedziela</span><span>10:00 – 19:00</span></li>
         </ul>
@@ -564,7 +567,7 @@
         <li><a href="#urodzinki">Urodzinki</a></li>
         <li><a href="#cennik">Cennik</a></li>
         <li><a href="#galeria">Galeria</a></li>
-        <li><a href="#materialy">Do pobrania</a></li>
+        <li><a href="#materialy">Oferty</a></li>
       </ul>
     </nav>
 
@@ -698,7 +701,7 @@
   </div>
 </div>
 
-<script src="js/main.js"></script>
-<script src="js/cookies.js"></script>
+<script src="js/main.js?v=6"></script>
+<script src="js/cookies.js?v=6"></script>
 </body>
 </html>
