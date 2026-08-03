@@ -21,7 +21,7 @@
      arkusz i skrypty na nowo. Bez tego można trafić na stary CSS
      doklejony do nowego HTML-a i rozjechany układ. Podbijamy numer
      przy każdej zmianie w css/ lub js/. -->
-<link rel="stylesheet" href="css/style.css?v=7">
+<link rel="stylesheet" href="css/style.css?v=9">
 
 <!-- ============================================================
      Zgody — Google Consent Mode v2
@@ -101,7 +101,7 @@
     <div class="hero-actions">
       <a class="btn btn-primary"
          href="https://www.google.com/maps/search/?api=1&amp;query=Ma%C5%82a%20Chmurka%20-%20naturalna%20bawialnia%2C%20Armii%20Krajowej%2015%2C%2064-100%20Leszno"
-         target="_blank" rel="noopener">Odwiedź nas — zobacz na mapie</a>
+         target="_blank" rel="noopener">Odwiedź nas</a>
       <a class="btn btn-ghost" href="#strefy">Zobacz strefy zabawy</a>
     </div>
   </div>
@@ -417,56 +417,60 @@
   <div class="container">
     <div class="section-head reveal">
       <p class="eyebrow">Oferty</p>
-      <h2>Nasze materiały</h2>
-      <p class="section-sub">
-        Ulotka i plakat Małej Chmurki w PDF — do obejrzenia, wydrukowania
-        albo przesłania dalej komuś, kogo mogłoby to ucieszyć.
-      </p>
+      <h2>Oferty</h2>
     </div>
 
-    <div class="files">
-      <a class="file-card reveal" href="Oferty/mala-chmurka-ulotka.pdf" target="_blank" rel="noopener">
-        <span class="file-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
+    <ul class="oferty reveal">
+      <li>
+        <a href="Oferty/mala-chmurka-ulotka.pdf" target="_blank" rel="noopener">
+          <svg class="oferta-ikona" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M14 2.5H7.5A2.5 2.5 0 0 0 5 5v14a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 19V7.5L14 2.5z"/>
             <path d="M13.9 2.6V7a.6.6 0 0 0 .6.6h4.4"/>
-            <path d="M8.6 13h6.8M8.6 16.4h4.4"/>
           </svg>
-        </span>
-        <span class="file-body">
-          <span class="file-title">Ulotka</span>
-          <span class="file-desc">
-            Krótko o tym, co znajdziecie w Małej Chmurce, z adresem i kontaktem.
-            Dwustronna, w sam raz do ręki.
-          </span>
-          <span class="file-meta">PDF &middot; 2 strony &middot; 304 KB</span>
-        </span>
-        <span class="file-cta">Otwórz →</span>
-      </a>
-
-      <a class="file-card reveal" href="Oferty/mala-chmurka-plakat.pdf" target="_blank" rel="noopener">
-        <span class="file-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
+          <span>Ulotka</span>
+        </a>
+      </li>
+      <li>
+        <a href="Oferty/mala-chmurka-plakat.pdf" target="_blank" rel="noopener">
+          <svg class="oferta-ikona" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M14 2.5H7.5A2.5 2.5 0 0 0 5 5v14a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 19V7.5L14 2.5z"/>
             <path d="M13.9 2.6V7a.6.6 0 0 0 .6.6h4.4"/>
-            <path d="M8.6 13h6.8M8.6 16.4h4.4"/>
           </svg>
-        </span>
-        <span class="file-body">
-          <span class="file-title">Plakat</span>
-          <span class="file-desc">
-            Ta sama treść na jednej stronie A4 — do powieszenia w przedszkolu,
-            biurze czy na osiedlowej tablicy.
-          </span>
-          <span class="file-meta">PDF &middot; 1 strona &middot; 145 KB</span>
-        </span>
-        <span class="file-cta">Otwórz →</span>
-      </a>
-    </div>
+          <span>Plakat</span>
+        </a>
+      </li>
+      <li class="oferta-wkrotce">
+        <svg class="oferta-ikona" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M14 2.5H7.5A2.5 2.5 0 0 0 5 5v14a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 19V7.5L14 2.5z"/>
+          <path d="M13.9 2.6V7a.6.6 0 0 0 .6.6h4.4"/>
+        </svg>
+        <span>Urodzinki <em>(w przygotowaniu…)</em></span>
+      </li>
+      <li class="oferta-wkrotce">
+        <svg class="oferta-ikona" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M14 2.5H7.5A2.5 2.5 0 0 0 5 5v14a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 19V7.5L14 2.5z"/>
+          <path d="M13.9 2.6V7a.6.6 0 0 0 .6.6h4.4"/>
+        </svg>
+        <span>Chrzciny i roczki <em>(w przygotowaniu…)</em></span>
+      </li>
+      <li class="oferta-wkrotce">
+        <svg class="oferta-ikona" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M14 2.5H7.5A2.5 2.5 0 0 0 5 5v14a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 19V7.5L14 2.5z"/>
+          <path d="M13.9 2.6V7a.6.6 0 0 0 .6.6h4.4"/>
+        </svg>
+        <span>Warsztaty <em>(w przygotowaniu…)</em></span>
+      </li>
+      <li class="oferta-wkrotce">
+        <svg class="oferta-ikona" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M14 2.5H7.5A2.5 2.5 0 0 0 5 5v14a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 19V7.5L14 2.5z"/>
+          <path d="M13.9 2.6V7a.6.6 0 0 0 .6.6h4.4"/>
+        </svg>
+        <span>Wynajem sali <em>(w przygotowaniu…)</em></span>
+      </li>
+    </ul>
 
-    <p class="price-note reveal">
-      Oferty urodzinowe i wynajem sali wyceniamy indywidualnie —
-      <a href="#kontakt">napiszcie lub zadzwońcie</a>, a przygotujemy propozycję.
+    <p class="oferty-stopka reveal">
+      Skontaktujcie się z nami <a href="#kontakt">telefonicznie lub e-mailem</a>, aby omówić szczegóły.
     </p>
   </div>
 </section>
@@ -701,7 +705,7 @@
   </div>
 </div>
 
-<script src="js/main.js?v=7"></script>
-<script src="js/cookies.js?v=7"></script>
+<script src="js/main.js?v=9"></script>
+<script src="js/cookies.js?v=9"></script>
 </body>
 </html>

@@ -136,9 +136,17 @@
     e.preventDefault();
     closeNav();
 
-    // odstęp = realna wysokość nagłówka w stanie przewiniętym + oddech
-    var offset = hash === '#top' ? 0 : (header ? header.offsetHeight : 0) + 14;
-    var top = target.getBoundingClientRect().top + window.scrollY - offset;
+    // #top to nagłówek, a ten jest position:fixed — zawsze raportuje
+    // pozycję 0 względem okna, więc wyliczanie z getBoundingClientRect
+    // dałoby aktualne przewinięcie, czyli brak ruchu. Stąd wyjątek.
+    var top;
+    if (hash === '#top') {
+      top = 0;
+    } else {
+      // odstęp = realna wysokość nagłówka w stanie przewiniętym + oddech
+      var offset = (header ? header.offsetHeight : 0) + 14;
+      top = target.getBoundingClientRect().top + window.scrollY - offset;
+    }
 
     window.scrollTo({
       top: Math.max(0, top),

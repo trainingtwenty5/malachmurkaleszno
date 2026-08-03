@@ -593,48 +593,33 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .price-note { text-align: center; margin: 34px auto 0; max-width: 640px; color: var(--muted); }
 
 /* ==========================================================================
-   MATERIAŁY DO POBRANIA
+   OFERTY
+   Prosta lista tytułów, bez kafelków. Gotowe pozycje są odnośnikami,
+   przygotowywane zostają zwykłym tekstem — nie ma czego kliknąć.
    ========================================================================== */
-.files {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 26px;
-  max-width: 860px;
+.oferty {
+  max-width: 520px;
   margin-inline: auto;
 }
-/* Ikona zajmuje lewą kolumnę na całą wysokość, opis i odnośnik
-   układają się jeden pod drugim w prawej. */
-.file-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: start;
-  column-gap: 20px;
-  row-gap: 14px;
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 28px 26px;
-  color: var(--ink);
-  transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s var(--ease);
+.oferty li {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 0;
 }
-.file-card:hover,
-.file-card:focus-visible {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow);
-  border-color: var(--brand);
-  color: var(--ink);
+.oferty li + li { border-top: 1px solid var(--line); }
+
+.oferty a,
+.oferta-wkrotce {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font-head);
+  font-size: 1.12rem;
+  font-weight: 600;
 }
-.file-icon {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  display: grid; place-items: center;
-  width: 56px; height: 56px;
-  border-radius: var(--radius);
-  background: var(--brand-pale);
-  color: var(--brand-deep);
-}
-.file-icon svg {
-  width: 30px; height: 30px; display: block;
+.oferty a { color: var(--navy-deep); }
+.oferty a:hover { color: var(--wood-dark); }
+
+.oferta-ikona {
+  flex: none;
+  width: 24px; height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
@@ -642,41 +627,22 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   stroke-linejoin: round;
 }
 
-.file-body { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; }
-.file-title {
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-size: 1.22rem;
-  color: var(--navy-deep);
-  margin-bottom: .3em;
+.oferta-wkrotce { color: var(--muted); }
+.oferta-wkrotce em {
+  font-family: var(--font-body);
+  font-style: normal;
+  font-weight: 400;
+  font-size: .92rem;
+  color: var(--muted);
+  opacity: .8;
 }
-.file-desc { color: var(--muted); font-size: .96rem; line-height: 1.6; }
-.file-meta {
-  margin-top: .7em;
-  font-size: .82rem;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--brand-deep);
-}
-.file-cta {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: start;
-  font-family: var(--font-head);
-  font-weight: 600;
-  font-size: .95rem;
-  color: var(--wood-dark);
-  white-space: nowrap;
-}
-.file-card:hover .file-cta { color: var(--navy); }
 
-/* Na najwęższych ekranach ikona wraca nad treść, żeby opis miał
-   pełną szerokość karty. */
-@media (max-width: 420px) {
-  .file-card { grid-template-columns: 1fr; }
-  .file-icon { grid-column: 1; grid-row: 1; }
-  .file-body { grid-column: 1; grid-row: 2; }
-  .file-cta  { grid-column: 1; grid-row: 3; }
+.oferty-stopka {
+  text-align: center;
+  margin: 34px auto 0;
+  max-width: 640px;
+  color: var(--muted);
+  font-size: .96rem;
 }
 
 /* ==========================================================================
@@ -1174,7 +1140,12 @@ body.cookie-open { overflow: hidden; }
   .fact { padding: 20px 12px; border-radius: var(--radius); }
 
   .gallery { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .hero-actions .btn { flex: 1; text-align: center; }
+
+  /* Oba przyciski obok siebie ściskały tekst do połowy szerokości
+     ekranu i łamały go na kilka linijek. Zamiast tego stawiamy je
+     jeden pod drugim, każdy naturalnej szerokości i wyśrodkowany. */
+  .hero-actions { flex-direction: column; align-items: center; }
+  .hero-actions .btn { text-align: center; }
 
   .lightbox { padding: 3vh 3vw; }
   .lightbox-nav { width: 42px; height: 42px; font-size: 1.9rem; }
