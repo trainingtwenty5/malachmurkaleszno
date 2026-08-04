@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Blokada pustych/technicznych zasobow (usun jesli nie dotyczy)
+Disallow: /cgi-bin/
+Disallow: /*?*utm_
+
+Sitemap: https://malachmurkaleszno.pl/sitemap.xml

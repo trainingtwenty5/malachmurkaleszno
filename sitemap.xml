@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
+  <url>
+    <loc>https://malachmurkaleszno.pl/</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/wnetrze-bar.jpg</image:loc>
+      <image:title>Bar kawiarni Mała Chmurka w Lesznie</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/malpi-gaj.jpg</image:loc>
+      <image:title>Małpi gaj w bawialni Mała Chmurka</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/basen-kulek.jpg</image:loc>
+      <image:title>Basen z kulkami w bawialni Mała Chmurka</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/domki.jpg</image:loc>
+      <image:title>Domki tematyczne w bawialni Mała Chmurka</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/zjezdzalnia.jpg</image:loc>
+      <image:title>Zjeżdżalnia do basenu z kulkami</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/kawa.jpg</image:loc>
+      <image:title>Kawa specialty w kawiarni Mała Chmurka</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/stoliki.jpg</image:loc>
+      <image:title>Stoliki kawiarniane w Małej Chmurce</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://malachmurkaleszno.pl/img/warsztaty.jpg</image:loc>
+      <image:title>Warsztaty plastyczne dla dzieci w Małej Chmurce</image:title>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://malachmurkaleszno.pl/Oferty/mala-chmurka-ulotka.pdf</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <url>
+    <loc>https://malachmurkaleszno.pl/Oferty/mala-chmurka-plakat.pdf</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!--
+    DOPISZ TUTAJ nowe podstrony, gdy powstaną, np.:
+    <url><loc>https://malachmurkaleszno.pl/urodzinki/</loc><lastmod>2026-09-01</lastmod><priority>0.8</priority></url>
+    <url><loc>https://malachmurkaleszno.pl/cennik/</loc><lastmod>2026-09-01</lastmod><priority>0.8</priority></url>
+  -->
+
+</urlset>
