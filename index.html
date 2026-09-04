@@ -185,6 +185,9 @@
   ]
 }
 </script>
+
+
+     
 <!-- Do dopisania w bloku "firma" powyżej, zaraz po "address" — dokładne
      współrzędne wejścia do lokalu (Mapy Google → prawy klik → dwie liczby):
        "geo": { "@type": "GeoCoordinates", "latitude": ..., "longitude": ... },
@@ -884,5 +887,29 @@
 
 <script src="js/main.js?v=9"></script>
 <script src="js/cookies.js?v=9"></script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyA0BTvvpqOOXResnbgwsNCcYet_8hCK3l8",
+    authDomain: "mala-chmurka-leszno.firebaseapp.com",
+    projectId: "mala-chmurka-leszno",
+    storageBucket: "mala-chmurka-leszno.firebasestorage.app",
+    messagingSenderId: "348022877433",
+    appId: "1:348022877433:web:d975259d2d6dd246850628",
+    measurementId: "G-C5KJS0D4KB"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+     
 </body>
 </html>
