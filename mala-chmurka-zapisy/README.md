@@ -414,10 +414,13 @@ ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekund�
 * Lista dotyczy **dzisiejszego dnia**; jutro zaczyna się od nowa, bez sprzątania ręką.
 * **Wyszukiwarka** po imieniu, telefonie, źródle i godzinach; **Pobierz CSV** zgrywa to,
   co aktualnie widać.
-* Akcje w każdym wierszu: **+15 min**, **+ minuty** (dowolna liczba), **Zakończ**,
-  **Usuń** oraz **Zmień** przy godzinie wyjścia. Każda pyta o potwierdzenie — przy ladzie
-  łatwo o kliknięcie w biegu, a te operacje ruszają licznik na stronie i ranking.
-  Zmiana godziny pyta dwa razy: raz przed odblokowaniem pola, drugi raz przed zapisem.
+* Akcje w każdym wierszu: **+15 min**, **+ minuty**, **Zakończ**, **Usuń**. Każda pyta
+  o potwierdzenie — przy ladzie łatwo o kliknięcie w biegu, a te operacje ruszają licznik
+  na stronie i ranking.
+* Godzinę wyjścia przesuwa się przyciskiem **+ minuty**: pyta o liczbę minut i działa
+  w obie strony — liczba dodatnia przedłuża, ujemna skraca. Nie zejdzie poniżej godziny
+  wejścia ani poza dobę. Osobnego pola do wpisywania godziny nie ma; jeden przycisk
+  załatwia sprawę i trudniej o przypadkową zmianę.
 * Wszystkie akcje przeliczają licznik na stronie głównej, a jeśli wizyta jest już
   w rankingu — także jej czas pobytu.
 * **Usuń** znaczy co innego zależnie od źródła: wejście z ulicy i rezerwację kasuje na dobre,

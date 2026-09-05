@@ -77,14 +77,6 @@
   .pl-row.waiting .pl-left{color:var(--muted)}
   .pl-row.frozen .pl-left{color:var(--muted);font-size:.82rem;font-weight:600;white-space:normal}
   .pl-row.frozen{background:var(--cream-deep);opacity:.8}
-  .pl-end{white-space:nowrap}
-  .pl-end input{width:92px;font:inherit;padding:.18em .35em;border:1px solid var(--line);
-    border-radius:8px;background:var(--white);color:var(--ink);font-variant-numeric:tabular-nums}
-  .pl-end input:disabled{background:transparent;border-color:transparent;color:var(--ink)}
-  .pl-edit{font-size:.75rem;padding:.18em .55em;border-radius:7px;border:1px solid var(--line);
-    background:var(--white);color:var(--brand-deep);font-family:var(--font-head);font-weight:600;
-    margin-left:4px}
-  .pl-edit:hover{background:var(--brand-pale)}
   .pl-acts .pl-del{color:var(--bad);border-color:#F0C9C5}
   .pl-row.over{background:var(--bad-pale)}
   .pl-row.soon{background:var(--warn-pale)}
@@ -336,9 +328,10 @@
           przestaje odliczać, dostaje opis „po upływie czasu 15 min” i spada na dół tabeli.
           Lista dotyczy dzisiejszego dnia; jutro zaczyna się od nowa.<br>
           Każdą akcję potwierdzasz: <strong>+15 min</strong>, <strong>+ minuty</strong>
-          (dowolna liczba), <strong>Zakończ</strong>, <strong>Usuń</strong> oraz zmiana
-          godziny wyjścia przyciskiem <strong>Zmień</strong>. Zamrożony wiersz obsługuje się
-          tak samo — dziecko może przecież zostać dłużej.</p>
+          (dowolna liczba minut) oraz <strong>Zakończ</strong> i <strong>Usuń</strong>.
+          Godzinę wyjścia przesuwasz właśnie przyciskiem <strong>+ minuty</strong> —
+          działa też w drugą stronę, wystarczy podać liczbę ujemną. Zamrożony wiersz
+          obsługuje się tak samo, bo dziecko może przecież zostać dłużej.</p>
 
         <div class="table-wrap">
           <table class="tbl">
@@ -1251,7 +1244,6 @@ async function removeBooking(id) {
    dodatkowego nie odpytujemy.
    ========================================================================== */
 let playTimer = null;
-let plEditing = null;      // id wiersza, w którym trwa zmiana godziny
 
 const nowMinFloat = () => {
   const d = new Date();
@@ -1284,10 +1276,6 @@ function playRows() {
 }
 
 function renderPlaytime() {
-  /* Nie podmieniamy tabeli, gdy ktoś właśnie zmienia godzinę — inaczej
-     sekundnik wyrwałby pole spod palców. */
-  if (plEditing) return;
-
   const all = allPlayRows();
   const playing = all.filter(r => r.state === 'playing');
 
@@ -1324,10 +1312,7 @@ function renderPlaytime() {
       <td><span class="pl-src">${esc(r.sourceLabel)}</span>${
         r.title ? `<br><span class="hint">${esc(r.title)}</span>` : ''}</td>
       <td class="num">${esc(fmtMin(r.startMin))}</td>
-      <td class="pl-end">
-        <input type="time" data-until="${r.id}" value="${esc(fmtMin(r.endMin))}" disabled>
-        <button class="pl-edit" data-edit="${r.id}" title="Zmień godzinę wyjścia">Zmień</button>
-      </td>
+      <td class="num">${esc(fmtMin(r.endMin))}</td>
       <td class="pl-left">${esc(left)}</td>
       <td>${r.phone ? `<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : '—'}</td>
       <td><div class="pl-acts">
@@ -1343,7 +1328,6 @@ function renderPlaytime() {
   $$('#plRows [data-any]').forEach(el => el.onclick  = () => addAnyMinutes(el.dataset.any));
   $$('#plRows [data-stop]').forEach(el => el.onclick = () => endNow(el.dataset.stop));
   $$('#plRows [data-drop]').forEach(el => el.onclick = () => removeRow(el.dataset.drop));
-  $$('#plRows [data-edit]').forEach(el => el.onclick = () => beginEdit(el.dataset.edit));
 
   const frozen = all.filter(r => r.frozen).length;
   $('#plCount').textContent = `Pokazano ${rows.length} z ${all.length} pobytów.` +
@@ -1385,21 +1369,37 @@ async function saveEnd(id, hhmm) {
   await refreshPresence();
 }
 
+/**
+ * Przesuwa godzinę wyjścia o podaną liczbę minut. Liczba ujemna skraca pobyt —
+ * to jedyny sposób na zmianę godziny w tej zakładce, więc musi działać w obie strony.
+ */
 async function addMinutes(id, minutes) {
   const found = rawOf(id);
   if (!found) return;
   const { row } = found;
-  const end = fmtMin(row.endMin + minutes);
-  if (!confirm(`Przedłużyć pobyt (${whoOf(row)}) o ${minutes} min — do ${end}?`)) return;
-  try { await saveEnd(id, end); toast(`Przedłużono do ${end}.`); }
-  catch (err) { toast('Nie udało się przedłużyć: ' + (err.message || '')); }
+
+  /* nie schodzimy poniżej godziny wejścia ani poza dobę */
+  const target = Math.min(24 * 60 - 1, Math.max(row.startMin, row.endMin + minutes));
+  const end = fmtMin(target);
+  if (target === row.endMin) return toast('Godzina wyjścia bez zmian.');
+
+  const pyt = minutes > 0
+    ? `Przedłużyć pobyt (${whoOf(row)}) o ${minutes} min — do ${end}?`
+    : `Skrócić pobyt (${whoOf(row)}) o ${Math.abs(minutes)} min — do ${end}?`;
+  if (!confirm(pyt)) return;
+
+  try {
+    await saveEnd(id, end);
+    toast(minutes > 0 ? `Przedłużono do ${end}.` : `Skrócono do ${end}.`);
+  } catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
 }
 
 async function addAnyMinutes(id) {
   const found = rawOf(id);
   if (!found) return;
   const { row } = found;
-  const raw = prompt(`O ile minut przedłużyć pobyt (${whoOf(row)})?`, '30');
+  const raw = prompt(`O ile minut zmienić pobyt (${whoOf(row)})?\n\n` +
+    `Teraz do ${fmtMin(row.endMin)}. Liczba dodatnia przedłuża, ujemna skraca.`, '30');
   if (raw === null) return;
   const minutes = Math.round(Number(String(raw).replace(',', '.')));
   if (!Number.isFinite(minutes) || minutes === 0) return toast('Podaj liczbę minut.');
@@ -1445,44 +1445,6 @@ async function removeRow(id) {
     await refreshPresence();
     toast('Wpis usunięty.');
   } catch (err) { toast('Nie udało się usunąć: ' + (err.message || '')); }
-}
-
-/* ------------------------------------------------------- edycja godziny --
-   Dwa pytania: raz przed odblokowaniem pola, drugi raz przed zapisaniem.
-   Dzięki temu przypadkowe kliknięcie niczego nie zmienia.
-   ------------------------------------------------------------------------ */
-function beginEdit(id) {
-  const found = rawOf(id);
-  if (!found) return;
-  const { row } = found;
-  if (!confirm(`Zmienić godzinę wyjścia (${whoOf(row)})?\n\nTeraz: ${fmtMin(row.endMin)}`)) return;
-
-  const input = document.querySelector(`#plRows [data-until="${id}"]`);
-  if (!input) return;
-  plEditing = id;                       // wstrzymuje sekundnik na czas edycji
-  const before = input.value;
-  input.disabled = false;
-  input.focus();
-
-  const finish = async () => {
-    input.onchange = input.onblur = null;
-    const hhmm = input.value;
-    if (!hhmm || hhmm === before) { cancel(); return; }
-    if (!confirm(`Zapisać godzinę wyjścia ${hhmm} dla: ${whoOf(row)}?`)) { cancel(); return; }
-    plEditing = null;
-    try { await saveEnd(id, hhmm); toast(`Godzina wyjścia: ${hhmm}.`); }
-    catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
-    renderPlaytime();
-  };
-  const cancel = () => {
-    input.value = before;
-    input.disabled = true;
-    plEditing = null;
-    renderPlaytime();
-  };
-
-  input.onchange = finish;
-  input.onblur = () => setTimeout(() => { if (plEditing === id) cancel(); }, 150);
 }
 
 $('#plQ').oninput = renderPlaytime;
