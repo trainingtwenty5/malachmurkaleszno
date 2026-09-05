@@ -143,6 +143,20 @@ export async function createRegistration(data) {
     tx.update(evRef, { booked: booked + qty });
   });
 
+  /* Lista dzieci. Pierwsze dziecko trafia dodatkowo do pól childFirstName/…,
+     żeby panel admina, ranking i starsze zapisy działały bez zmian. */
+  const kids = (Array.isArray(data.children) && data.children.length
+      ? data.children
+      : [{ firstName: data.childFirstName, lastName: data.childLastName, dob: data.childDob }])
+    .map(c => ({
+      firstName: String(c.firstName || '').trim(),
+      lastName:  String(c.lastName  || '').trim(),
+      dob:       c.dob || ''
+    }))
+    .filter(c => c.firstName || c.dob)
+    .slice(0, 10);
+  const first = kids[0] || { firstName: '', lastName: '', dob: '' };
+
   const doc = {
     eventId:        data.eventId,
     eventTitle:     data.eventTitle || '',
@@ -154,9 +168,10 @@ export async function createRegistration(data) {
     email:          (data.email || '').trim().toLowerCase(),
     phone:          (data.phone || '').trim(),
     phoneKey:       normPhone(data.phone),
-    childFirstName: (data.childFirstName || '').trim(),
-    childLastName:  (data.childLastName || '').trim(),
-    childDob:       data.childDob || '',
+    childFirstName: first.firstName,
+    childLastName:  first.lastName,
+    childDob:       first.dob,
+    children:       kids,
     qty, unitPrice: Number(data.unitPrice) || 0,
     total:          (Number(data.unitPrice) || 0) * qty,
     paymentMethod:  data.paymentMethod || 'Płatność na miejscu',
@@ -193,6 +208,77 @@ export function watchRegistrations({ fromISO, toISO } = {}, cb) {
     : F.query(q, F.orderBy('eventDate', 'desc'), F.limit(500));
   return F.onSnapshot(q, s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => console.error('watchRegistrations', err));
+}
+
+/**
+ * Przelicza pole `booked` w zajęciach na podstawie faktycznych zapisów.
+ *
+ * Po co: `booked` to skrót trzymany przy zajęciach, żeby klient bez konta
+ * widział liczbę wolnych miejsc (zapisów odczytać nie może). Skrót potrafi
+ * się rozjechać — po edycji terminu, po usunięciu zapisu, po zduplikowaniu.
+ * Ta funkcja przywraca prawdę: liczy zapisy o tym `eventId` i zapisuje sumę.
+ * Wywołuje ją panel admina, bo tylko administrator czyta zapisy.
+ *
+ * @returns {number} liczba zapisanych dzieci
+ */
+export async function recountEventBooked(eventId) {
+  if (!eventId) return 0;
+  const snap = await F.getDocs(F.query(col(PATHS.registrations), F.where('eventId', '==', eventId)));
+  const total = snap.docs.reduce((sum, d) => sum + (Number(d.data().qty) || 1), 0);
+  await F.updateDoc(ref(PATHS.events, eventId), { booked: total, updatedAt: F.serverTimestamp() });
+  return total;
+}
+
+/**
+ * Przepisuje aktualne dane zajęć do wszystkich powiązanych zapisów.
+ *
+ * Po co: zapis trzyma kopię terminu (eventDate/eventStart/eventEnd/eventTitle),
+ * żeby panel i historia klienta działały bez dociągania zajęć. Gdy admin
+ * przeniesie zajęcia na inny dzień albo zmieni nazwę, kopie zostają stare —
+ * zapisani „znikają" z nowego terminu, a licznik obecności liczy złą godzinę.
+ * Ta funkcja przywraca spójność. Wywoływana z panelu po zapisaniu zajęć.
+ *
+ * @returns {number} liczba zaktualizowanych zapisów
+ */
+export async function syncRegistrationsToEvent(eventId, ev) {
+  if (!eventId || !ev) return 0;
+  const snap = await F.getDocs(F.query(col(PATHS.registrations), F.where('eventId', '==', eventId)));
+  let touched = 0;
+
+  for (const d of snap.docs) {
+    const r = d.data();
+    const patch = {};
+    if (r.eventTitle !== ev.title) patch.eventTitle = ev.title || '';
+    if (r.eventDate  !== ev.date)  patch.eventDate  = ev.date || '';
+    if (r.eventStart !== ev.start) patch.eventStart = ev.start || '';
+    if (r.eventEnd   !== ev.end)   patch.eventEnd   = ev.end || '';
+    /* godzina wyjścia: przesuwamy tylko wtedy, gdy nie była ustawiona ręcznie */
+    if (patch.eventEnd && (!r.stayUntil || r.stayUntil === r.eventEnd)) patch.stayUntil = ev.end || '';
+    if (!Object.keys(patch).length) continue;
+    patch.updatedAt = F.serverTimestamp();
+    await F.updateDoc(ref(PATHS.registrations, d.id), patch);
+    touched++;
+  }
+  return touched;
+}
+
+/**
+ * Jedno wywołanie po zapisaniu zajęć: przepisuje termin do zapisów
+ * i ustawia licznik zajętych miejsc na faktyczną liczbę zapisanych dzieci.
+ * Dzięki temu kafelek pokazuje prawdę niezależnie od tego, czy zajęcia są
+ * nowe, zduplikowane, czy przeniesione na inny dzień.
+ */
+export async function refreshEvent(eventId, ev) {
+  const moved = await syncRegistrationsToEvent(eventId, ev);
+  const booked = await recountEventBooked(eventId);
+  return { moved, booked };
+}
+
+/** Ile dzieci jest zapisanych na te zajęcia — liczone z listy zapisów. */
+export function countBooked(regs, eventId) {
+  return (regs || [])
+    .filter(r => r.eventId === eventId)
+    .reduce((sum, r) => sum + (Number(r.qty) || 1), 0);
 }
 
 export const updateRegistration = (id, patch) =>
@@ -431,12 +517,12 @@ export async function myBookings(uid) {
 }
 
 /** Nasłuch na moje rezerwacje — status zmienia się bez odświeżania strony. */
-export function watchMyBookings(uid, cb) {
+export function watchMyBookings(uid, cb, onError) {
   if (!uid) { cb([]); return () => {}; }
   return F.onSnapshot(F.query(col(PATHS.bookings), F.where('uid', '==', uid)),
     s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
              .sort((a, b) => (b.date || '').localeCompare(a.date || ''))),
-    err => console.error('watchMyBookings', err));
+    err => { console.error('watchMyBookings', err); if (onError) onError(err); });
 }
 
 /** Moje zapisy na zajęcia, od najnowszego. */
@@ -447,12 +533,12 @@ export async function myRegistrations(uid) {
     .sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || ''));
 }
 
-export function watchMyRegistrations(uid, cb) {
+export function watchMyRegistrations(uid, cb, onError) {
   if (!uid) { cb([]); return () => {}; }
   return F.onSnapshot(F.query(col(PATHS.registrations), F.where('uid', '==', uid)),
     s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
              .sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || ''))),
-    err => console.error('watchMyRegistrations', err));
+    err => { console.error('watchMyRegistrations', err); if (onError) onError(err); });
 }
 
 /** Status zapisu na zajęcia, opisany po ludzku — na potrzeby historii. */

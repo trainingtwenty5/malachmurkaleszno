@@ -28,6 +28,22 @@
     text-underline-offset:3px;text-decoration-thickness:1px}
   .metabox .meta-desc:hover{color:var(--navy-deep)}
   .metabox .meta-more{font-size:.85rem}
+
+  .kid{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--white);
+    margin-bottom:10px}
+  .kid-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .kid-head strong{font-family:var(--font-head);color:var(--navy-deep);font-size:.95rem}
+  .kid-drop{font-size:.83rem;color:var(--bad);text-decoration:underline;text-underline-offset:2px}
+  .known{background:var(--brand-pale);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .known p{margin:0 0 8px;font-size:.88rem;color:var(--brand-deep);font-weight:600;
+    font-family:var(--font-head)}
+  .known-list{display:flex;gap:7px;flex-wrap:wrap}
+  .known-list button{font-size:.85rem;background:var(--white);border:1px solid var(--line);
+    border-radius:999px;padding:.32em .9em;font-family:var(--font-head);font-weight:600;
+    color:var(--navy-deep)}
+  .known-list button:hover{background:var(--cream-deep)}
+  .known-list button[disabled]{opacity:.45;cursor:default}
+  .closed-note{margin-top:6px}
   .sumrow{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:.95rem}
   .sumrow.total{border-top:1px solid var(--line);margin-top:8px;padding-top:12px;
     font-family:var(--font-head);font-weight:700;font-size:1.15rem;color:var(--brand-deep)}
@@ -115,20 +131,12 @@
           </div>
         </div>
 
-        <div class="row2">
-          <div class="field">
-            <label for="cFirst">Imię dziecka</label>
-            <input class="control" id="cFirst" placeholder="Wpisz imię" required>
-          </div>
-          <div class="field">
-            <label for="cLast">Nazwisko dziecka</label>
-            <input class="control" id="cLast" placeholder="Wpisz nazwisko">
-          </div>
-        </div>
-
         <div class="field">
-          <label for="dob">Data urodzenia dziecka</label>
-          <input class="control" id="dob" type="date" required>
+          <label>Dane dzieci</label>
+          <p class="hint" style="margin:-4px 0 10px">Wypełnij komplet danych dla każdego
+            zapisywanego dziecka.</p>
+          <div id="knownBox" hidden></div>
+          <div id="kids"></div>
         </div>
 
         <div class="field">
@@ -165,9 +173,12 @@
 </main>
 
 <script type="module">
-import { mountChrome, toast, $, esc, money, longDate, shortDate, params, URLS, SETTINGS } from './assets/mc-common.js';
-import { listEvents, getEvent, createRegistration, todayISO } from './assets/mc-data.js';
-import { auth, A } from './assets/mc-firebase.js';
+import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, params, URLS, SETTINGS,
+         seatState, signupClosed, SIGNUP_CLOSED_TEXT } from './assets/mc-common.js';
+import { listEvents, getEvent, createRegistration, todayISO,
+         myRegistrations, myBookings } from './assets/mc-data.js';
+import { knownChildren, rememberChildren, childLabel, mergeChildren } from './assets/mc-dzieci.js';
+import { auth, A, authError } from './assets/mc-firebase.js';
 
 mountChrome({ current: 'Grafik zajęć', crumb: 'Zapisy' });
 
@@ -175,7 +186,10 @@ const P = params();
 const preEventId = P.get('event');
 const preQty     = Math.max(1, Number(P.get('qty')) || 1);
 
-let EVENTS = [], byTitle = new Map(), current = null, n = preQty, user = null;
+let EVENTS = [], byTitle = new Map(), current = null, user = null;
+let kids = Array.from({ length: preQty }, () => ({ firstName: '', lastName: '', dob: '' }));
+let KNOWN = [];
+const n = () => kids.length;
 
 /* ---------------------------------------------------------------- kroki ---
    Pierwsze dwa kroki są klikalne: „Wybór zajęć" wraca do grafiku, „Twoje dane"
@@ -261,9 +275,12 @@ function fillSlots(title) {
   const slot = $('#slot');
   slot.innerHTML = '<option value="" disabled selected>Wybierz termin</option>';
   list.forEach(e => {
-    const free = Math.max(0, (Number(e.capacity)||0) - (Number(e.booked)||0));
-    const opt = new Option(`${shortDate(e.date)} · ${e.start}–${e.end} · ${free ? free + ' wolnych' : 'BRAK MIEJSC'}`, e.id);
-    opt.disabled = free === 0;
+    const st = seatState(e);
+    const label = st.state === 'closed' ? SIGNUP_CLOSED_TEXT
+                : st.state === 'full'   ? 'BRAK MIEJSC'
+                : `${st.free} wolnych`;
+    const opt = new Option(`${shortDate(e.date)} · ${e.start}–${e.end} · ${label}`, e.id);
+    opt.disabled = st.state !== 'open';
     slot.add(opt);
   });
   slot.disabled = false;
@@ -298,9 +315,19 @@ function renderMeta(ev) {
 function pick(ev) {
   current = ev;
   renderMeta(ev);          // opis i link celują teraz w wybrany termin
-  const free = Math.max(0, (Number(ev.capacity)||0) - (Number(ev.booked)||0));
-  n = Math.min(Math.max(1, n), Math.max(1, free));
-  $('#freeInfo').textContent = free ? `wolnych miejsc: ${free}` : 'brak wolnych miejsc';
+
+  const st = seatState(ev);
+  if (st.state === 'closed') {
+    $('#freeInfo').innerHTML = `<span class="badge badge-bad">${esc(SIGNUP_CLOSED_TEXT)}</span>`;
+  } else if (st.state === 'full') {
+    $('#freeInfo').innerHTML = '<span class="badge badge-warn">brak wolnych miejsc</span>';
+  } else {
+    $('#freeInfo').textContent = `wolnych miejsc: ${st.free}`;
+  }
+  /* nie da się zapisać większej liczby dzieci niż jest miejsc */
+  if (st.state === 'open') while (kids.length > Math.max(1, st.free)) kids.pop();
+  renderKids();
+  lockIfClosed(st);
 
   const methods = ev.paymentMethods && ev.paymentMethods.length ? ev.paymentMethods : SETTINGS.paymentMethods;
   $('#payOptions').innerHTML = methods.map((p, i) =>
@@ -310,18 +337,119 @@ function pick(ev) {
 }
 
 function paint() {
-  $('#qty').textContent = n;
+  $('#qty').textContent = n();
   if (!current) return;
   $('#sumTitle').textContent = current.title;
   $('#sumWhen').textContent  = `${shortDate(current.date)}, ${current.start}–${current.end}`;
   $('#sumUnit').textContent  = money(current.price);
-  $('#sumTotal').textContent = money((Number(current.price)||0) * n);
+  $('#sumTotal').textContent = money((Number(current.price)||0) * n());
+}
+
+/* ==========================================================================
+   DANE DZIECI
+   Jedno dziecko = jeden komplet pól. Licznik „liczba dzieci" dodaje i zabiera
+   wiersze, więc przy zapisie dwójki od razu widać dwa komplety pól.
+   ========================================================================== */
+function renderKids() {
+  $('#kids').innerHTML = kids.map((k, i) => `
+    <div class="kid">
+      <div class="kid-head">
+        <strong>Dziecko ${i + 1}</strong>
+        ${kids.length > 1 ? `<button type="button" class="kid-drop" data-drop="${i}">usuń</button>` : ''}
+      </div>
+      <div class="row2">
+        <div class="field" style="margin:0">
+          <label for="kf${i}">Imię</label>
+          <input class="control" id="kf${i}" data-f="${i}" value="${esc(k.firstName)}" placeholder="Wpisz imię">
+        </div>
+        <div class="field" style="margin:0">
+          <label for="kl${i}">Nazwisko</label>
+          <input class="control" id="kl${i}" data-l="${i}" value="${esc(k.lastName)}" placeholder="Wpisz nazwisko">
+        </div>
+      </div>
+      <div class="field" style="margin:10px 0 0">
+        <label for="kd${i}">Data urodzenia</label>
+        <input class="control" id="kd${i}" data-d="${i}" type="date" value="${esc(k.dob)}" max="${todayISO()}">
+      </div>
+    </div>`).join('');
+
+  $$('#kids [data-f]').forEach(el => el.oninput  = e => { kids[+e.target.dataset.f].firstName = e.target.value; });
+  $$('#kids [data-l]').forEach(el => el.oninput  = e => { kids[+e.target.dataset.l].lastName  = e.target.value; });
+  $$('#kids [data-d]').forEach(el => el.onchange = e => { kids[+e.target.dataset.d].dob       = e.target.value; });
+  $$('#kids [data-drop]').forEach(el => el.onclick = e => {
+    kids.splice(+e.target.dataset.drop, 1);
+    if (!kids.length) kids.push({ firstName: '', lastName: '', dob: '' });
+    renderKids(); paint(); renderKnown();
+  });
+  paint();
+}
+
+/** Dzieci, które już znamy — jedno kliknięcie wstawia komplet danych. */
+function renderKnown() {
+  const box = $('#knownBox');
+  if (!KNOWN.length) { box.hidden = true; box.innerHTML = ''; return; }
+
+  const used = new Set(kids.map(k => `${k.firstName.trim().toLowerCase()}|${k.lastName.trim().toLowerCase()}`));
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="known">
+      <p>Twoje dzieci — kliknij, żeby wpisać dane</p>
+      <div class="known-list">
+        ${KNOWN.map((c, i) => {
+          const taken = used.has(`${c.firstName.toLowerCase()}|${(c.lastName || '').toLowerCase()}`);
+          return `<button type="button" data-known="${i}" ${taken ? 'disabled' : ''}>${
+            esc(childLabel(c))}${taken ? ' ✓' : ''}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  $$('#knownBox [data-known]').forEach(el => el.onclick = () => {
+    const c = KNOWN[+el.dataset.known];
+    /* pierwszy pusty wiersz albo nowy na końcu */
+    const slot = kids.findIndex(k => !k.firstName.trim());
+    const row = { firstName: c.firstName, lastName: c.lastName, dob: c.dob };
+    if (slot >= 0) kids[slot] = row; else kids.push(row);
+    renderKids(); renderKnown();
+  });
+}
+
+/** Wpisuje zapamiętane dzieci do pustych wierszy przy pierwszym wejściu. */
+function prefillKids() {
+  KNOWN.forEach(c => {
+    const slot = kids.findIndex(k => !k.firstName.trim());
+    if (slot < 0) return;
+    kids[slot] = { firstName: c.firstName, lastName: c.lastName, dob: c.dob };
+  });
+  renderKids();
+  renderKnown();
+}
+
+/** Zamknięty termin blokuje wysyłkę — bez udawania, że to brak miejsc. */
+function lockIfClosed(st) {
+  const closed = st.state === 'closed';
+  $('#submit').disabled = closed;
+  $('#submit').textContent = closed ? SIGNUP_CLOSED_TEXT : 'Zapisz się i zapłać';
+  if (closed) {
+    show('warn', `<strong>${esc(SIGNUP_CLOSED_TEXT)}.</strong> Te zajęcia już się odbyły —
+      wybierz inny termin z listy powyżej.`);
+  }
 }
 
 $('#event').onchange = e => { fillSlots(e.target.value); current = null; paint(); };
 $('#slot').onchange  = e => { const ev = EVENTS.find(x => x.id === e.target.value); if (ev) pick(ev); };
-$('#plus').onclick   = () => { const free = current ? Math.max(0,(current.capacity||0)-(current.booked||0)) : 9; if (n < free) { n++; paint(); } };
-$('#minus').onclick  = () => { if (n > 1) { n--; paint(); } };
+$('#plus').onclick   = () => {
+  const st = current ? seatState(current) : { state: 'open', free: 9 };
+  if (st.state !== 'open') return;
+  if (kids.length >= Math.min(10, st.free)) return;
+  kids.push({ firstName: '', lastName: '', dob: '' });
+  renderKids(); renderKnown();
+};
+$('#minus').onclick  = () => {
+  if (kids.length <= 1) return;
+  kids.pop(); renderKids(); renderKnown();
+};
+
+renderKids();
 
 /* ------------------------------------------------------------------ zapis */
 $('#form').addEventListener('submit', async e => {
@@ -329,12 +457,14 @@ $('#form').addEventListener('submit', async e => {
   msg.innerHTML = '';
 
   if (!current)               return show('bad', 'Wybierz zajęcia i termin.');
+  if (signupClosed(current))  return show('bad', `<strong>${esc(SIGNUP_CLOSED_TEXT)}.</strong> Wybierz inny termin.`);
   if (!$('#pFirst').value.trim() || !$('#pLast').value.trim())
                               return show('bad', 'Podaj imię i nazwisko rodzica.');
   if (!$('#email').value.includes('@')) return show('bad', 'Podaj poprawny adres e-mail.');
   if ($('#phone').value.replace(/\D/g,'').length < 9) return show('bad', 'Podaj poprawny numer telefonu.');
-  if (!$('#cFirst').value.trim()) return show('bad', 'Podaj imię dziecka.');
-  if (!$('#dob').value)        return show('bad', 'Podaj datę urodzenia dziecka.');
+  if (kids.some(k => !k.firstName.trim()))
+                              return show('bad', 'Podaj imię każdego zapisywanego dziecka.');
+  if (kids.some(k => !k.dob)) return show('bad', 'Podaj datę urodzenia każdego zapisywanego dziecka.');
   if (!$('#consent').checked)  return show('bad', 'Do zapisu potrzebna jest zgoda na przetwarzanie danych.');
 
   const payment = document.querySelector('input[name=payment]:checked');
@@ -347,12 +477,14 @@ $('#form').addEventListener('submit', async e => {
       eventStart: current.start, eventEnd: current.end,
       parentFirstName: $('#pFirst').value, parentLastName: $('#pLast').value,
       email: $('#email').value, phone: $('#phone').value,
-      childFirstName: $('#cFirst').value, childLastName: $('#cLast').value,
-      childDob: $('#dob').value, note: $('#note').value,
-      qty: n, unitPrice: Number(current.price) || 0,
+      children: kids,
+      note: $('#note').value,
+      qty: n(), unitPrice: Number(current.price) || 0,
       paymentMethod: payment ? payment.value : 'Płatność na miejscu',
       uid: user ? user.uid : null
     });
+
+    rememberChildren(kids);          // przy kolejnym zapisie wpiszą się same
 
     sessionStorage.setItem('mc_last_registration', JSON.stringify({
       id: reg.id, eventTitle: reg.eventTitle, eventDate: reg.eventDate,
@@ -364,15 +496,20 @@ $('#form').addEventListener('submit', async e => {
     }));
     location.href = URLS.thanks;
   } catch (err) {
-    show('bad', esc(err.message || 'Nie udało się zapisać. Spróbuj ponownie.'));
+    show('bad', esc(authError(err)));
     $('#submit').disabled = false;
     $('#submit').textContent = 'Zapisz się i zapłać';
   }
 });
 
 /* ------------------------------------------------- podpowiedzi z konta */
-A.onAuthStateChanged(auth, u => {
+A.onAuthStateChanged(auth, async u => {
   user = u;
+
+  /* Podpowiedzi działają też bez konta — z pamięci tej przeglądarki. */
+  KNOWN = await knownChildren(u ? u.uid : null, { myRegistrations, myBookings });
+  prefillKids();
+
   if (!u) return;
   $('#stepLogin').hidden = true;
   $('#stepForm').hidden = false;

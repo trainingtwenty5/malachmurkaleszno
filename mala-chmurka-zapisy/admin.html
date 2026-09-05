@@ -300,7 +300,7 @@ import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, isoDate,
          addDays, PALETTE } from './assets/mc-common.js';
 import { auth, A, adminStatus, isAdminEmail, authError, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
-         EMPTY_EVENT, todayISO } from './assets/mc-data.js';
+         EMPTY_EVENT, todayISO, refreshEvent } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Administrator' });
 
@@ -600,6 +600,9 @@ $('#evForm').addEventListener('submit', async e => {
   $('#evSave').disabled = true;
   try {
     const id = await saveEvent(editingId, data);
+    /* Termin mógł się zmienić — przepisujemy go do zapisów i przeliczamy
+       licznik zajętych miejsc, żeby kafelek pokazywał faktyczną liczbę dzieci. */
+    await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
     const weeks = Number($('#fRepeat').value) || 0;
     if (weeks > 0) await repeatWeekly(id, weeks);
     toast(editingId ? 'Zajęcia zapisane.' : `Zajęcia dodane${weeks ? ` (+${weeks} kolejnych tygodni)` : ''}.`);
