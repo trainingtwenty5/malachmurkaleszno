@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/mc-common.css">
+<!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
+<script src="assets/mc-boot.js"></script>
 <style>
   .gate{max-width:460px;margin:40px auto 60px}
   .gate-head{text-align:center;margin-bottom:20px}
@@ -304,6 +306,9 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
 
 mountChrome({ crumb: 'Administrator' });
 
+/* Sygnał dla bezpiecznika z mc-boot.js: moduł wystartował. */
+if (window.__mcBoot) window.__mcBoot.started = true;
+
 /* ==========================================================================
    1. EKRAN LOGOWANIA
    Panel (#app) jest ukryty domyślnie i pokazuje się WYŁĄCZNIE wtedy, gdy
@@ -391,7 +396,11 @@ const gateWatchdog = setTimeout(() => {
     </div>`;
   $('#wdRetry').onclick = () => location.reload();
 }, 12000);
-const gateSettled = () => { gateDone = true; clearTimeout(gateWatchdog); };
+const gateSettled = () => {
+  gateDone = true;
+  clearTimeout(gateWatchdog);
+  if (window.__mcBoot) window.__mcBoot.settled = true;
+};
 
 A.onAuthStateChanged(auth, async user => {
   $('#gateBoot').hidden   = true;

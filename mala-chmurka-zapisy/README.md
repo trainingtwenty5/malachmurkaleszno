@@ -43,6 +43,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 41 testów zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
+| `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
 Każda podstrona ma w lewym górnym rogu przycisk **← Powrót do strony głównej**,
@@ -202,6 +203,29 @@ zawartość `firestore.rules` → **Publish**. Albo z terminala, w katalogu
 ```bash
 npx firebase deploy --only firestore:rules
 ```
+
+### Panel stoi na „Sprawdzam uprawnienia…"
+
+Panel ładuje się jako moduł ES, a ten importuje `mc-firebase.js`, który na samej
+górze pobiera Firebase SDK z `www.gstatic.com`. Jeżeli te żądania nie tyle padną,
+co **utkną** — rozszerzenie blokujące skrypty Google (uBlock, Adblock, Ghostery,
+„ochrona przed śledzeniem"), firmowy proxy, zdechłe DNS — moduł nigdy nie kończy
+ewaluacji. Wtedy nie wykonuje się **ani jedna linijka** skryptu panelu, więc żaden
+bezpiecznik umieszczony w środku nie zadziała. Strona stoi na komunikacie
+startowym bez końca i bez jednego błędu w konsoli.
+
+Dlatego `assets/mc-boot.js` jest **zwykłym skryptem, nie modułem** — wykonuje się
+od razu i niezależnie od tego, czy moduły w ogóle się wczytają. Po 9 sekundach bez
+sygnału życia zamienia spinner na konkretną diagnozę i rozróżnia dwa przypadki:
+
+* **moduł w ogóle nie ruszył** — sprawdza jeszcze, czy `www.gstatic.com` jest
+  osiągalny, i jeśli nie, wprost pisze, że blokuje go rozszerzenie albo filtr sieci,
+  z podpowiedzią, żeby spróbować w oknie prywatnym lub na innej sieci;
+* **moduł ruszył, ale brama nie zdążyła** — to już problem z samym potwierdzeniem
+  uprawnień, nie z ładowaniem skryptów.
+
+Do tego `mc-firebase.js` ma 15-sekundowy limit na pobranie SDK, żeby zablokowane
+żądanie przerwało się głośnym błędem w konsoli, zamiast wisieć w nieskończoność.
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
