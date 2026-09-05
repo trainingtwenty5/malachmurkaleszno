@@ -36,6 +36,32 @@
   .day-add{width:100%;margin-top:8px;font-size:.86rem;padding:.55em 1em;border:1px dashed var(--brand-deep);
     border-radius:12px;color:var(--brand-deep);background:var(--brand-pale);font-family:var(--font-head);font-weight:600}
   .rank-pos{font-family:var(--font-head);font-weight:700;color:var(--wood-dark);width:38px}
+
+  /* ---- zakładka 5: rezerwacje bawialni ---- */
+  .tab-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
+    margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;font-size:.75rem;font-weight:700}
+  .bk-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+  .bk-day{background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:10px 10px 6px}
+  .bk-day.is-today{border-color:var(--brand-deep);background:var(--brand-pale)}
+  .bk-day h4{margin:0 0 8px;font-size:.86rem;display:flex;justify-content:space-between;gap:6px}
+  .bk-day h4 span{color:var(--muted);font-weight:600}
+  .bk-empty{font-size:.8rem;color:var(--muted);padding:6px 0 10px}
+  .bk-card{background:var(--white);border:1px solid var(--line);border-left-width:4px;
+    border-radius:10px;padding:9px 10px;margin-bottom:8px;font-size:.85rem}
+  .bk-card.pending{border-left-color:var(--warn)}
+  .bk-card.accepted{border-left-color:var(--ok)}
+  .bk-card.rejected{border-left-color:var(--bad);opacity:.72}
+  .bk-card b{display:block;font-family:var(--font-head);color:var(--navy-deep);font-size:.92rem}
+  .bk-line{color:var(--muted);font-size:.8rem;margin-top:2px}
+  .bk-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+  .bk-acts button{font-size:.78rem;padding:.3em .7em;border-radius:8px;font-family:var(--font-head);
+    font-weight:600;border:1px solid transparent}
+  .bk-yes{background:var(--ok-pale);color:var(--ok);border-color:#BFE0C9}
+  .bk-no{background:var(--bad-pale);color:var(--bad);border-color:#F0C9C5}
+  .bk-del{background:var(--cream-deep);color:var(--muted)}
+  .bk-acts button:hover{filter:brightness(.96)}
+  @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -63,6 +89,7 @@
         <button data-tab="regs">2 · Zapisani</button>
         <button data-tab="count">3 · Licznik w bawialni</button>
         <button data-tab="rank">4 · Ranking wizyt</button>
+        <button data-tab="book">5 · Rezerwacje <span class="tab-badge" id="bookBadge" hidden>0</span></button>
       </nav>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
@@ -190,6 +217,37 @@
         </div>
         <p class="hint" id="rankCount" style="margin-top:10px"></p>
       </section>
+
+      <!-- ============================== 5. REZERWACJE BAWIALNI ============================== -->
+      <section class="panel" id="tab-book">
+        <div class="stat-cards">
+          <div class="stat-card"><div class="k">Czekają na decyzję</div><div class="v" id="bkPending">—</div></div>
+          <div class="stat-card"><div class="k">Zaakceptowane</div><div class="v" id="bkAccepted">—</div></div>
+          <div class="stat-card"><div class="k">Odrzucone</div><div class="v" id="bkRejected">—</div></div>
+          <div class="stat-card"><div class="k">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
+        </div>
+
+        <div class="cal-toolbar">
+          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
+          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
+          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
+          <div class="cal-range" id="bkRange">—</div>
+          <select class="control mini" id="bkFilter" aria-label="Filtr statusu">
+            <option value="">wszystkie statusy</option>
+            <option value="pending">tylko oczekujące</option>
+            <option value="accepted">tylko zaakceptowane</option>
+            <option value="rejected">tylko odrzucone</option>
+          </select>
+        </div>
+
+        <p class="hint" style="margin:-6px 0 12px">
+          To rezerwacje samego wstępu do bawialni, złożone przez klientów. Dopóki nie klikniesz
+          <strong>Akceptuj</strong>, klient widzi u siebie „Oczekujesz na potwierdzenie”.
+          Po akceptacji zobaczy „Status zaakceptowany, zapraszamy do bawialni”.</p>
+
+        <div class="bk-grid" id="bkGrid"></div>
+        <p class="hint" id="bkCount" style="margin-top:12px"></p>
+      </section>
     </div>
   </div>
 </main>
@@ -286,14 +344,16 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
-         DAY_NAMES, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin,
+         DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          watchRegistrations, updateRegistration, deleteRegistration,
          applyVisitToRanking, listGuests, computePresence, pushPresence,
          setPresenceManual, clearPresenceManual, watchPresence, watchStats,
-         setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin } from './assets/mc-data.js';
+         setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin,
+         watchBookings, setBookingStatus, deleteBooking,
+         BOOKING_STATUS_SHORT } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -351,6 +411,7 @@ $$('.admin-tabs button').forEach(b => b.onclick = () => {
   $$('.admin-tabs button').forEach(x => x.classList.toggle('is-on', x === b));
   $$('.panel').forEach(p => p.classList.toggle('is-on', p.id === 'tab-' + b.dataset.tab));
   if (b.dataset.tab === 'rank') loadRanking();
+  if (b.dataset.tab === 'book') renderBookings();
 });
 
 /* ================================================== STAN WSPÓŁDZIELONY ==== */
@@ -361,6 +422,7 @@ let EVENTS = [], REGS = [], PRESENCE = null, unsubEv = null, unsubReg = null;
 function start() {
   ensureSettings().catch(() => {});
   loadWeek();
+  startBookings();
   const from = isoDate(addDays(new Date(), -120));
   const to   = isoDate(addDays(new Date(),  120));
   if (unsubReg) unsubReg();
@@ -785,6 +847,116 @@ $('#exportRank').onclick = () => {
   a.href = url; a.download = `ranking-mala-chmurka-${todayISO()}.csv`; a.click();
   URL.revokeObjectURL(url);
 };
+
+/* ==========================================================================
+   5. REZERWACJE BAWIALNI
+   Osobny kalendarz — tu lądują zgłoszenia wstępu składane przez klientów.
+   Rezerwacja działa dopiero po akceptacji: do tego czasu klient widzi
+   u siebie „Oczekujesz na potwierdzenie".
+   ========================================================================== */
+let BOOKINGS = [], bkMonday = weekStart(new Date()), unsubBook = null;
+
+function startBookings() {
+  $('#bkPrev').onclick  = () => { bkMonday = addDays(bkMonday, -7); loadBookingWeek(); };
+  $('#bkNext').onclick  = () => { bkMonday = addDays(bkMonday,  7); loadBookingWeek(); };
+  $('#bkToday').onclick = () => { bkMonday = weekStart(new Date()); loadBookingWeek(); };
+  $('#bkFilter').onchange = renderBookings;
+  loadBookingWeek();
+}
+
+function loadBookingWeek() {
+  const from = isoDate(bkMonday), to = isoDate(addDays(bkMonday, 6));
+  $('#bkRange').textContent = `${shortDate(from)} – ${shortDate(to)}`;
+  if (unsubBook) unsubBook();
+  unsubBook = watchBookings({ fromISO: from, toISO: to }, list => {
+    BOOKINGS = list;
+    renderBookings();
+  });
+}
+
+function renderBookings() {
+  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
+  const shown = BOOKINGS.filter(b => !filter || (b.status || 'pending') === filter);
+
+  /* podsumowanie liczy cały tydzień, nie tylko przefiltrowane */
+  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
+  const pending = count('pending');
+  $('#bkPending').textContent  = pending;
+  $('#bkAccepted').textContent = count('accepted');
+  $('#bkRejected').textContent = count('rejected');
+  $('#bkKids').textContent = BOOKINGS
+    .filter(b => b.status === 'accepted')
+    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
+
+  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
+  const badge = $('#bookBadge');
+  badge.textContent = pending;
+  badge.hidden = pending === 0;
+
+  const today = todayISO();
+  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
+    const dISO = isoDate(addDays(bkMonday, i));
+    const day = shown.filter(b => b.date === dISO)
+      .sort((a, b) => toMin(a.start) - toMin(b.start));
+
+    const cards = day.length ? day.map(b => {
+      const st = b.status || 'pending';
+      const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
+      return `
+        <div class="bk-card ${st}">
+          <b>${esc(b.start || '—')} · ${esc(b.durationLabel || b.duration || '')}</b>
+          <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
+            · ${esc(plDzieci(b.qty || 1))} · ${esc(money(b.total))}</div>
+          ${kids ? `<div class="bk-line">${kids}</div>` : ''}
+          <div class="bk-line"><a href="tel:${esc(b.phone || '')}">${esc(b.phone || '')}</a></div>
+          <div class="bk-line"><span class="badge badge-${
+            st === 'accepted' ? 'ok' : st === 'rejected' ? 'bad' : 'warn'}">${
+            esc(BOOKING_STATUS_SHORT[st] || st)}</span></div>
+          ${b.adminNote ? `<div class="bk-line">Powód: ${esc(b.adminNote)}</div>` : ''}
+          <div class="bk-acts">
+            ${st !== 'accepted' ? `<button class="bk-yes" data-yes="${b.id}">Akceptuj</button>` : ''}
+            ${st !== 'rejected' ? `<button class="bk-no" data-no="${b.id}">Odrzuć</button>` : ''}
+            <button class="bk-del" data-del="${b.id}">Usuń</button>
+          </div>
+        </div>`;
+    }).join('') : '<div class="bk-empty">brak rezerwacji</div>';
+
+    return `<div class="bk-day${dISO === today ? ' is-today' : ''}">
+        <h4>${DAY_SHORT[i]} <span>${shortDate(dISO).slice(0, 5)}</span></h4>
+        ${cards}
+      </div>`;
+  }).join('');
+
+  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
+  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
+  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
+
+  $('#bkCount').textContent = shown.length
+    ? `W tym tygodniu: ${shown.length} rezerwacji.`
+    : 'W tym tygodniu nie ma rezerwacji pasujących do filtra.';
+}
+
+async function decide(id, status) {
+  let note = '';
+  if (status === 'rejected') {
+    note = prompt('Powód odmowy (zobaczy go klient — możesz zostawić puste):',
+                  'Tego dnia mamy komplet.') ?? null;
+    if (note === null) return;             // Anuluj
+  }
+  try {
+    await setBookingStatus(id, status, note);
+    toast(status === 'accepted' ? 'Rezerwacja zaakceptowana.' : 'Rezerwacja odrzucona.');
+  } catch (err) {
+    toast('Nie udało się zapisać decyzji: ' + (err.message || ''));
+  }
+}
+
+async function removeBooking(id) {
+  if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;
+  try { await deleteBooking(id); toast('Rezerwacja usunięta.'); }
+  catch (err) { toast('Nie udało się usunąć: ' + (err.message || '')); }
+}
+
 </script>
 </body>
 </html>

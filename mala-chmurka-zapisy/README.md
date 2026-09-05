@@ -18,6 +18,9 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `strona-zajec.html` | Szczegóły zajęć (opis, zdjęcia, cena, wolne miejsca) + „Kup teraz”. |
 | `zapisz-sie-na-zajecia.html` | Formularz zapisu. Wypełnia się sam danymi z klikniętego kafelka. |
 | `zapisz-sie-na-zajęcia.html` | Przekierowanie z polskiej nazwy pliku na wersję bez ogonków. |
+| **`rezerwacja-bawialni.html`** | **Rezerwacja samego wstępu — cena nalicza się na żywo.** |
+| **`historia-zamowien.html`** | **Historia klienta: rezerwacje i zajęcia ze statusami.** |
+| `dziekujemy-rezerwacja.html` | Podziękowanie po rezerwacji + 3 kroki „co dalej". |
 | `logowanie.html` | Logowanie klienta (e-mail + hasło, Google, reset hasła). |
 | `dziekujemy.html` | Podziękowanie: podsumowanie, numer konta, kontakt. |
 | **`admin.html`** | **Ekran logowania administratora + zarządzanie zajęciami.** |
@@ -27,10 +30,12 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `assets/mc-licznik.js` | Licznik dzieci na stronie głównej (jedna linijka w index.html). |
 | `assets/mc-common.css/.js` | Wspólny wygląd: navbar i stopka 1:1 jak na malachmurkaleszno.pl. |
 | `assets/mc-data.js` | Cała logika bazy danych. |
+| **`assets/mc-cennik.js`** | **Cennik bawialni: taryfy, święta, progi wiekowe, zniżki.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 41 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 57 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
+| `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
 Każda podstrona ma w lewym górnym rogu przycisk **← Powrót do strony głównej**,
@@ -169,7 +174,7 @@ zabezpieczeniem na wypadek, gdyby claim nie został jeszcze nadany.
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **41 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **57 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -184,14 +189,15 @@ npm install --no-save @firebase/rules-unit-testing firebase firebase-tools
 npx firebase emulators:exec --only firestore --project demo-mc "node tools/test-rules.mjs"
 ```
 
-Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **41 zaliczonych, 0 niezaliczonych.**
+Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **57 zaliczonych, 0 niezaliczonych.**
 Uruchom to ponownie za każdym razem, gdy zmienisz `firestore.rules`.
 
-Sam formularz zapisu ma osobny, lekki zestaw (16 testów, bez emulatora i bez
-żadnych zależności — tylko Node):
+Formularze i cennik mają osobne, lekkie zestawy — bez emulatora i bez żadnych
+zależności, sam Node:
 
 ```bash
-node tools/test-ui.mjs
+node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
+node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
 ```
 
 ### Czego panel *nie* chroni
@@ -219,6 +225,7 @@ nadal będą wpadać, ale liczbę wolnych miejsc trzeba prowadzić ręcznie w pa
 |---|---|---|
 | `events` | wszyscy | admin (+ wyjątek `booked` wyżej) |
 | `registrations` | admin; zalogowany rodzic tylko swoje | CREATE: formularz (z walidacją pól); UPDATE/DELETE: admin |
+| `bookings` (rezerwacje) | admin; zalogowany klient tylko swoje | CREATE: formularz, zawsze jako `pending`; UPDATE/DELETE: admin |
 | `guests` (ranking) | admin | admin |
 | `settings/presence` | wszyscy | admin |
 | `settings/stats` | wszyscy | admin (+ formularz może podbić licznik odwiedzin o 1) |
@@ -242,6 +249,63 @@ kto i od kiedy ma dostęp.
   podsumowania, **+ Nowe zajęcia**, **Edytuj**, **Duplikuj**, **Usuń**,
   „Powiel na kolejne tygodnie”.
 * **Wyloguj** natychmiast zwija panel i wraca do ekranu logowania.
+
+---
+
+## Rezerwacja bawialni (bez zajęć)
+
+Osobna ścieżka dla samego wstępu: przycisk **„Zarezerwuj miejsce"** w hero na stronie
+głównej, w menu i w liczniku. Formularz (`rezerwacja-bawialni.html`) wygląda i działa
+jak zapis na zajęcia — ten sam krok logowania („zaloguj się" albo „rezerwuj bez konta"),
+ten sam pasek kroków, ta sama stopka.
+
+### Cennik nalicza się sam
+
+| | 1 h | 2 h | bez limitu |
+|---|---|---|---|
+| **poniedziałek – czwartek** | 25 zł | 40 zł | 50 zł |
+| **piątek – niedziela i święta** | 30 zł | 45 zł | 55 zł |
+
+Zniżki: **do 6. miesiąca życia — za darmo**, **od 6. miesiąca do 1. roku — 50%**,
+**rodzeństwo — −20%** (włącza się samo od dwojga dzieci). Zniżki liczą się po kolei:
+najpierw wiek, potem rodzeństwo; dziecko wchodzące gratis zostaje gratis.
+
+Taryfa weekendowa obowiązuje też w **święta w środku tygodnia** — wykaz dni wolnych
+(razem z ruchomą Wielkanocą, Zielonymi Świątkami i Bożym Ciałem) liczy się w kodzie,
+więc nie trzeba go co roku aktualizować.
+
+Przykład z testów: poniedziałek, 2 h, dwoje dzieci — 3-latek i 8-miesięczne niemowlę.
+40 zł + 20 zł, po zniżce rodzeństwa **48 zł**.
+
+### Rezerwacja działa dopiero po akceptacji
+
+Każde zgłoszenie startuje jako `pending`. Reguły Firestore nie pozwalają klientowi
+utworzyć rezerwacji z innym statusem ani zmienić statusu później — decyduje wyłącznie
+administrator w zakładce **5 · Rezerwacje**. Liczba oczekujących zgłoszeń świeci się
+czerwoną plakietką przy nazwie zakładki, widoczną z każdego innego miejsca panelu.
+
+Zakładka to osobny kalendarz tygodniowy (7 kolumn, na telefonie jedna) z kartami
+rezerwacji: godzina, czas pobytu, rodzic, dzieci, kwota, telefon i przyciski
+**Akceptuj / Odrzuć / Usuń**. Przy odrzuceniu możesz wpisać powód — klient zobaczy go
+w swojej historii.
+
+### Co widzi klient
+
+`historia-zamowien.html` — dwie zakładki: **Bawialnia** i **Zajęcia**. Status zmienia
+się na żywo, bez odświeżania strony:
+
+| Status | Co widzi klient |
+|---|---|
+| `pending` | Oczekujesz na potwierdzenie |
+| `accepted` | Status zaakceptowany, zapraszamy do bawialni |
+| `rejected` | Bawialnia w tym dniu ma już komplet i niestety nie możemy zaakceptować zgłoszenia — zapraszamy w innym dogodnym terminie (+ powód od administratora) |
+
+W zakładce **Zajęcia** widać wcześniejsze zapisy na zajęcia razem z ich stanem
+(zapis przyjęty / opłacone / obecność potwierdzona / wizyta rozliczona).
+
+Historię widzą **wyłącznie osoby zalogowane** — pilnują tego reguły Firestore, a nie
+kod strony. Kto zarezerwuje bez konta, dostanie na stronie podziękowania jasną notkę,
+że status potwierdzimy telefonicznie.
 
 ---
 

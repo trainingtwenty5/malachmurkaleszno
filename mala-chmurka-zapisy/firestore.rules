@@ -104,8 +104,11 @@ service cloud.firestore {
        (oraz zalogowany rodzic: swoje własne zgłoszenia).
        ================================================================ */
     match /registrations/{id} {
+      /* Zapis `resource.data.uid` (a nie `.get('uid', …)`) jest tu konieczny:
+         tylko w tej postaci Firestore potrafi dopuścić zapytanie
+         `where('uid','==', mójUid)` z historii zamówień. */
       allow read: if isAdmin()
-                  || (isSignedIn() && resource.data.get('uid', '') == request.auth.uid);
+                  || (isSignedIn() && resource.data.uid == request.auth.uid);
 
       allow create: if
             request.resource.data.eventId          is string
@@ -119,6 +122,41 @@ service cloud.firestore {
         &&  request.resource.data.email.size() < 200
         &&  request.resource.data.phone.size() < 40
         &&  request.resource.data.childFirstName.size() < 100
+        &&  request.resource.data.keys().size() < 40;
+
+      allow update, delete: if isAdmin();
+    }
+
+    /* ================================================================
+       REZERWACJE BAWIALNI  (sam wstęp, bez zajęć)
+       Formularz może utworzyć zgłoszenie, ale ZAWSZE jako `pending`.
+       O tym, czy rezerwacja zostanie przyjęta, decyduje wyłącznie
+       administrator — klient nie może sobie sam zmienić statusu.
+       ================================================================ */
+    match /bookings/{id} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.uid == request.auth.uid);
+
+      allow create: if
+            request.resource.data.status          == 'pending'
+        &&  request.resource.data.adminNote       == ''
+        &&  request.resource.data.date            is string
+        &&  request.resource.data.date.size() == 10
+        &&  request.resource.data.duration        in ['1h', '2h', 'open']
+        &&  request.resource.data.qty             is int
+        &&  request.resource.data.qty > 0 && request.resource.data.qty <= 10
+        &&  request.resource.data.total           is number
+        &&  request.resource.data.total >= 0 && request.resource.data.total <= 2000
+        &&  request.resource.data.email           is string
+        &&  request.resource.data.phone           is string
+        &&  request.resource.data.parentFirstName is string
+        &&  request.resource.data.email.size() < 200
+        &&  request.resource.data.phone.size() < 40
+        &&  request.resource.data.parentFirstName.size() < 100
+        &&  request.resource.data.note.size() < 1000
+        /* nie da się podpiąć rezerwacji pod cudze konto */
+        &&  ( request.resource.data.uid == null
+              || (isSignedIn() && request.resource.data.uid == request.auth.uid) )
         &&  request.resource.data.keys().size() < 40;
 
       allow update, delete: if isAdmin();

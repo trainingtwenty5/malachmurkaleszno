@@ -32,7 +32,8 @@ export { SETTINGS, ADMIN_EMAILS, appUrl };
 /* ---------- Ścieżki w bazie (jedno miejsce prawdy) ---------- */
 export const PATHS = {
   events:        'events',          // pojedyncze zajęcia w kalendarzu
-  registrations: 'registrations',   // zapisy klientów
+  registrations: 'registrations',   // zapisy klientów na zajęcia
+  bookings:      'bookings',        // rezerwacje samego wstępu do bawialni
   guests:        'guests',          // ranking: 1 dokument = 1 dziecko
   settings:      'settings',        // settings/presence, settings/stats
   admins:        'admins'           // opcjonalna kartoteka administratorów
