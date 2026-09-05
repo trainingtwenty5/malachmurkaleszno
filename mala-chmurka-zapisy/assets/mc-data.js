@@ -320,7 +320,7 @@ export async function applyVisitToRanking(reg, delta) {
  * Dzięki temu ranking liczy wszystkie odwiedziny tak samo — bez znaczenia,
  * czy dziecko przyszło na zajęcia, czy po prostu do bawialni.
  */
-export function visitFromBooking(b, dayEnd = SETTINGS.dayEnd) {
+export function visitFromBooking(b, dayEnd) {
   const names = (b.children || []).map(c => String(c.name || '').trim()).filter(Boolean);
   const endMin = bookingEndMin(b, dayEnd);
   const pad = n => String(n).padStart(2, '0');
@@ -614,7 +614,7 @@ export async function createWalkin({ names = [], qty, start, stayUntil, phone = 
 
 /** Dokłada minuty do pobytu (przycisk „+15 min"). */
 export async function extendBooking(b, minutes) {
-  const endMin = bookingEndMin(b, SETTINGS.dayEnd) + (Number(minutes) || 0);
+  const endMin = bookingEndMin(b) + (Number(minutes) || 0);
   const pad = n => String(n).padStart(2, '0');
   const hhmm = `${pad(Math.floor(Math.max(0, endMin) / 60) % 24)}:${pad(Math.max(0, endMin) % 60)}`;
   await updateBooking(b.id, { stayUntil: hhmm });

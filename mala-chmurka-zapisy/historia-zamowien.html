@@ -213,7 +213,7 @@ function renderBookings(list) {
           ${b.adminNote ? `<span class="admin-note">${esc(b.adminNote)}</span>` : ''}</span>
         </div>
         ${st === 'accepted'
-          ? countdownTag(b.date, toMin(b.start), bookingEndMin(b, SETTINGS.dayEnd))
+          ? countdownTag(b.date, toMin(b.start), bookingEndMin(b))
           : ''}
       </article>`;
   }).join('');

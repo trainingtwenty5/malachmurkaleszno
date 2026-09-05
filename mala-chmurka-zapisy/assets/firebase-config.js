@@ -84,9 +84,23 @@ export const SETTINGS = {
   instagram:    "https://www.instagram.com/malachmurka.leszno/",
   facebook:     "https://www.facebook.com/profile.php?id=61573206205142",
 
-  /* domyślne godziny siatki kalendarza */
+  /* domyślne godziny siatki kalendarza w panelu (nie mylić z otwarciem) */
   dayStart:     "08:00",
   dayEnd:       "20:00",
+
+  /* GODZINY OTWARCIA BAWIALNI
+     Indeks jak w JavaScripcie: 0 = niedziela, 1 = poniedziałek … 6 = sobota.
+     Poza tymi godzinami nie da się zarezerwować wejścia.
+     Dzień zamknięty na głucho zapisuje się jako `null`. */
+  openingHours: [
+    { open: "10:00", close: "19:00" },   // niedziela
+    { open: "15:00", close: "19:00" },   // poniedziałek
+    { open: "10:00", close: "19:00" },   // wtorek
+    { open: "10:00", close: "19:00" },   // środa
+    { open: "10:00", close: "19:00" },   // czwartek
+    { open: "10:00", close: "16:00" },   // piątek
+    { open: "10:00", close: "19:00" }    // sobota
+  ],
 
   /* domyślne metody płatności podpowiadane przy tworzeniu zajęć */
   paymentMethods: ["Płatność na miejscu", "Przelew bankowy"]

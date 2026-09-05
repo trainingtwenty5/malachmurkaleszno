@@ -957,7 +957,7 @@ async function refreshPresence({ force = false } = {}) {
      Maksimum zostawiamy w spokoju — zmienia je tylko przycisk „Zapisz maksimum". */
   const p = computeLivePresence({
     regs: REGS, bookings: BOOKINGS,
-    dateISO: todayISO(), atMin: nowMin(), dayEnd: SETTINGS.dayEnd
+    dateISO: todayISO(), atMin: nowMin()
   });
   await pushPresence({ count: p.count, untilMin: p.untilMin, manual: false });
   $('#cFromClasses').textContent  = p.fromClasses;
@@ -1118,7 +1118,7 @@ function renderBookings() {
             <span>Opłacone</span>
           </label>
           <label class="bk-until">Do godz.
-            <input type="time" data-until="${b.id}" value="${esc(b.stayUntil || fmtMin(bookingEndMin(b, SETTINGS.dayEnd)))}">
+            <input type="time" data-until="${b.id}" value="${esc(b.stayUntil || fmtMin(bookingEndMin(b)))}">
           </label>
           <div class="bk-acts">
             ${st !== 'accepted' ? `<button class="bk-yes" data-yes="${b.id}">Akceptuj</button>` : ''}
@@ -1262,7 +1262,7 @@ function stopPlayClock() {
 function allPlayRows() {
   return playtimeRows({
     regs: REGS, bookings: BOOKINGS,
-    dateISO: todayISO(), atMin: nowMinFloat(), dayEnd: SETTINGS.dayEnd
+    dateISO: todayISO(), atMin: nowMinFloat()
   });
 }
 

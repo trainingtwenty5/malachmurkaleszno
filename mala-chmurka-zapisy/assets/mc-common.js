@@ -263,13 +263,16 @@ export const PALETTE = ['#93C7CF','#3E7C89','#C9A87C','#A9834F','#3D5A78','#A9C6
  * temu administrator odwzorowuje to, za ile faktycznie zapłacono, np. gdy
  * ktoś zarezerwował dwie godziny, a dopłacił do „bez limitu" albo wyszedł wcześniej.
  */
-export function bookingEndMin(b, dayEnd = '20:00') {
+export function bookingEndMin(b, dayEnd) {
   if (!b) return 0;
   if (b.stayUntil) return toMin(b.stayUntil);
   const start = toMin(b.start);
   if (b.duration === '1h') return start + 60;
   if (b.duration === '2h') return start + 120;
-  return Math.max(start + 60, toMin(dayEnd));   // „bez limitu" — do zamknięcia
+  /* „bez limitu" — do zamknięcia. Bez podanego `dayEnd` bierzemy godzinę
+     zamknięcia właściwą dla dnia tej rezerwacji (piątek kończy wcześniej). */
+  const close = dayEnd !== undefined ? toMin(dayEnd) : closingMinFor(b.date);
+  return Math.max(start + 60, close);
 }
 
 /**
@@ -282,7 +285,7 @@ export function bookingEndMin(b, dayEnd = '20:00') {
  * @param {string} [o.dayEnd]  godzina zamknięcia dla „bez limitu"
  * @returns {{count, untilMin, fromClasses, fromBookings}}
  */
-export function computeLivePresence({ regs, bookings, dateISO, atMin, dayEnd = '20:00' } = {}) {
+export function computeLivePresence({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
   let fromClasses = 0, fromBookings = 0, untilMin = 0;
 
   (regs || []).forEach(r => {
@@ -346,6 +349,47 @@ export function slotInPast(dateISO, hhmm, todayISO, nowMinutes) {
   if (dateISO > todayISO) return false;
   if (!hhmm) return false;
   return toMin(hhmm) < nowMinutes;
+}
+
+/* ==========================================================================
+   GODZINY OTWARCIA
+   Bawialnia ma inne godziny w każdy dzień tygodnia (poniedziałek zaczyna
+   o 15:00, piątek kończy o 16:00). Poza nimi nie da się nic zarezerwować.
+   ========================================================================== */
+
+/**
+ * Godziny otwarcia dla konkretnego dnia.
+ * @returns {{open, close, openMin, closeMin, label}|null} null = zamknięte
+ */
+export function openingFor(dateISO) {
+  if (!dateISO) return null;
+  const [y, m, d] = String(dateISO).split('-').map(Number);
+  if (!y) return null;
+  const h = (SETTINGS.openingHours || [])[new Date(y, (m || 1) - 1, d || 1).getDay()];
+  if (!h || !h.open || !h.close) return null;
+  return {
+    open: h.open, close: h.close,
+    openMin: toMin(h.open), closeMin: toMin(h.close),
+    label: `${h.open} – ${h.close}`
+  };
+}
+
+/** Godzina zamknięcia w minutach — z zapasem, gdyby dzień nie był opisany. */
+export function closingMinFor(dateISO, fallback = SETTINGS.dayEnd) {
+  const o = openingFor(dateISO);
+  return o ? o.closeMin : toMin(fallback);
+}
+
+/**
+ * Czy podana godzina mieści się w godzinach otwarcia tego dnia.
+ * Wejście dokładnie o godzinie zamknięcia nie ma sensu, więc `close` jest
+ * granicą wyłączną.
+ */
+export function withinOpening(dateISO, hhmm) {
+  const o = openingFor(dateISO);
+  if (!o || !hhmm) return false;
+  const t = toMin(hhmm);
+  return t >= o.openMin && t < o.closeMin;
 }
 
 /** Najbliższy sensowny kwadrans od podanej minuty — podpowiedź godziny. */
@@ -424,7 +468,7 @@ function namesFromRegistration(r) {
  * @returns {Array} wiersze: { id, source, sourceLabel, names, qty, startMin, endMin,
  *                             remaining, state: 'waiting'|'playing'|'over', phone }
  */
-export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd = '20:00' } = {}) {
+export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
   const rows = [];
 
   (regs || []).forEach(r => {
