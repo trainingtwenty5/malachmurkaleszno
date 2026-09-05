@@ -37,6 +37,9 @@
   .dur input:checked + span{border-color:var(--brand-deep);background:var(--brand-pale);
     box-shadow:var(--shadow-sm)}
   .dur input:focus-visible + span{outline:3px solid var(--brand);outline-offset:2px}
+  .dur input:disabled + span{opacity:.45;background:var(--cream-deep);cursor:not-allowed}
+  .dur .dur-no{display:block;font-style:normal;font-size:.72rem;font-weight:600;
+    color:var(--bad);line-height:1.25;margin-top:2px}
 
   .kid{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--white);
     margin-bottom:10px}
@@ -116,11 +119,7 @@
           </div>
         </div>
 
-        <div class="alert alert-warn" id="lateNote" hidden>
-          <strong>Bawialnia jest dziś już zamknięta.</strong> Dzisiejsze godziny nie są
-          dostępne — wybierz kolejny dzień.
-          <button class="btn btn-outline btn-sm btn-block" type="button" id="goTomorrow"
-                  style="margin-top:10px">Zarezerwuj na jutro</button></div>
+        <div class="alert alert-warn" id="lateNote" hidden></div>
 
         <div class="tariff" id="tariff">Wybierz dzień, żeby zobaczyć taryfę.</div>
 
@@ -203,7 +202,8 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, longDate, params, URLS, SETTINGS,
-         slotInPast, nextQuarter, toMin, fmtMin } from './assets/mc-common.js';
+         slotInPast, nextQuarter, toMin, fmtMin, openingFor, withinOpening,
+         DAY_NAMES } from './assets/mc-common.js';
 import { quote, discountSummary, DURATIONS, PRICES, tariffFor, tariffLabel, isHoliday, AGE_TIERS, ageTier }
   from './assets/mc-cennik.js';
 import { createBooking, todayISO, myRegistrations, myBookings } from './assets/mc-data.js';
@@ -253,7 +253,6 @@ const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMin
 
 $('#date').min = todayISO();
 $('#date').value = params().get('date') || todayISO();
-$('#start').value = fmtMin(nextQuarter(nowMin(), SETTINGS.dayEnd));
 
 /** Data jutrzejsza w formacie ISO. */
 function tomorrowISO() {
@@ -264,24 +263,57 @@ function tomorrowISO() {
 }
 
 /**
- * Pilnuje, żeby w polu godziny nie dało się wybrać czasu, który już minął.
- * Gdy bawialnia jest dziś zamknięta, nie ma sensu podpowiadać żadnej godziny —
- * blokujemy pole i proponujemy przeskok na jutro.
+ * Pilnuje, żeby dało się wybrać wyłącznie godzinę, w której bawialnia jest
+ * otwarta — i która jeszcze nie minęła.
+ *
+ * Godziny otwarcia są inne w każdy dzień tygodnia (poniedziałek od 15:00,
+ * piątek do 16:00), więc limity przeliczamy po każdej zmianie daty.
  */
 function syncTimeLimits() {
-  const today = $('#date').value === todayISO();
-  const closed = today && nowMin() >= toMin(SETTINGS.dayEnd);
+  const date = $('#date').value || todayISO();
+  const today = date === todayISO();
+  const o = openingFor(date);
 
+  /* dzień zamknięty na głucho albo dzisiaj już po godzinach */
+  const closed = !o || (today && nowMin() >= o.closeMin);
+  $('#lateNote').innerHTML = !o
+    ? '<strong>W ten dzień bawialnia jest nieczynna.</strong> Wybierz inny termin.' +
+      '<button class="btn btn-outline btn-sm btn-block" type="button" id="goTomorrow" ' +
+      'style="margin-top:10px">Zarezerwuj na jutro</button>'
+    : '<strong>Bawialnia jest dziś już zamknięta</strong> (czynne do ' + esc(o.close) + ').' +
+      ' Dzisiejsze godziny nie są dostępne — wybierz kolejny dzień.' +
+      '<button class="btn btn-outline btn-sm btn-block" type="button" id="goTomorrow" ' +
+      'style="margin-top:10px">Zarezerwuj na jutro</button>';
   $('#lateNote').hidden = !closed;
+  if (closed) bindTomorrow();
+
   $('#start').disabled = closed;
   $('#submit').disabled = closed;
+  if (closed) { $('#start').min = ''; $('#start').max = ''; return; }
 
-  if (closed) { $('#start').min = ''; return; }
+  /* wolno wejść od otwarcia (a dziś nie wcześniej niż teraz) do minuty
+     przed zamknięciem */
+  const minMin = today ? Math.max(o.openMin, nowMin()) : o.openMin;
+  $('#start').min = fmtMin(minMin);
+  $('#start').max = fmtMin(o.closeMin - 1);
 
-  $('#start').min = today ? fmtMin(nowMin()) : '';
-  if (today && (!$('#start').value || toMin($('#start').value) < nowMin())) {
-    $('#start').value = fmtMin(nextQuarter(nowMin(), SETTINGS.dayEnd));
+  const cur = $('#start').value ? toMin($('#start').value) : null;
+  if (cur === null || cur < minMin || cur >= o.closeMin) {
+    $('#start').value = fmtMin(Math.min(Math.max(nextQuarter(minMin), minMin), o.closeMin - 1));
   }
+}
+
+/** Notka jest przerysowywana, więc przycisk trzeba podpiąć na nowo. */
+function bindTomorrow() {
+  const btn = $('#goTomorrow');
+  if (!btn) return;
+  btn.onclick = () => {
+    const d = tomorrowISO();
+    $('#date').value = d;
+    const o = openingFor(d);
+    $('#start').value = o ? o.open : SETTINGS.dayStart;
+    syncTimeLimits(); renderDurations(); renderKids(); paint();
+  };
 }
 
 /** Kafelki „1 h / 2 h / bez limitu" z cenami dla wybranego dnia. */
@@ -290,18 +322,37 @@ function renderDurations() {
   const t = tariffFor(date);
   const chosen = (document.querySelector('input[name=duration]:checked') || {}).value || '2h';
 
+  /* Czas pobytu nie może wychodzić poza godzinę zamknięcia: przy wejściu
+     o 18:00 w dzień do 19:00 dwie godziny po prostu się nie zmieszczą.
+     „Bez limitu" mieści się zawsze — kończy się razem z zamknięciem. */
+  const o = openingFor(date);
+  const startMin = $('#start').value ? toMin($('#start').value) : (o ? o.openMin : 0);
+  const fits = d => !o || d.minutes === null || startMin + d.minutes <= o.closeMin;
+
   $('#durations').innerHTML = DURATIONS.map(d => `
     <label class="dur">
-      <input type="radio" name="duration" value="${d.id}" ${d.id === chosen ? 'checked' : ''}>
-      <span>${esc(d.label)}<b>${money(PRICES[t][d.id])}</b></span>
+      <input type="radio" name="duration" value="${d.id}"
+             ${d.id === chosen ? 'checked' : ''} ${fits(d) ? '' : 'disabled'}>
+      <span>${esc(d.label)}<b>${money(PRICES[t][d.id])}</b>${
+        fits(d) ? '' : '<em class="dur-no">nie zmieści się przed zamknięciem</em>'}</span>
     </label>`).join('');
+
+  /* jeśli wybrany czas przestał się mieścić, przeskakujemy na pierwszy pasujący */
+  if (!DURATIONS.filter(fits).some(d => d.id === chosen)) {
+    const first = DURATIONS.find(fits);
+    if (first) {
+      const el = document.querySelector(`input[name=duration][value="${first.id}"]`);
+      if (el) el.checked = true;
+    }
+  }
   $$('input[name=duration]').forEach(r => r.onchange = paint);
 
   const holiday = isHoliday(date);
   $('#tariff').innerHTML =
     `<span class="tag">${esc(tariffLabel(date))}</span>
      ${holiday ? 'Święto — obowiązuje taryfa weekendowa.' : 'Taryfa naliczy się sama.'}
-     <span style="font-weight:400;color:var(--muted)">${esc(longDate(date))}</span>`;
+     <span style="font-weight:400;color:var(--muted)">${esc(longDate(date))}</span>
+     ${o ? `<span class="tag" title="Godziny otwarcia">czynne ${esc(o.label)}</span>` : ''}`;
 }
 
 /** Lista dzieci — każde z imieniem, datą urodzenia i plakietką zniżki. */
@@ -416,13 +467,7 @@ function paint() {
 }
 
 $('#date').onchange  = () => { syncTimeLimits(); renderDurations(); renderKids(); paint(); };
-$('#start').onchange = syncTimeLimits;
-$('#goTomorrow').onclick = () => {
-  $('#date').value = tomorrowISO();
-  $('#start').value = SETTINGS.dayStart;
-  syncTimeLimits(); renderDurations(); renderKids(); paint();
-  $('#start').focus();
-};
+$('#start').onchange = () => { syncTimeLimits(); renderDurations(); paint(); };
 syncTimeLimits();
 
 renderDurations();
@@ -441,6 +486,12 @@ $('#form').addEventListener('submit', async e => {
   if (slotInPast(date, $('#start').value, todayISO(), nowMin()))
     return show('bad', `<strong>Ta godzina już minęła.</strong> Jest ${fmtMin(nowMin())} — ` +
       'wybierz późniejszą godzinę albo inny dzień.');
+  const open = openingFor(date);
+  if (!open) return show('bad', '<strong>W ten dzień bawialnia jest nieczynna.</strong> Wybierz inny termin.');
+  if (!withinOpening(date, $('#start').value))
+    return show('bad', `<strong>O tej godzinie jest zamknięte.</strong> ` +
+      `${esc(DAY_NAMES[(new Date(date + 'T00:00:00').getDay() + 6) % 7])} czynne ` +
+      `${esc(open.label)} — wybierz godzinę z tego przedziału.`);
   if (!kids.length)             return show('bad', 'Dodaj przynajmniej jedno dziecko.');
   if (kids.some(k => !k.name.trim())) return show('bad', 'Podaj imię każdego dziecka.');
   if (kids.some(k => !k.dob))   return show('bad', 'Podaj datę urodzenia każdego dziecka — bez niej nie naliczymy zniżek.');

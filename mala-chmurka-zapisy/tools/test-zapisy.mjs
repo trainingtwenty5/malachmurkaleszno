@@ -10,8 +10,8 @@
    Bez zależności i bez emulatora — sam Node.
    ========================================================================== */
 
-import { signupClosed, seatState, SIGNUP_CLOSED_TEXT, slotInPast, nextQuarter, fmtMin }
-  from '../assets/mc-common.js';
+import { signupClosed, seatState, SIGNUP_CLOSED_TEXT, slotInPast, nextQuarter, fmtMin,
+         openingFor, withinOpening, closingMinFor, bookingEndMin } from '../assets/mc-common.js';
 import { mergeChildren, childKey, childLabel, normChild, knownChildren }
   from '../assets/mc-dzieci.js';
 
@@ -49,6 +49,46 @@ ok('zajęcia kończące się dokładnie teraz są już zamknięte',
 ok('brak godziny zakończenia nie zamyka dzisiejszych zajęć',
   !signupClosed({ date: DZIS }, DZIS, TERAZ));
 ok('brak daty niczego nie zamyka', !signupClosed({}, DZIS, TERAZ));
+
+console.log('\n=== GODZINY OTWARCIA ===');
+{
+  /* wrzesień 2026: 7 = poniedziałek, 11 = piątek, 12 = sobota, 13 = niedziela */
+  eq('poniedziałek', openingFor('2026-09-07').label, '15:00 – 19:00');
+  eq('wtorek',       openingFor('2026-09-08').label, '10:00 – 19:00');
+  eq('środa',        openingFor('2026-09-09').label, '10:00 – 19:00');
+  eq('czwartek',     openingFor('2026-09-10').label, '10:00 – 19:00');
+  eq('piątek',       openingFor('2026-09-11').label, '10:00 – 16:00');
+  eq('sobota',       openingFor('2026-09-12').label, '10:00 – 19:00');
+  eq('niedziela',    openingFor('2026-09-13').label, '10:00 – 19:00');
+  ok('bez daty nie zgadujemy', openingFor('') === null);
+}
+
+console.log('\n=== CZY O TEJ GODZINIE JEST OTWARTE ===');
+{
+  ok('poniedziałek 14:00 — jeszcze zamknięte', !withinOpening('2026-09-07', '14:00'));
+  ok('poniedziałek 15:00 — już otwarte',        withinOpening('2026-09-07', '15:00'));
+  ok('poniedziałek 18:59 — jeszcze można',      withinOpening('2026-09-07', '18:59'));
+  ok('poniedziałek 19:00 — to już zamknięcie', !withinOpening('2026-09-07', '19:00'));
+  ok('poniedziałek 20:00 — dawno po',          !withinOpening('2026-09-07', '20:00'));
+  ok('piątek 15:59 — ostatnia chwila',          withinOpening('2026-09-11', '15:59'));
+  ok('piątek 16:00 — już nie',                 !withinOpening('2026-09-11', '16:00'));
+  ok('wtorek 10:00 — otwarcie',                 withinOpening('2026-09-08', '10:00'));
+  ok('wtorek 09:59 — minutę za wcześnie',      !withinOpening('2026-09-08', '09:59'));
+  ok('bez godziny nie przepuszczamy',          !withinOpening('2026-09-08', ''));
+}
+
+console.log('\n=== „BEZ LIMITU" KOŃCZY SIĘ Z ZAMKNIĘCIEM ===');
+eq('w piątek do 16:00',
+   fmtMin(bookingEndMin({ date: '2026-09-11', start: '10:00', duration: 'open' })), '16:00');
+eq('w sobotę do 19:00',
+   fmtMin(bookingEndMin({ date: '2026-09-12', start: '10:00', duration: 'open' })), '19:00');
+eq('w poniedziałek do 19:00',
+   fmtMin(bookingEndMin({ date: '2026-09-07', start: '15:00', duration: 'open' })), '19:00');
+eq('podana wprost godzina zamknięcia dalej wygrywa (zgodność wstecz)',
+   fmtMin(bookingEndMin({ date: '2026-09-11', start: '10:00', duration: 'open' }, '20:00')), '20:00');
+eq('ręczna godzina wyjścia wygrywa ze wszystkim',
+   fmtMin(bookingEndMin({ date: '2026-09-11', start: '10:00', duration: 'open', stayUntil: '13:30' })), '13:30');
+eq('zamknięcie piątku w minutach', closingMinFor('2026-09-11'), 16 * 60);
 
 console.log('\n=== PRZETERMINOWANA GODZINA REZERWACJI ===');
 {

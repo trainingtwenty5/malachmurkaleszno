@@ -37,7 +37,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-rules.mjs` | 58 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
-| `tools/test-zapisy.mjs` | 42 testy: terminy, pamięć dzieci, przeterminowane godziny — sam Node. |
+| `tools/test-zapisy.mjs` | 66 testów: terminy, pamięć dzieci, godziny otwarcia — sam Node. |
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
@@ -253,7 +253,7 @@ zależności, sam Node:
 ```bash
 node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
-node tools/test-zapisy.mjs  # 42 testy: terminy, pamięć dzieci, przeterminowane godziny
+node tools/test-zapisy.mjs  # 66 testów: terminy, pamięć dzieci, godziny otwarcia
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
@@ -345,6 +345,26 @@ nowe, zduplikowane, czy edytowane.
 
 Osobna ścieżka dla samego wstępu: przycisk **„Zarezerwuj miejsce"** w hero na stronie
 głównej, w menu i w liczniku.
+
+### Godziny otwarcia
+
+| Dzień | Czynne |
+|---|---|
+| poniedziałek | 15:00 – 19:00 |
+| wtorek – czwartek | 10:00 – 19:00 |
+| piątek | 10:00 – 16:00 |
+| sobota – niedziela | 10:00 – 19:00 |
+
+Ustawia się je w `assets/firebase-config.js`, w polu `SETTINGS.openingHours`
+(indeks jak w JavaScripcie: 0 = niedziela). Dzień zamknięty na głucho zapisuje się
+jako `null`.
+
+Formularz rezerwacji trzyma się tych godzin: pole godziny ma `min` i `max`
+z danego dnia, więc nie da się wybrać 20:00, kiedy jest już zamknięte. Przy taryfie
+widać, w jakich godzinach jest czynne. **Czas pobytu też się dostosowuje** — przy wejściu
+o 15:00 w piątek kafelek „2 godziny” jest wyszarzony z dopiskiem „nie zmieści się przed
+zamknięciem”, a „bez limitu” kończy się razem z zamknięciem tego konkretnego dnia
+(w piątek o 16:00, nie o 20:00).
 
 **Nie da się zarezerwować terminu, który minął.** Pole daty nie schodzi poniżej dzisiaj,
 a pole godziny — poniżej bieżącej minuty, jeśli wybrany jest dzisiejszy dzień. Godzina
