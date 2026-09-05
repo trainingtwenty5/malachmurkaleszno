@@ -41,7 +41,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
-| `tools/test-czas.mjs` | 41 testów zakładki „Czas zabawy” (odliczanie) — sam Node. |
+| `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -257,7 +257,7 @@ node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
-node tools/test-czas.mjs    # 41 testów: czas zabawy, odliczanie w dół
+node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 ```
 
 ### Czego panel *nie* chroni
@@ -447,6 +447,13 @@ się na żywo, bez odświeżania strony:
 
 W zakładce **Zajęcia** widać wcześniejsze zapisy na zajęcia razem z ich stanem
 (zapis przyjęty / opłacone / obecność potwierdzona / wizyta rozliczona).
+
+**Odliczanie dla rodzica.** Przy każdej dzisiejszej wizycie — tak samo w bawialni,
+jak i na zajęciach — pojawia się licznik: przed przyjściem „zaczyna się za 30:00”,
+w trakcie „kończy się za 45:00”, a po wszystkim „czas się skończył”. Odświeża się co
+sekundę, bez przeładowania strony i bez minusów straszących rodzica. Wizyty z innych
+dni licznika nie dostają. Dla bawialni godzinę końca bierzemy z tej samej wartości,
+którą obsługa ustawia w panelu, więc przedłużenie pobytu od razu widać u rodzica.
 
 Historię widzą **wyłącznie osoby zalogowane** — pilnują tego reguły Firestore, a nie
 kod strony. Kto zarezerwuje bez konta, dostanie na stronie podziękowania jasną notkę,

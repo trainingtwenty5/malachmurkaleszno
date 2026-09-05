@@ -7,7 +7,8 @@
    URUCHOMIENIE:   node tools/test-czas.mjs
    ========================================================================== */
 
-import { playtimeRows, fmtCountdown, PLAYTIME_SOURCE, FREEZE_AFTER_MIN } from '../assets/mc-common.js';
+import { playtimeRows, fmtCountdown, PLAYTIME_SOURCE, FREEZE_AFTER_MIN, countdownFor }
+  from '../assets/mc-common.js';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, dump = '') => {
@@ -128,6 +129,37 @@ console.log('\n=== LICZBA DZIECI, A NIE WIERSZY ===');
   eq('w bawialni jest pięcioro dzieci w dwóch wierszach',
      rows.reduce((n, r) => n + r.qty, 0), 5);
   eq('wiersze', rows.length, 2);
+}
+
+console.log('\n=== ODLICZANIE W PANELU RODZICA ===');
+{
+  /* wizyta 10:00–12:00 dzisiaj */
+  const cd = min => countdownFor({ dateISO: DZIS, startMin: at(10), endMin: at(12),
+                                   todayISO: DZIS, atMin: min });
+
+  eq('przed przyjściem — ile do startu', cd(at(9, 30)).phase, 'before');
+  eq('i mówi to po ludzku', cd(at(9, 30)).label, 'zaczyna się za 30:00');
+  eq('w trakcie — ile zostało', cd(at(11, 15)).phase, 'during');
+  eq('z czasem do końca', cd(at(11, 15)).label, 'kończy się za 45:00');
+  eq('dokładnie o godzinie wejścia już leci w dół', cd(at(10)).phase, 'during');
+  eq('po czasie', cd(at(12, 30)).phase, 'after');
+  eq('bez straszenia minusami', cd(at(12, 30)).label, 'czas się skończył');
+  eq('dokładnie o godzinie wyjścia jest już po', cd(at(12)).phase, 'after');
+
+  eq('wizyta z wczoraj nie odlicza',
+     countdownFor({ dateISO: '2026-09-09', startMin: at(10), endMin: at(12),
+                    todayISO: DZIS, atMin: at(11) }).phase, 'past');
+  eq('wizyta jutrzejsza też nie',
+     countdownFor({ dateISO: '2026-09-11', startMin: at(10), endMin: at(12),
+                    todayISO: DZIS, atMin: at(11) }).phase, 'future');
+  ok('przyszła i miniona nie dostają etykiety',
+     countdownFor({ dateISO: '2026-09-11', startMin: at(10), endMin: at(12),
+                    todayISO: DZIS, atMin: at(11) }).label === '');
+  ok('brak danych nie wywala licznika', countdownFor({}).phase === 'future');
+
+  eq('długi pobyt pokazuje godziny',
+     countdownFor({ dateISO: DZIS, startMin: at(10), endMin: at(18),
+                    todayISO: DZIS, atMin: at(11) }).label, 'kończy się za 7:00:00');
 }
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
