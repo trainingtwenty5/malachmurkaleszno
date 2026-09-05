@@ -457,6 +457,39 @@ export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd = '20:00' 
 }
 
 /**
+ * Odliczanie dla jednej wizyty — używane w panelu klienta („Historia zamówień"),
+ * żeby rodzic widział, za ile kończy się czas dziecka w bawialni.
+ *
+ * Świadomie nie korzysta z playtimeRows(): tam liczą się tylko wizyty
+ * potwierdzone przez obsługę, a rodzicowi chcemy pokazać także „zaczyna się za…"
+ * przed przyjściem.
+ *
+ * @param {object} o
+ * @param {string} o.dateISO   dzień wizyty
+ * @param {number} o.startMin  godzina wejścia w minutach
+ * @param {number} o.endMin    godzina wyjścia w minutach
+ * @param {string} o.todayISO  dzisiejszy dzień
+ * @param {number} o.atMin     bieżąca minuta dnia (może być ułamkowa)
+ * @returns {{phase, remaining, label}} phase: 'past'|'future'|'before'|'during'|'after'
+ */
+export function countdownFor({ dateISO, startMin, endMin, todayISO, atMin } = {}) {
+  if (!dateISO || !todayISO) return { phase: 'future', remaining: 0, label: '' };
+
+  if (dateISO < todayISO) return { phase: 'past',   remaining: 0, label: '' };
+  if (dateISO > todayISO) return { phase: 'future', remaining: 0, label: '' };
+
+  if (atMin < startMin) {
+    const remaining = startMin - atMin;
+    return { phase: 'before', remaining, label: `zaczyna się za ${fmtCountdown(remaining)}` };
+  }
+  if (atMin < endMin) {
+    const remaining = endMin - atMin;
+    return { phase: 'during', remaining, label: `kończy się za ${fmtCountdown(remaining)}` };
+  }
+  return { phase: 'after', remaining: 0, label: 'czas się skończył' };
+}
+
+/**
  * Odliczanie w formie „1:23:45" / „23:45", a po czasie „−05:12".
  * Przyjmuje minuty (mogą być ułamkowe).
  */

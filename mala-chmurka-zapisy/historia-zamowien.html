@@ -47,6 +47,16 @@
   .status b{font-weight:700}
   .admin-note{display:block;margin-top:4px;font-size:.88rem;opacity:.85}
   .kids-line{font-size:.88rem;color:var(--muted);margin-top:6px}
+  .countdown{display:inline-flex;align-items:center;gap:8px;margin-top:10px;border-radius:999px;
+    padding:.32em .95em;font-family:var(--font-head);font-weight:700;font-size:.92rem;
+    font-variant-numeric:tabular-nums}
+  .countdown .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+  .countdown.during{background:var(--ok-pale);color:var(--ok)}
+  .countdown.before{background:var(--sky-pale);color:var(--navy)}
+  .countdown.after{background:var(--cream-deep);color:var(--muted)}
+  .countdown.during .dot{animation:mcTick 1.6s ease-out infinite}
+  @keyframes mcTick{0%{opacity:1}60%{opacity:.25}100%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.countdown.during .dot{animation:none}}
 </style>
 </head>
 <body>
@@ -101,8 +111,8 @@
 </main>
 
 <script type="module">
-import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, plDzieci, URLS, SETTINGS }
-  from './assets/mc-common.js';
+import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, plDzieci, URLS, SETTINGS,
+         countdownFor, bookingEndMin, toMin, isoDate } from './assets/mc-common.js';
 import { auth, A } from './assets/mc-firebase.js';
 import { watchMyBookings, watchMyRegistrations, registrationStatusText,
          BOOKING_STATUS_TEXT } from './assets/mc-data.js';
@@ -125,6 +135,40 @@ function tab(which) {
 }
 $('#tabBookings').onclick = () => tab('bookings');
 $('#tabClasses').onclick  = () => tab('classes');
+
+/* ==========================================================================
+   ODLICZANIE
+   Rodzic ma widzieć, za ile kończy się czas dziecka — tak samo dla bawialni
+   i dla zajęć. Znacznik dostaje godziny w atrybutach, a jeden zegar odświeża
+   wszystkie co sekundę. Dzięki temu nie przerysowujemy całej listy (i nie
+   walczymy z nasłuchem z bazy), tylko podmieniamy sam tekst.
+   ========================================================================== */
+const todayISO = () => isoDate(new Date());
+const nowMinFloat = () => {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+};
+
+/** Pusty znacznik do wypełnienia przez zegar — albo nic, gdy nie ma czego liczyć. */
+function countdownTag(dateISO, startMin, endMin) {
+  const st = countdownFor({ dateISO, startMin, endMin, todayISO: todayISO(), atMin: nowMinFloat() });
+  if (st.phase === 'past' || st.phase === 'future') return '';
+  return `<span class="countdown ${st.phase}" data-cd="${esc(dateISO)}|${startMin}|${endMin}">
+      <span class="dot" aria-hidden="true"></span><span class="cd-text">${esc(st.label)}</span>
+    </span>`;
+}
+
+/** Jeden zegar na całą stronę. */
+function tickCountdowns() {
+  const today = todayISO(), at = nowMinFloat();
+  $$('[data-cd]').forEach(el => {
+    const [dateISO, startMin, endMin] = el.dataset.cd.split('|');
+    const st = countdownFor({ dateISO, startMin: +startMin, endMin: +endMin, todayISO: today, atMin: at });
+    el.className = `countdown ${st.phase}`;
+    el.querySelector('.cd-text').textContent = st.label;
+  });
+}
+setInterval(tickCountdowns, 1000);
 
 /* ------------------------------------------------------------------ ikony */
 const ICON = {
@@ -168,6 +212,9 @@ function renderBookings(list) {
           <span><b>${esc(BOOKING_STATUS_TEXT[st] || BOOKING_STATUS_TEXT.pending)}</b>
           ${b.adminNote ? `<span class="admin-note">${esc(b.adminNote)}</span>` : ''}</span>
         </div>
+        ${st === 'accepted'
+          ? countdownTag(b.date, toMin(b.start), bookingEndMin(b, SETTINGS.dayEnd))
+          : ''}
       </article>`;
   }).join('');
 }
@@ -209,6 +256,7 @@ function renderClasses(list) {
           ${svg(st.kind === 'ok' ? 'accepted' : 'pending')}
           <span><b>${esc(st.text)}</b></span>
         </div>
+        ${countdownTag(r.eventDate, toMin(r.eventStart), toMin(r.stayUntil || r.eventEnd))}
       </article>`;
   }).join('');
 }
