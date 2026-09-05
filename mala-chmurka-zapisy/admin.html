@@ -378,6 +378,21 @@ $('#logout').onclick  = async () => { await A.signOut(auth); toast('Wylogowano.'
 /* ---------------------------------------------------------- BRAMA ------- */
 let started = false;
 
+/* Bezpiecznik: ekran nie ma prawa zostać na samym „Sprawdzam uprawnienia…". */
+let gateDone = false;
+const gateWatchdog = setTimeout(() => {
+  if (gateDone) return;
+  $('#gateBoot').hidden = false;
+  $('#gateBoot').innerHTML = `<div class="alert alert-warn" style="text-align:left">
+      <strong>Sprawdzanie trwa dłużej niż zwykle.</strong><br>
+      Nie udało się potwierdzić uprawnień — zwykle to chwilowy problem z siecią albo
+      rozszerzenie przeglądarki blokujące usługi Google.
+      <button class="btn btn-outline btn-block" id="wdRetry" style="margin-top:10px">Spróbuj ponownie</button>
+    </div>`;
+  $('#wdRetry').onclick = () => location.reload();
+}, 12000);
+const gateSettled = () => { gateDone = true; clearTimeout(gateWatchdog); };
+
 A.onAuthStateChanged(auth, async user => {
   $('#gateBoot').hidden   = true;
   $('#gateLogin').hidden  = true;
@@ -385,6 +400,7 @@ A.onAuthStateChanged(auth, async user => {
 
   /* niezalogowany → panel niewidoczny, pokazujemy ekran logowania */
   if (!user) {
+    gateSettled();
     $('#app').hidden  = true;
     $('#gate').hidden = false;
     $('#gateLogin').hidden = false;
@@ -392,6 +408,7 @@ A.onAuthStateChanged(auth, async user => {
   }
 
   const st = await adminStatus(user, { forceRefresh: true });
+  gateSettled();
 
   /* zalogowany, ale to nie jest konto obsługi → panel dalej niewidoczny */
   if (!st.ok) {

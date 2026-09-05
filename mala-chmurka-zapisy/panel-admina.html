@@ -388,8 +388,29 @@ mountChrome({ crumb: 'Panel admina' });
    gdyby ktoś podmienił ten kod w przeglądarce. */
 let booted = false;
 
+/* Bezpiecznik bramy: gdyby cokolwiek utknęło (sieć, odświeżanie tokenu,
+   blokada w przeglądarce), po kilkunastu sekundach pokazujemy wyjście awaryjne
+   zamiast zostawiać użytkownika na samym „Sprawdzam uprawnienia…". */
+let gateDone = false;
+const gateWatchdog = setTimeout(() => {
+  if (gateDone) return;
+  $('#gate').innerHTML = `<div class="card">
+      <h1 style="font-size:1.3rem">Sprawdzanie trwa dłużej niż zwykle</h1>
+      <p>Nie udało się potwierdzić uprawnień. Najczęściej to chwilowy problem z siecią
+         albo rozszerzenie przeglądarki blokujące usługi Google.</p>
+      <p class="hint">Spróbuj odświeżyć stronę. Jeśli to nie pomoże — wyloguj się
+         i zaloguj ponownie, albo otwórz panel w oknie prywatnym z wyłączonymi rozszerzeniami.</p>
+      <button class="btn btn-primary btn-block" id="wdRetry" style="margin-top:14px">Spróbuj ponownie</button>
+      <button class="btn btn-soft btn-block" id="wdOut" style="margin-top:8px">Wyloguj i zacznij od nowa</button>
+    </div>`;
+  $('#wdRetry').onclick = () => location.reload();
+  $('#wdOut').onclick = () => A.signOut(auth).finally(() => location.reload());
+}, 12000);
+const gateSettled = () => { gateDone = true; clearTimeout(gateWatchdog); };
+
 A.onAuthStateChanged(auth, async user => {
   if (!user) {
+    gateSettled();
     $('#app').hidden = true;
     $('#gate').hidden = false;
     $('#gate').innerHTML = `<div class="card">
@@ -403,6 +424,7 @@ A.onAuthStateChanged(auth, async user => {
   }
 
   const st = await adminStatus(user, { forceRefresh: true });
+  gateSettled();
 
   if (!st.ok) {
     $('#app').hidden = true;
