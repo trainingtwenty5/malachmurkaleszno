@@ -137,6 +137,10 @@ service cloud.firestore {
       allow read: if isAdmin()
                   || (isSignedIn() && resource.data.uid == request.auth.uid);
 
+      /* Administrator zakłada rezerwację przy drzwiach — od razu zaakceptowaną
+         i ewentualnie opłaconą. Klient przez formularz nadal tylko `pending`. */
+      allow create: if isAdmin();
+
       allow create: if
             request.resource.data.status          == 'pending'
         &&  request.resource.data.adminNote       == ''

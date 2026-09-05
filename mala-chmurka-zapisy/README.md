@@ -41,6 +41,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
+| `tools/test-czas.mjs` | 28 testów zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
@@ -232,6 +233,7 @@ node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
+node tools/test-czas.mjs    # 28 testów: czas zabawy, odliczanie w dół
 ```
 
 ### Czego panel *nie* chroni
@@ -373,6 +375,27 @@ Zakładka to osobny kalendarz tygodniowy (7 kolumn, na telefonie jedna) z kartam
 rezerwacji: godzina, czas pobytu, rodzic, dzieci, kwota, telefon i przyciski
 **Akceptuj / Odrzuć / Usuń**. Przy odrzuceniu możesz wpisać powód — klient zobaczy go
 w swojej historii.
+
+### Zakładka 6 · Czas zabawy
+
+Jedna lista wszystkich, którzy są dziś w bawialni — **z zajęć, z rezerwacji i wprowadzonych
+ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekundę.
+
+* Kafelki: dzieci teraz w bawialni, kończący w ciągu 15 minut, po czasie, najbliższe wyjście.
+* Wiersz robi się **żółty** na kwadrans przed końcem i **czerwony** po czasie, pokazując wtedy,
+  o ile jest po (np. `−12:30`).
+* **Wyszukiwarka** po imieniu, telefonie, źródle i godzinach; **Pobierz CSV** zgrywa to,
+  co aktualnie widać.
+* **+15 min** przedłuża pobyt, **Zakończ** ustawia koniec na teraz. Obie akcje przeliczają
+  licznik na stronie głównej, a jeśli wizyta jest już w rankingu — także jej czas pobytu.
+  Pobyty z zajęć zmienia się tam, gdzie powstały: w zakładce **Zapisani**.
+
+**Dziecko z ulicy.** Przycisk **„+ Dziecko z ulicy”** otwiera formularz: imiona po przecinku,
+godzina od i do, liczba dzieci, telefon i opcjonalnie „opłacone”. Taki wpis zapisujemy jako
+rezerwację od razu zaakceptowaną, z oznaczeniem `source: 'walkin'` — dzięki temu bez żadnego
+dodatkowego kodu wchodzi do licznika na stronie głównej, na listę czasu zabawy, a po
+odhaczeniu opłaty także do rankingu. Reguły pozwalają założyć rezerwację od razu
+zaakceptowaną **wyłącznie administratorowi**; klient przez formularz nadal tworzy `pending`.
 
 ### Co widzi klient
 

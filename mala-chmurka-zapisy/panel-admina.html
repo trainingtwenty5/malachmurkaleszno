@@ -66,6 +66,21 @@
   .bk-no{background:var(--bad-pale);color:var(--bad);border-color:#F0C9C5}
   .bk-del{background:var(--cream-deep);color:var(--muted)}
   .bk-acts button:hover{filter:brightness(.96)}
+  /* ---- zakładka 6: czas zabawy ---- */
+  .pl-left{font-family:var(--font-head);font-weight:700;font-size:1.05rem;white-space:nowrap;
+    font-variant-numeric:tabular-nums}
+  .pl-row.playing .pl-left{color:var(--ok)}
+  .pl-row.soon .pl-left{color:var(--warn)}
+  .pl-row.over .pl-left{color:var(--bad)}
+  .pl-row.waiting .pl-left{color:var(--muted)}
+  .pl-row.over{background:var(--bad-pale)}
+  .pl-row.soon{background:var(--warn-pale)}
+  .pl-src{font-size:.78rem;border-radius:999px;padding:.12em .65em;background:var(--cream-deep);
+    color:var(--muted);font-family:var(--font-head);font-weight:600;white-space:nowrap}
+  .pl-acts{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+  .pl-acts button{font-size:.78rem;padding:.3em .7em;border-radius:8px;font-family:var(--font-head);
+    font-weight:600;border:1px solid var(--line);background:var(--white);color:var(--navy-deep)}
+  .pl-acts button:hover{background:var(--cream-deep)}
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
 </style>
@@ -96,6 +111,7 @@
         <button data-tab="count">3 · Licznik w bawialni</button>
         <button data-tab="rank">4 · Ranking wizyt</button>
         <button data-tab="book">5 · Rezerwacje <span class="tab-badge" id="bookBadge" hidden>0</span></button>
+        <button data-tab="play">6 · Czas zabawy</button>
       </nav>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
@@ -284,9 +300,77 @@
         <div class="bk-grid" id="bkGrid"></div>
         <p class="hint" id="bkCount" style="margin-top:12px"></p>
       </section>
+
+      <!-- ============================== 6. CZAS ZABAWY ============================== -->
+      <section class="panel" id="tab-play">
+        <div class="stat-cards">
+          <div class="stat-card"><div class="k">Dzieci teraz w bawialni</div><div class="v" id="plNow">—</div></div>
+          <div class="stat-card"><div class="k">Kończą w ciągu 15 min</div><div class="v" id="plSoon">—</div></div>
+          <div class="stat-card"><div class="k">Po czasie</div><div class="v" id="plOver">—</div></div>
+          <div class="stat-card"><div class="k">Najbliższe wyjście</div><div class="v" id="plNext">—</div></div>
+        </div>
+
+        <div class="bar">
+          <input class="control grow" id="plQ" placeholder="Szukaj: imię dziecka, telefon, godzina (np. 15:30)…">
+          <button class="btn btn-primary btn-sm btn-auto" id="plAdd">+ Dziecko z ulicy</button>
+          <button class="btn btn-soft btn-sm btn-auto" id="plExport">Pobierz CSV</button>
+        </div>
+
+        <p class="hint" style="margin:-6px 0 12px">
+          Czas leci w dół dla wszystkich, którzy są dziś w bawialni — z zajęć, z rezerwacji
+          i wprowadzonych ręcznie przy drzwiach. Po upływie czasu wiersz robi się czerwony
+          i pokazuje, o ile jest po czasie. <strong>+15 min</strong> przedłuża pobyt,
+          <strong>Zakończ</strong> ustawia koniec na teraz.</p>
+
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Dzieci</th><th>Skąd</th><th>Od</th><th>Do</th>
+              <th>Pozostało</th><th>Telefon</th><th></th>
+            </tr></thead>
+            <tbody id="plRows"></tbody>
+          </table>
+        </div>
+        <p class="hint" id="plCount" style="margin-top:10px"></p>
+      </section>
     </div>
   </div>
 </main>
+
+<!-- ======================= MODAL: dziecko z ulicy ======================= -->
+<div class="modal" id="wiModal" role="dialog" aria-modal="true" aria-labelledby="wiTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="wiTitle">Dziecko z ulicy</h2>
+      <button class="modal-close" id="wiClose" aria-label="Zamknij">×</button>
+    </div>
+    <form id="wiForm">
+      <div id="wiMsg"></div>
+      <p class="hint" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz imiona i godziny —
+        dzieci od razu wejdą do licznika na stronie i na listę czasu zabawy.</p>
+
+      <div class="field">
+        <label for="wiNames">Imiona dzieci (po przecinku) *</label>
+        <input class="control" id="wiNames" required placeholder="np. Zosia, Antek">
+      </div>
+      <div class="row3">
+        <div class="field"><label for="wiFrom">Od godziny *</label><input class="control" id="wiFrom" type="time" required></div>
+        <div class="field"><label for="wiTo">Do godziny *</label><input class="control" id="wiTo" type="time" required></div>
+        <div class="field"><label for="wiQty">Liczba dzieci</label><input class="control" id="wiQty" type="number" min="1" max="10" value="1"></div>
+      </div>
+      <div class="field">
+        <label for="wiPhone">Telefon (nieobowiązkowy)</label>
+        <input class="control" id="wiPhone" type="tel" placeholder="np. 726 431 978">
+      </div>
+      <label class="check"><input type="checkbox" id="wiPaid"><span>Opłacone (dopisze wizytę do rankingu)</span></label>
+
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline btn-sm" id="wiCancel">Anuluj</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="wiSave">Dodaj do bawialni</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- ======================= MODAL: zajęcia ======================= -->
 <div class="modal" id="evModal" role="dialog" aria-modal="true" aria-labelledby="evModalTitle">
@@ -382,7 +466,7 @@
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren,
-         bookingEndMin } from './assets/mc-common.js';
+         bookingEndMin, playtimeRows, fmtCountdown } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          watchRegistrations, updateRegistration, deleteRegistration,
@@ -392,7 +476,7 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          watchBookings, setBookingStatus, deleteBooking,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
-         updateBooking, applyBookingToRanking } from './assets/mc-data.js';
+         updateBooking, applyBookingToRanking, createWalkin, extendBooking } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -473,6 +557,7 @@ $$('.admin-tabs button').forEach(b => b.onclick = () => {
   $$('.panel').forEach(p => p.classList.toggle('is-on', p.id === 'tab-' + b.dataset.tab));
   if (b.dataset.tab === 'rank') loadRanking();
   if (b.dataset.tab === 'book') renderBookings();
+  if (b.dataset.tab === 'play') { renderPlaytime(); startPlayClock(); } else stopPlayClock();
 });
 
 /* ================================================== STAN WSPÓŁDZIELONY ==== */
@@ -1131,6 +1216,195 @@ async function removeBooking(id) {
   }
   catch (err) { toast('Nie udało się usunąć: ' + (err.message || '')); }
 }
+
+
+/* ==========================================================================
+   6. CZAS ZABAWY
+   Jedna lista wszystkich, którzy są dziś w bawialni — z zajęć, z rezerwacji
+   i wprowadzonych ręcznie przy drzwiach — z czasem lecącym w dół.
+   Dane biorą się z tych samych nasłuchów, co reszta panelu, więc nic
+   dodatkowego nie odpytujemy.
+   ========================================================================== */
+let playTimer = null;
+
+const nowMinFloat = () => {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+};
+
+function startPlayClock() {
+  stopPlayClock();
+  playTimer = setInterval(renderPlaytime, 1000);
+}
+function stopPlayClock() {
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+}
+
+/** Wszystkie dzisiejsze pobyty, policzone na teraz. */
+function allPlayRows() {
+  return playtimeRows({
+    regs: REGS, bookings: BOOKINGS,
+    dateISO: todayISO(), atMin: nowMinFloat(), dayEnd: SETTINGS.dayEnd
+  });
+}
+
+/** To samo, ale po zastosowaniu wyszukiwarki. */
+function playRows() {
+  const rows = allPlayRows();
+  const q = ($('#plQ').value || '').trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(r => [...r.names, r.phone, r.sourceLabel, r.title,
+      fmtMin(r.startMin), fmtMin(r.endMin)].join(' ').toLowerCase().includes(q));
+}
+
+function renderPlaytime() {
+  const all = allPlayRows();
+  const playing = all.filter(r => r.state === 'playing');
+
+  $('#plNow').textContent  = playing.reduce((n, r) => n + r.qty, 0);
+  $('#plSoon').textContent = playing.filter(r => r.remaining <= 15).length;
+  $('#plOver').textContent = all.filter(r => r.state === 'over').length;
+  const next = playing.slice().sort((a, b) => a.remaining - b.remaining)[0];
+  $('#plNext').textContent = next ? fmtCountdown(next.remaining) : '—';
+
+  const rows = playRows();
+  if (!rows.length) {
+    $('#plRows').innerHTML = `<tr><td colspan="7"><div class="empty">${
+      all.length ? 'Nic nie pasuje do wyszukiwania.'
+                 : 'Dziś nikogo jeszcze nie ma w bawialni. Kliknij „+ Dziecko z ulicy”, żeby dodać wejście bez zapisu.'
+    }</div></td></tr>`;
+    $('#plCount').textContent = '';
+    return;
+  }
+
+  $('#plRows').innerHTML = rows.map(r => {
+    const cls = r.state === 'over' ? 'over'
+              : r.state === 'waiting' ? 'waiting'
+              : r.remaining <= 15 ? 'soon' : 'playing';
+    const left = r.state === 'waiting' ? `za ${fmtCountdown(r.startMin - nowMinFloat())}`
+               : r.state === 'over'    ? `po czasie ${fmtCountdown(r.remaining)}`
+               : fmtCountdown(r.remaining);
+    const acts = r.source === 'classes'
+      ? '<span class="hint">zmień w „Zapisani”</span>'
+      : `<button data-plus="${r.id}">+15 min</button><button data-stop="${r.id}">Zakończ</button>`;
+    return `<tr class="pl-row ${cls}">
+      <td><strong>${esc(r.names.join(', ') || '—')}</strong>${
+        r.qty > 1 ? `<br><span class="hint">${esc(plDzieci(r.qty))}</span>` : ''}</td>
+      <td><span class="pl-src">${esc(r.sourceLabel)}</span>${
+        r.title ? `<br><span class="hint">${esc(r.title)}</span>` : ''}</td>
+      <td class="num">${esc(fmtMin(r.startMin))}</td>
+      <td class="num">${esc(fmtMin(r.endMin))}</td>
+      <td class="pl-left">${esc(left)}</td>
+      <td>${r.phone ? `<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : '—'}</td>
+      <td><div class="pl-acts">${acts}</div></td>
+    </tr>`;
+  }).join('');
+
+  $$('#plRows [data-plus]').forEach(el => el.onclick = () => addTime(el.dataset.plus, 15));
+  $$('#plRows [data-stop]').forEach(el => el.onclick = () => endNow(el.dataset.stop));
+
+  $('#plCount').textContent = `Pokazano ${rows.length} z ${all.length} pobytów.`;
+}
+
+/** Czas pobytu w rankingu musi nadążać za zmianą godziny wyjścia. */
+async function reRank(b, stayUntil) {
+  if (!b.countedInRanking) return;
+  await applyBookingToRanking(b, -1);
+  await applyBookingToRanking({ ...b, stayUntil }, +1);
+}
+
+async function addTime(id, minutes) {
+  const b = BOOKINGS.find(x => x.id === id);
+  if (!b) return;
+  try {
+    const hhmm = await extendBooking(b, minutes);
+    await reRank(b, hhmm);
+    await refreshPresence();
+    toast(`Przedłużono do ${hhmm}.`);
+  } catch (err) { toast('Nie udało się przedłużyć: ' + (err.message || '')); }
+}
+
+async function endNow(id) {
+  const b = BOOKINGS.find(x => x.id === id);
+  if (!b) return;
+  const hhmm = fmtMin(Math.floor(nowMinFloat()));
+  try {
+    await updateBooking(id, { stayUntil: hhmm });
+    await reRank(b, hhmm);
+    await refreshPresence();
+    toast(`Pobyt zakończony o ${hhmm}.`);
+  } catch (err) { toast('Nie udało się zakończyć: ' + (err.message || '')); }
+}
+
+$('#plQ').oninput = renderPlaytime;
+
+/* ---------------------------------------------------- dziecko z ulicy --- */
+const wiModal = $('#wiModal');
+const wiCloseM = () => wiModal.classList.remove('is-open');
+
+$('#plAdd').onclick = () => {
+  const now = Math.floor(nowMinFloat());
+  $('#wiFrom').value = fmtMin(now);
+  $('#wiTo').value   = fmtMin(Math.min(now + 60, 23 * 60 + 59));
+  $('#wiNames').value = '';
+  $('#wiQty').value = 1;
+  $('#wiPhone').value = '';
+  $('#wiPaid').checked = false;
+  $('#wiMsg').innerHTML = '';
+  wiModal.classList.add('is-open');
+  $('#wiNames').focus();
+};
+$('#wiClose').onclick = $('#wiCancel').onclick = wiCloseM;
+wiModal.addEventListener('click', e => { if (e.target === wiModal) wiCloseM(); });
+
+const wiBad = text => { $('#wiMsg').innerHTML = `<div class="alert alert-bad">${esc(text)}</div>`; };
+
+$('#wiForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const names = $('#wiNames').value.split(',').map(x => x.trim()).filter(Boolean);
+  const from = $('#wiFrom').value, to = $('#wiTo').value;
+  if (!names.length)            return wiBad('Podaj imię przynajmniej jednego dziecka.');
+  if (!from || !to)             return wiBad('Podaj godziny od i do.');
+  if (toMin(to) <= toMin(from)) return wiBad('Godzina wyjścia musi być późniejsza niż wejścia.');
+
+  $('#wiSave').disabled = true;
+  try {
+    const b = await createWalkin({
+      names,
+      qty: Number($('#wiQty').value) || names.length,
+      start: from, stayUntil: to,
+      phone: $('#wiPhone').value,
+      paid: $('#wiPaid').checked
+    });
+    if (b.paid) {
+      await applyBookingToRanking(b, +1).catch(() => {});
+      await markBookingCounted(b.id, true).catch(() => {});
+    }
+    await refreshPresence();
+    toast('Dodano do bawialni.');
+    wiCloseM();
+  } catch (err) {
+    wiBad(err.message || 'Nie udało się dodać.');
+  } finally { $('#wiSave').disabled = false; }
+});
+
+/* ------------------------------------------------------------- eksport -- */
+$('#plExport').onclick = () => {
+  const rows = [['Dzieci', 'Liczba dzieci', 'Skąd', 'Od', 'Do', 'Pozostało', 'Stan', 'Telefon'],
+    ...playRows().map(r => [
+      r.names.join(', '), r.qty, r.sourceLabel,
+      fmtMin(r.startMin), fmtMin(r.endMin), fmtCountdown(r.remaining),
+      r.state === 'over' ? 'po czasie' : r.state === 'waiting' ? 'jeszcze nie zaczął' : 'w bawialni',
+      r.phone
+    ])];
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `czas-zabawy-mala-chmurka-${todayISO()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 </script>
 </body>

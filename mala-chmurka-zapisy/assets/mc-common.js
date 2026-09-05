@@ -356,3 +356,92 @@ export function seatState(ev, todayISO, nowMinutes) {
   if (free === 0) return { state: 'full', free: 0, text: 'Brak wolnych miejsc', short: 'brak miejsc' };
   return { state: 'open', free, text: `${free} z ${ev.capacity || 0} wolnych`, short: `${free} wolnych` };
 }
+
+/* ==========================================================================
+   CZAS ZABAWY — ile dziecko ma jeszcze czasu w bawialni
+   --------------------------------------------------------------------------
+   Zbiera w jedną listę wszystkich, którzy są dziś w bawialni, bez względu na
+   to, skąd się wzięli: z zajęć, z rezerwacji wstępu albo wprowadzeni ręcznie
+   przy drzwiach. Dla każdego liczy, ile czasu zostało.
+
+   Funkcje czyste, żeby dały się przetestować bez przeglądarki.
+   ========================================================================== */
+
+export const PLAYTIME_SOURCE = {
+  classes:  'zajęcia',
+  booking:  'rezerwacja',
+  walkin:   'z ulicy'
+};
+
+/** Nazwy dzieci z zapisu na zajęcia — nowy kształt i stary. */
+function namesFromRegistration(r) {
+  if (Array.isArray(r.children) && r.children.length) {
+    return r.children.map(c => `${c.firstName || ''} ${c.lastName || ''}`.trim()).filter(Boolean);
+  }
+  const one = `${r.childFirstName || ''} ${r.childLastName || ''}`.trim();
+  return one ? [one] : [];
+}
+
+/**
+ * Jedna wspólna lista pobytów na dany dzień.
+ *
+ * @param {object} o
+ * @param {Array}  o.regs      zapisy na zajęcia
+ * @param {Array}  o.bookings  rezerwacje wstępu (także te wprowadzone ręcznie)
+ * @param {string} o.dateISO   dzień
+ * @param {number} o.atMin     minuta dnia (może być ułamkowa — do sekundnika)
+ * @param {string} [o.dayEnd]  godzina zamknięcia dla pobytu „bez limitu"
+ * @returns {Array} wiersze: { id, source, sourceLabel, names, qty, startMin, endMin,
+ *                             remaining, state: 'waiting'|'playing'|'over', phone }
+ */
+export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd = '20:00' } = {}) {
+  const rows = [];
+
+  (regs || []).forEach(r => {
+    if (r.eventDate !== dateISO) return;
+    if (!r.attended || !r.paid) return;          // liczą się tylko potwierdzone obecności
+    rows.push({
+      id: r.id, source: 'classes',
+      names: namesFromRegistration(r),
+      qty: Number(r.qty) || 1,
+      startMin: toMin(r.eventStart),
+      endMin: toMin(r.stayUntil || r.eventEnd),
+      phone: r.phone || '',
+      title: r.eventTitle || ''
+    });
+  });
+
+  (bookings || []).forEach(b => {
+    if (b.date !== dateISO) return;
+    if (b.status !== 'accepted') return;         // czeka na decyzję albo odrzucona
+    rows.push({
+      id: b.id, source: b.source === 'walkin' ? 'walkin' : 'booking',
+      names: (b.children || []).map(c => String(c.name || '').trim()).filter(Boolean),
+      qty: Number(b.qty) || 1,
+      startMin: toMin(b.start),
+      endMin: bookingEndMin(b, dayEnd),
+      phone: b.phone || '',
+      title: b.durationLabel || ''
+    });
+  });
+
+  return rows.map(row => {
+    const remaining = row.endMin - atMin;
+    const state = atMin < row.startMin ? 'waiting' : (remaining > 0 ? 'playing' : 'over');
+    return { ...row, remaining, state, sourceLabel: PLAYTIME_SOURCE[row.source] };
+  }).sort((a, b) => a.endMin - b.endMin || a.startMin - b.startMin);
+}
+
+/**
+ * Odliczanie w formie „1:23:45" / „23:45", a po czasie „−05:12".
+ * Przyjmuje minuty (mogą być ułamkowe).
+ */
+export function fmtCountdown(minutes) {
+  const total = Math.round(Math.abs(Number(minutes) || 0) * 60);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = n => String(n).padStart(2, '0');
+  const body = h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  return (Number(minutes) < 0 ? '−' : '') + body;
+}
