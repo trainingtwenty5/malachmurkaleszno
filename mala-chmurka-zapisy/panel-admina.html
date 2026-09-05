@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Panel admina — Mała Chmurka</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .admin-tabs{display:flex;gap:6px;flex-wrap:wrap;background:var(--cream-deep);padding:6px;
+    border-radius:var(--radius);margin:16px 0 22px}
+  .admin-tabs button{padding:.6em 1.1em;border-radius:12px;font-family:var(--font-head);font-weight:600;
+    font-size:.94rem;color:var(--navy-deep);white-space:nowrap}
+  .admin-tabs button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+  .panel{display:none}
+  .panel.is-on{display:block}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .bar .grow{flex:1;min-width:180px}
+  .stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+  .stat-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow-sm)}
+  .stat-card .k{font-size:.82rem;color:var(--muted)}
+  .stat-card .v{font-family:var(--font-head);font-weight:700;font-size:1.55rem;color:var(--navy-deep);line-height:1.2}
+  .swatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .swatches button{width:28px;height:28px;border-radius:8px;border:2px solid transparent}
+  .swatches button.is-on{border-color:var(--navy-deep);transform:scale(1.08)}
+  .reg-row td{vertical-align:top}
+  .who-cell strong{display:block}
+  .who-cell span{font-size:.85rem;color:var(--muted)}
+  .mini{width:132px;min-width:132px}
+  .gate{max-width:460px;margin:60px auto;text-align:center}
+  .day-add{width:100%;margin-top:8px;font-size:.86rem;padding:.55em 1em;border:1px dashed var(--brand-deep);
+    border-radius:12px;color:var(--brand-deep);background:var(--brand-pale);font-family:var(--font-head);font-weight:600}
+  .rank-pos{font-family:var(--font-head);font-weight:700;color:var(--wood-dark);width:38px}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container">
+
+    <!-- brama dostępu -->
+    <section class="gate" id="gate">
+      <div class="loading"><span class="spin"></span> Sprawdzam uprawnienia…</div>
+    </section>
+
+    <!-- panel -->
+    <div id="app" hidden>
+      <div class="bar">
+        <div class="grow">
+          <h1 style="margin:0">Panel admina</h1>
+          <p class="hint" style="margin:0">Zalogowany: <span id="me">—</span></p>
+        </div>
+        <button class="btn btn-soft btn-sm btn-auto" id="logout">Wyloguj</button>
+      </div>
+
+      <nav class="admin-tabs" role="tablist">
+        <button data-tab="cal"   class="is-on">1 · Kalendarz zajęć</button>
+        <button data-tab="regs">2 · Zapisani</button>
+        <button data-tab="count">3 · Licznik w bawialni</button>
+        <button data-tab="rank">4 · Ranking wizyt</button>
+      </nav>
+
+      <!-- ============================== 1. KALENDARZ ============================== -->
+      <section class="panel is-on" id="tab-cal">
+        <div class="cal-toolbar">
+          <button class="cal-nav" id="prev" aria-label="Poprzedni tydzień">‹</button>
+          <button class="cal-nav" id="next" aria-label="Następny tydzień">›</button>
+          <button class="btn btn-soft cal-today btn-auto" id="today">Dziś</button>
+          <div class="cal-range" id="range">—</div>
+          <button class="btn btn-primary btn-sm btn-auto" id="addNew">+ Nowe zajęcia</button>
+        </div>
+        <p class="hint" style="margin:-6px 0 12px">
+          Kliknij w wolne pole w siatce, żeby dodać zajęcia o tej godzinie. Kliknij w kafelek, żeby go edytować,
+          skopiować albo powielić na kolejne tygodnie.</p>
+
+        <div class="cal">
+          <div class="cal-scroll">
+            <div class="cal-inner">
+              <div class="cal-head" id="head"><div class="gut"></div></div>
+              <div class="cal-body" id="body"><div class="gut-col" id="gut"></div></div>
+            </div>
+          </div>
+          <div class="cal-agenda" id="agenda"></div>
+        </div>
+      </section>
+
+      <!-- ============================== 2. ZAPISANI ============================== -->
+      <section class="panel" id="tab-regs">
+        <div class="stat-cards" id="regStats"></div>
+        <div class="bar">
+          <input class="control grow" id="q" placeholder="Szukaj: imię, nazwisko, telefon, e-mail, godzina (np. 09:30)…">
+          <input class="control mini" id="fFrom" type="date" aria-label="Od">
+          <input class="control mini" id="fTo" type="date" aria-label="Do">
+          <select class="control mini" id="fStatus" aria-label="Filtr">
+            <option value="">wszyscy</option>
+            <option value="pending">do potwierdzenia</option>
+            <option value="here">obecni teraz</option>
+            <option value="paid">opłaceni</option>
+            <option value="unpaid">nieopłaceni</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Termin</th><th>Zajęcia</th><th>Dziecko / rodzic</th><th>Kontakt</th>
+              <th>Do godz.</th><th>Przyszedł</th><th>Opłacone</th><th></th>
+            </tr></thead>
+            <tbody id="regRows"></tbody>
+          </table>
+        </div>
+        <p class="hint" id="regCount" style="margin-top:10px"></p>
+      </section>
+
+      <!-- ============================== 3. LICZNIK ============================== -->
+      <section class="panel" id="tab-count">
+        <div class="stat-cards">
+          <div class="stat-card"><div class="k">Teraz w bawialni</div><div class="v" id="cNow">—</div></div>
+          <div class="stat-card"><div class="k">Pokazywane do godziny</div><div class="v" id="cUntil">—</div></div>
+          <div class="stat-card"><div class="k">Tryb licznika</div><div class="v" id="cMode">—</div></div>
+          <div class="stat-card"><div class="k">Odwiedziło nas łącznie</div><div class="v" id="cVisits">—</div></div>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size:1.1rem">Ręczne ustawienie licznika</h2>
+          <p class="hint">Normalnie licznik liczy się sam z zaznaczonych w zakładce „Zapisani" checkboxów
+            <em>przyszedł</em> + <em>opłacone</em>. Tutaj możesz go nadpisać ręcznie — np. gdy ktoś wszedł z ulicy
+            bez zapisu. Po upływie ustawionej godziny licznik na stronie sam wraca do zera.</p>
+          <div class="row3">
+            <div class="field">
+              <label for="mCount">Liczba dzieci</label>
+              <input class="control" id="mCount" type="number" min="0" max="99" value="0">
+            </div>
+            <div class="field">
+              <label for="mUntil">Do godziny</label>
+              <input class="control" id="mUntil" type="time" value="18:00">
+            </div>
+            <div class="field">
+              <label for="mCap">Maksimum (mianownik)</label>
+              <input class="control" id="mCap" type="number" min="1" max="99" value="6">
+            </div>
+          </div>
+          <div class="bar">
+            <button class="btn btn-primary btn-auto" id="saveManual">Zapisz ręczne ustawienie</button>
+            <button class="btn btn-outline btn-auto" id="autoMode">Wróć do trybu automatycznego</button>
+            <button class="btn btn-soft btn-auto" id="zero">Wyzeruj licznik</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <h2 style="font-size:1.1rem">Licznik odwiedzin</h2>
+          <p class="hint">Liczba pokazywana na stronie głównej: „odwiedziło nas już…". Rośnie o 1 przy każdym zapisie.</p>
+          <div class="row2">
+            <div class="field">
+              <label for="vBase">Wartość startowa</label>
+              <input class="control" id="vBase" type="number" min="0" value="266">
+            </div>
+            <div class="field">
+              <label for="vCount">Doliczone zapisy</label>
+              <input class="control" id="vCount" type="number" min="0" value="0">
+            </div>
+          </div>
+          <div class="bar">
+            <button class="btn btn-primary btn-auto" id="saveVisits">Zapisz licznik odwiedzin</button>
+            <button class="btn btn-outline btn-auto" id="recountVisits">Przelicz z bazy zapisów</button>
+          </div>
+          <p class="hint" style="margin:0">„Przelicz z bazy" ustawia doliczone zapisy na faktyczną liczbę
+            rekordów w bazie — przydaje się, gdyby licznik kiedykolwiek się rozjechał.</p>
+        </div>
+      </section>
+
+      <!-- ============================== 4. RANKING ============================== -->
+      <section class="panel" id="tab-rank">
+        <div class="bar">
+          <input class="control grow" id="qRank" placeholder="Szukaj po imieniu, telefonie lub e-mailu…">
+          <button class="btn btn-soft btn-sm btn-auto" id="exportRank">Pobierz CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>#</th><th>Dziecko</th><th>Rodzic</th><th>Telefon</th><th>E-mail</th>
+              <th>Liczba wizyt</th><th>Łączny czas</th><th>Ostatnia wizyta</th>
+            </tr></thead>
+            <tbody id="rankRows"></tbody>
+          </table>
+        </div>
+        <p class="hint" id="rankCount" style="margin-top:10px"></p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- ======================= MODAL: zajęcia ======================= -->
+<div class="modal" id="evModal" role="dialog" aria-modal="true" aria-labelledby="evModalTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="evModalTitle">Nowe zajęcia</h2>
+      <button class="modal-close" id="evClose" aria-label="Zamknij">×</button>
+    </div>
+
+    <form id="evForm">
+      <div class="field">
+        <label for="fTitle">Nazwa zajęć *</label>
+        <input class="control" id="fTitle" required placeholder="np. Logosensoryka (8–36 m-cy)">
+      </div>
+
+      <div class="row3">
+        <div class="field"><label for="fDate">Data *</label><input class="control" id="fDate" type="date" required></div>
+        <div class="field"><label for="fStart">Od *</label><input class="control" id="fStart" type="time" required></div>
+        <div class="field"><label for="fEnd">Do *</label><input class="control" id="fEnd" type="time" required></div>
+      </div>
+
+      <div class="field">
+        <label for="fColor">Kolor kafelka</label>
+        <input class="control" id="fColor" type="color" value="#93C7CF">
+        <div class="swatches" id="swatches"></div>
+      </div>
+
+      <div class="row3">
+        <div class="field"><label for="fCap">Liczba miejsc</label><input class="control" id="fCap" type="number" min="1" max="99" value="10"></div>
+        <div class="field"><label for="fBooked">Już zajęte</label><input class="control" id="fBooked" type="number" min="0" value="0"></div>
+        <div class="field"><label for="fPrice">Cena za dziecko (zł)</label><input class="control" id="fPrice" type="number" min="0" step="1" value="0"></div>
+      </div>
+
+      <div class="row3">
+        <div class="field"><label for="fAgeMin">Wiek od (lat)</label><input class="control" id="fAgeMin" type="number" min="0" max="18" value="0"></div>
+        <div class="field"><label for="fAgeMax">Wiek do (lat)</label><input class="control" id="fAgeMax" type="number" min="0" max="18" value="6"></div>
+        <div class="field"><label for="fBadge">Etykieta</label><input class="control" id="fBadge" placeholder="np. edukacja"></div>
+      </div>
+
+      <div class="field">
+        <label for="fShort">Krótki opis (widoczny przy wyborze zajęć)</label>
+        <textarea class="control" id="fShort" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label for="fDesc">Pełny opis zajęć (strona zajęć)</label>
+        <textarea class="control" id="fDesc" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label for="fOrg">O organizatorze / o miejscu</label>
+        <textarea class="control" id="fOrg" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label for="fNote">Ważne informacje (opcjonalnie)</label>
+        <textarea class="control" id="fNote" rows="2" placeholder="np. weź skarpetki antypoślizgowe"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="fLoc">Miejsce</label>
+        <input class="control" id="fLoc">
+      </div>
+
+      <div class="field">
+        <label for="fImages">Zdjęcia — adresy URL, każdy w nowej linii</label>
+        <textarea class="control" id="fImages" rows="3" placeholder="/img/warsztaty.jpg&#10;/img/domki.jpg"></textarea>
+      </div>
+
+      <fieldset>
+        <legend>Metody płatności</legend>
+        <label class="check"><input type="checkbox" class="pay" value="Płatność na miejscu" checked><span>Płatność na miejscu</span></label>
+        <label class="check"><input type="checkbox" class="pay" value="Przelew bankowy" checked><span>Przelew bankowy</span></label>
+        <label class="check"><input type="checkbox" class="pay" value="Płatność online"><span>Płatność online</span></label>
+      </fieldset>
+
+      <div class="row3">
+        <div class="field"><label for="fArrive">Przyjdź ile minut wcześniej</label><input class="control" id="fArrive" type="number" min="0" max="90" value="10"></div>
+        <div class="field"><label for="fCancel">Bezpłatna rezygnacja (godz. przed)</label><input class="control" id="fCancel" type="number" min="0" max="168" value="24"></div>
+        <div class="field"><label for="fRepeat">Powiel na kolejne tygodnie</label><input class="control" id="fRepeat" type="number" min="0" max="52" value="0"></div>
+      </div>
+
+      <label class="check"><input type="checkbox" id="fActive" checked><span>Zajęcia widoczne dla klientów</span></label>
+
+      <div class="modal-foot">
+        <button type="button" class="btn btn-danger btn-sm spacer" id="evDelete" hidden>Usuń zajęcia</button>
+        <button type="button" class="btn btn-soft btn-sm" id="evDuplicate" hidden>Duplikuj</button>
+        <button type="button" class="btn btn-outline btn-sm" id="evCancel">Anuluj</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="evSave">Zapisz</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
+         DAY_NAMES, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin,
+         PALETTE, URLS, SETTINGS } from './assets/mc-common.js';
+import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
+import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
+         watchRegistrations, updateRegistration, deleteRegistration,
+         applyVisitToRanking, listGuests, computePresence, pushPresence,
+         setPresenceManual, clearPresenceManual, watchPresence, watchStats,
+         setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin } from './assets/mc-data.js';
+
+mountChrome({ crumb: 'Panel admina' });
+
+/* ====================================================== BRAMA DOSTĘPU ====
+   Ukrycie panelu to tylko wygoda dla oka. Prawdziwą blokadę stawia Firestore
+   (plik firestore.rules) — bez uprawnień żaden zapis nie przejdzie, nawet
+   gdyby ktoś podmienił ten kod w przeglądarce. */
+let booted = false;
+
+A.onAuthStateChanged(auth, async user => {
+  if (!user) {
+    $('#app').hidden = true;
+    $('#gate').hidden = false;
+    $('#gate').innerHTML = `<div class="card">
+        <h1 style="font-size:1.3rem">Panel administratora</h1>
+        <p class="lead">Zaloguj się kontem administratora, żeby zarządzać zajęciami i zapisami.</p>
+        <a class="btn btn-primary btn-block" style="margin-top:14px" href="admin.html">Przejdź do logowania</a>
+        <a class="btn btn-outline btn-block" style="margin-top:8px"
+           href="${URLS.login}?next=${encodeURIComponent(location.pathname)}">Logowanie klienta</a>
+      </div>`;
+    return;
+  }
+
+  const st = await adminStatus(user, { forceRefresh: true });
+
+  if (!st.ok) {
+    $('#app').hidden = true;
+    $('#gate').hidden = false;
+    $('#gate').innerHTML = `<div class="card">
+        <h1 style="font-size:1.3rem">Brak uprawnień</h1>
+        <p>Konto <strong>${esc(user.email || '')}</strong> nie ma dostępu do panelu.</p>
+        ${st.reason === 'unverified'
+          ? `<p class="hint">Ten adres jest na liście administratorów, ale nie został jeszcze
+               potwierdzony. Otwórz <a href="admin.html">stronę logowania administratora</a>
+               i wyślij sobie link potwierdzający.</p>`
+          : `<p class="hint">Dostęp mają wyłącznie konta z listy administratorów
+               (${ADMIN_EMAILS.map(e => `<code>${esc(e)}</code>`).join(', ')}) oraz konta
+               z uprawnieniem <code>admin</code> nadanym w Firebase. Listę zmienia się
+               w <code>assets/firebase-config.js</code> ORAZ w <code>firestore.rules</code>.</p>`}
+        <button class="btn btn-soft btn-block" id="gateOut" style="margin-top:14px">Wyloguj</button>
+      </div>`;
+    $('#gateOut').onclick = () => A.signOut(auth);
+    return;
+  }
+
+  $('#gate').hidden = true;
+  $('#app').hidden = false;
+  $('#me').textContent = user.email || user.uid;
+  if (!booted) { booted = true; start(); }
+});
+$('#logout').onclick = () => A.signOut(auth).then(() => location.reload());
+
+/* ============================================================ ZAKŁADKI ==== */
+$$('.admin-tabs button').forEach(b => b.onclick = () => {
+  $$('.admin-tabs button').forEach(x => x.classList.toggle('is-on', x === b));
+  $$('.panel').forEach(p => p.classList.toggle('is-on', p.id === 'tab-' + b.dataset.tab));
+  if (b.dataset.tab === 'rank') loadRanking();
+});
+
+/* ================================================== STAN WSPÓŁDZIELONY ==== */
+const SLOT = 34, PXM = SLOT / 30;
+let monday = weekStart(new Date());
+let EVENTS = [], REGS = [], PRESENCE = null, unsubEv = null, unsubReg = null;
+
+function start() {
+  ensureSettings().catch(() => {});
+  loadWeek();
+  const from = isoDate(addDays(new Date(), -120));
+  const to   = isoDate(addDays(new Date(),  120));
+  if (unsubReg) unsubReg();
+  unsubReg = watchRegistrations({ fromISO: from, toISO: to }, list => { REGS = list; renderRegs(); renderRegStats(); });
+  watchPresence(p => {
+    if (!p) return;
+    PRESENCE = p;
+    $('#cNow').textContent   = `${p.count ?? 0} / ${p.capacity ?? SETTINGS.capacity}`;
+    $('#cUntil').textContent = p.until || '—';
+    $('#cMode').textContent  = p.manual ? 'ręczny' : 'automatyczny';
+    $('#mCount').value = p.count ?? 0;
+    if (p.until) $('#mUntil').value = p.until;
+    $('#mCap').value = p.capacity ?? SETTINGS.capacity;
+  });
+  watchStats(s => {
+    if (!s) return;
+    $('#cVisits').textContent = (Number(s.visitsBase) || 0) + (Number(s.visitsCount) || 0);
+    $('#vBase').value  = s.visitsBase ?? SETTINGS.visitsBase;
+    $('#vCount').value = s.visitsCount ?? 0;
+  });
+}
+
+/* ======================================================= 1. KALENDARZ ==== */
+function bounds(list) {
+  let s = toMin(SETTINGS.dayStart), e = toMin(SETTINGS.dayEnd);
+  list.forEach(ev => { s = Math.min(s, Math.floor(toMin(ev.start)/60)*60); e = Math.max(e, Math.ceil(toMin(ev.end)/60)*60); });
+  return [s, Math.max(e, s + 120)];
+}
+
+function renderCal() {
+  const days = [...Array(7)].map((_, i) => addDays(monday, i));
+  const a = days[0], b = days[6];
+  $('#range').textContent = a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${MONTHS_GEN[a.getMonth()]} ${a.getFullYear()}`
+    : `${a.getDate()} ${MONTHS_GEN[a.getMonth()]} – ${b.getDate()} ${MONTHS_GEN[b.getMonth()]} ${b.getFullYear()}`;
+
+  const todayIso = todayISO();
+  const [START, END] = bounds(EVENTS);
+
+  const head = $('#head');
+  head.innerHTML = '<div class="gut"></div>';
+  days.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = 'day-head' + (i >= 5 ? ' is-weekend' : '') + (isoDate(d) === todayIso ? ' is-today' : '');
+    el.innerHTML = `<div class="day-num">${d.getDate()}</div><div class="day-name">${DAY_NAMES[i]}</div>`;
+    head.appendChild(el);
+  });
+
+  const gut = $('#gut');
+  gut.innerHTML = '';
+  for (let m = START + 30; m <= END; m += 30) {
+    const h = document.createElement('div');
+    h.className = 'hour';
+    h.innerHTML = m % 60 === 0 ? `<span>${fmtMin(m)}</span>` : '';
+    gut.appendChild(h);
+  }
+
+  const body = $('#body');
+  [...body.querySelectorAll('.day-col')].forEach(n => n.remove());
+
+  days.forEach(d => {
+    const iso = isoDate(d);
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    for (let m = START; m < END; m += 30) {
+      const s = document.createElement('div');
+      s.className = 'slot clickable' + (m % 60 === 30 ? ' hour-line' : '');
+      s.title = `Dodaj zajęcia: ${fmtMin(m)}`;
+      s.onclick = () => openEvent(null, { date: iso, start: fmtMin(m), end: fmtMin(m + 60) });
+      col.appendChild(s);
+    }
+    const evs = EVENTS.filter(e => e.date === iso)
+                      .map(e => ({ ...e, s: toMin(e.start), e2: toMin(e.end) }))
+                      .sort((x, y) => x.s - y.s);
+    const ends = [];
+    evs.forEach(ev => {
+      let idx = ends.findIndex(t => t <= ev.s);
+      if (idx === -1) { ends.push(ev.e2); idx = ends.length - 1; } else ends[idx] = ev.e2;
+      ev.col = idx;
+    });
+    const cols = Math.max(1, ends.length);
+
+    evs.forEach(ev => {
+      const top = (ev.s - START) * PXM;
+      const h = Math.max(20, (ev.e2 - ev.s) * PXM - 3);
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'ev' + (h < 52 ? ' is-short' : '') + (ev.active === false ? ' is-full' : '');
+      el.style.cssText = `top:${top}px;height:${h}px;background:${ev.color || '#93C7CF'};` +
+        `left:calc(${(ev.col/cols)*100}% + 3px);width:calc(${100/cols}% - 6px);`;
+      el.innerHTML = `<div class="ev-title">${esc(ev.title)}</div>
+        <div class="ev-sub">${ev.start}–${ev.end}</div>
+        <div class="ev-sub">${ev.booked || 0}/${ev.capacity || 0} zapisanych</div>`;
+      el.onclick = e => { e.stopPropagation(); openEvent(ev.id); };
+      col.appendChild(el);
+    });
+    body.appendChild(col);
+  });
+
+  /* agenda dla telefonu — z przyciskiem dodawania w każdym dniu */
+  $('#agenda').innerHTML = days.map((d, i) => {
+    const iso = isoDate(d);
+    const evs = EVENTS.filter(e => e.date === iso).sort((x, y) => toMin(x.start) - toMin(y.start));
+    const items = evs.map(ev => `<button type="button" class="agenda-item" data-id="${esc(ev.id)}">
+        <span class="agenda-bar" style="background:${esc(ev.color || '#93C7CF')}"></span>
+        <span style="min-width:0;flex:1">
+          <span class="agenda-time">${esc(ev.start)}–${esc(ev.end)}</span>
+          <span class="agenda-title">${esc(ev.title)}</span>
+          <span class="agenda-meta">${ev.booked || 0}/${ev.capacity || 0} zapisanych${ev.active === false ? ' · ukryte' : ''}</span>
+        </span></button>`).join('') || '<div class="agenda-empty">Brak zajęć tego dnia.</div>';
+    return `<section class="agenda-day">
+      <div class="agenda-head"><span class="d">${DAY_NAMES[i]}</span>
+        <span class="n">${d.getDate()} ${MONTHS_GEN[d.getMonth()]}${iso === todayIso ? ' · dziś' : ''}</span></div>
+      <div class="agenda-list">${items}
+        <button type="button" class="day-add" data-date="${iso}">+ Dodaj zajęcia w tym dniu</button>
+      </div></section>`;
+  }).join('');
+
+  $('#agenda').onclick = e => {
+    const add = e.target.closest('.day-add');
+    if (add) return openEvent(null, { date: add.dataset.date, start: '10:00', end: '11:00' });
+    const item = e.target.closest('.agenda-item');
+    if (item) openEvent(item.dataset.id);
+  };
+}
+
+function loadWeek() {
+  if (unsubEv) unsubEv();
+  unsubEv = watchEvents(isoDate(monday), isoDate(addDays(monday, 6)), list => { EVENTS = list; renderCal(); });
+}
+$('#prev').onclick  = () => { monday = addDays(monday, -7); loadWeek(); };
+$('#next').onclick  = () => { monday = addDays(monday,  7); loadWeek(); };
+$('#today').onclick = () => { monday = weekStart(new Date()); loadWeek(); };
+$('#addNew').onclick = () => openEvent(null, { date: todayISO(), start: '10:00', end: '11:00' });
+
+/* ------------------------------- modal zajęć ------------------------------ */
+const modal = $('#evModal');
+let editingId = null;
+
+$('#swatches').innerHTML = PALETTE.map(c =>
+  `<button type="button" data-c="${c}" style="background:${c}" aria-label="Kolor ${c}"></button>`).join('');
+$('#swatches').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $('#fColor').value = b.dataset.c;
+  $$('#swatches button').forEach(x => x.classList.toggle('is-on', x === b));
+};
+
+function closeModal() { modal.classList.remove('is-open'); editingId = null; }
+$('#evClose').onclick = closeModal;
+$('#evCancel').onclick = closeModal;
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
+
+function fillForm(ev) {
+  $('#fTitle').value = ev.title || '';
+  $('#fDate').value  = ev.date || '';
+  $('#fStart').value = ev.start || '';
+  $('#fEnd').value   = ev.end || '';
+  $('#fColor').value = ev.color || '#93C7CF';
+  $('#fCap').value   = ev.capacity ?? 10;
+  $('#fBooked').value= ev.booked ?? 0;
+  $('#fPrice').value = ev.price ?? 0;
+  $('#fAgeMin').value= ev.ageMin ?? 0;
+  $('#fAgeMax').value= ev.ageMax ?? 6;
+  $('#fBadge').value = ev.badge || '';
+  $('#fShort').value = ev.shortDesc || '';
+  $('#fDesc').value  = ev.description || '';
+  $('#fOrg').value   = ev.organizerDesc || '';
+  $('#fNote').value  = ev.note || '';
+  $('#fLoc').value   = ev.location || `${SETTINGS.address}, ${SETTINGS.city}`;
+  $('#fImages').value= (ev.images || []).join('\n');
+  $('#fArrive').value= ev.arriveMinutes ?? 10;
+  $('#fCancel').value= ev.cancelHours ?? 24;
+  $('#fRepeat').value= 0;
+  $('#fActive').checked = ev.active !== false;
+  const pm = ev.paymentMethods || SETTINGS.paymentMethods;
+  $$('.pay').forEach(c => c.checked = pm.includes(c.value));
+  $$('#swatches button').forEach(x => x.classList.toggle('is-on', x.dataset.c === (ev.color || '')));
+}
+
+async function openEvent(id, preset) {
+  editingId = id || null;
+  $('#evModalTitle').textContent = id ? 'Edytuj zajęcia' : 'Nowe zajęcia';
+  $('#evDelete').hidden = !id;
+  $('#evDuplicate').hidden = !id;
+  fillForm(id ? (EVENTS.find(e => e.id === id) || await getEvent(id) || EMPTY_EVENT)
+              : { ...EMPTY_EVENT, ...preset });
+  modal.classList.add('is-open');
+  setTimeout(() => $('#fTitle').focus(), 60);
+}
+
+$('#evForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    title: $('#fTitle').value.trim(),
+    date:  $('#fDate').value,
+    start: $('#fStart').value,
+    end:   $('#fEnd').value,
+    color: $('#fColor').value,
+    capacity: Number($('#fCap').value) || 1,
+    booked:   Number($('#fBooked').value) || 0,
+    price:    Number($('#fPrice').value) || 0,
+    ageMin:   Number($('#fAgeMin').value) || 0,
+    ageMax:   Number($('#fAgeMax').value) || 0,
+    badge:    $('#fBadge').value.trim(),
+    shortDesc:$('#fShort').value.trim(),
+    description: $('#fDesc').value.trim(),
+    organizerDesc: $('#fOrg').value.trim(),
+    note:     $('#fNote').value.trim(),
+    location: $('#fLoc').value.trim(),
+    images:   $('#fImages').value.split('\n').map(s => s.trim()).filter(Boolean),
+    paymentMethods: $$('.pay').filter(c => c.checked).map(c => c.value),
+    arriveMinutes: Number($('#fArrive').value) || 0,
+    cancelHours:   Number($('#fCancel').value) || 0,
+    active: $('#fActive').checked
+  };
+  if (!data.title || !data.date || !data.start || !data.end) return toast('Uzupełnij nazwę, datę i godziny.');
+  if (toMin(data.end) <= toMin(data.start)) return toast('Godzina zakończenia musi być późniejsza.');
+
+  $('#evSave').disabled = true;
+  try {
+    const id = await saveEvent(editingId, data);
+    const rep = Number($('#fRepeat').value) || 0;
+    if (rep > 0) { await repeatWeekly(id, rep); toast(`Zapisano i powielono na ${rep} kolejnych tygodni.`); }
+    else toast('Zapisano zajęcia.');
+    closeModal();
+  } catch (err) { toast('Błąd zapisu: ' + err.message); }
+  finally { $('#evSave').disabled = false; }
+});
+
+$('#evDuplicate').onclick = async () => {
+  if (!editingId) return;
+  const d = prompt('Na jaką datę skopiować te zajęcia? (RRRR-MM-DD)', $('#fDate').value);
+  if (!d) return;
+  try { await duplicateEvent(editingId, d); toast('Skopiowano zajęcia na ' + d); closeModal(); }
+  catch (e) { toast('Błąd: ' + e.message); }
+};
+
+$('#evDelete').onclick = async () => {
+  if (!editingId) return;
+  if (!confirm('Na pewno usunąć te zajęcia? Zapisy pozostaną w bazie.')) return;
+  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeModal(); }
+  catch (e) { toast('Błąd: ' + e.message); }
+};
+
+/* ======================================================== 2. ZAPISANI ==== */
+function matches(r, q) {
+  if (!q) return true;
+  const hay = [r.childFirstName, r.childLastName, r.parentFirstName, r.parentLastName,
+               r.phone, r.phoneKey, r.email, r.eventStart, r.eventEnd, r.eventTitle, r.eventDate]
+              .join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+}
+
+function filtered() {
+  const q = $('#q').value.trim();
+  const f = $('#fFrom').value, t = $('#fTo').value, st = $('#fStatus').value;
+  const today = todayISO(), now = nowMin();
+  return REGS.filter(r => {
+    if (!matches(r, q)) return false;
+    if (f && (r.eventDate || '') < f) return false;
+    if (t && (r.eventDate || '') > t) return false;
+    if (st === 'pending' && (r.attended && r.paid)) return false;
+    if (st === 'paid'   && !r.paid) return false;
+    if (st === 'unpaid' &&  r.paid) return false;
+    if (st === 'here') {
+      if (r.eventDate !== today || !r.attended || !r.paid) return false;
+      if (toMin(r.stayUntil || r.eventEnd) <= now) return false;
+    }
+    return true;
+  }).sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || '')
+                 || toMin(b.eventStart) - toMin(a.eventStart));
+}
+
+function renderRegs() {
+  const list = filtered();
+  $('#regRows').innerHTML = list.length ? list.map(r => `
+    <tr class="reg-row" data-id="${esc(r.id)}">
+      <td class="num"><strong>${esc(shortDate(r.eventDate || todayISO()))}</strong><br>
+        <span class="hint">${esc(r.eventStart || '')}–${esc(r.eventEnd || '')}</span></td>
+      <td>${esc(r.eventTitle || '')}<br><span class="hint">${r.qty || 1} × ${money(r.unitPrice)}</span></td>
+      <td class="who-cell"><strong>${esc((r.childFirstName || '') + ' ' + (r.childLastName || ''))}</strong>
+        <span>${esc((r.parentFirstName || '') + ' ' + (r.parentLastName || ''))}</span></td>
+      <td><a href="tel:${esc(r.phone || '')}">${esc(r.phone || '')}</a><br>
+        <span class="hint">${esc(r.email || '')}</span></td>
+      <td><input class="control mini stay" type="time" value="${esc(r.stayUntil || r.eventEnd || '')}"></td>
+      <td style="text-align:center"><input type="checkbox" class="att" ${r.attended ? 'checked' : ''}
+            style="width:22px;height:22px;accent-color:var(--brand-deep)"></td>
+      <td style="text-align:center"><input type="checkbox" class="pay2" ${r.paid ? 'checked' : ''}
+            style="width:22px;height:22px;accent-color:var(--ok)"></td>
+      <td><button class="btn btn-danger btn-sm del" type="button" title="Usuń zapis">Usuń</button></td>
+    </tr>`).join('')
+    : `<tr><td colspan="8"><div class="empty">Brak zapisów spełniających kryteria.</div></td></tr>`;
+
+  $('#regCount').textContent = `Pokazano ${list.length} z ${REGS.length} zapisów.`;
+}
+
+['input', 'change'].forEach(evt => {
+  $('#q').addEventListener(evt, renderRegs);
+  $('#fFrom').addEventListener(evt, renderRegs);
+  $('#fTo').addEventListener(evt, renderRegs);
+  $('#fStatus').addEventListener(evt, renderRegs);
+});
+
+$('#regRows').addEventListener('change', async e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const reg = REGS.find(r => r.id === tr.dataset.id); if (!reg) return;
+
+  if (e.target.classList.contains('stay')) {
+    await updateRegistration(reg.id, { stayUntil: e.target.value });
+    await refreshPresence();
+    toast('Zaktualizowano godzinę wyjścia.');
+    return;
+  }
+
+  const attended = tr.querySelector('.att').checked;
+  const paid     = tr.querySelector('.pay2').checked;
+  const shouldCount = attended && paid;
+
+  try {
+    await updateRegistration(reg.id, { attended, paid, status: shouldCount ? 'confirmed' : 'new' });
+    if (shouldCount && !reg.countedInRanking) {
+      await applyVisitToRanking({ ...reg, attended, paid }, +1);
+      await updateRegistration(reg.id, { countedInRanking: true });
+    } else if (!shouldCount && reg.countedInRanking) {
+      await applyVisitToRanking(reg, -1);
+      await updateRegistration(reg.id, { countedInRanking: false });
+    }
+    const auto = await refreshPresence();
+    toast(!auto ? 'Zaktualizowano. Licznik jest w trybie ręcznym — nie zmieniam go.'
+                : shouldCount ? 'Potwierdzone — licznik na stronie zaktualizowany.' : 'Zaktualizowano.');
+  } catch (err) { toast('Błąd: ' + err.message); }
+});
+
+$('#regRows').addEventListener('click', async e => {
+  if (!e.target.classList.contains('del')) return;
+  const tr = e.target.closest('tr');
+  const reg = REGS.find(r => r.id === tr.dataset.id); if (!reg) return;
+  if (!confirm('Usunąć ten zapis na stałe?')) return;
+  if (reg.countedInRanking) await applyVisitToRanking(reg, -1).catch(() => {});
+  await deleteRegistration(reg.id);
+  await refreshPresence();
+  toast('Zapis usunięty.');
+});
+
+function renderRegStats() {
+  const today = todayISO(), now = nowMin();
+  const t = REGS.filter(r => r.eventDate === today);
+  const here = computePresence(REGS, today, now);
+  $('#regStats').innerHTML = `
+    <div class="stat-card"><div class="k">Zapisów dziś</div><div class="v">${t.length}</div></div>
+    <div class="stat-card"><div class="k">Teraz w bawialni</div><div class="v">${here.count} / ${SETTINGS.capacity}</div></div>
+    <div class="stat-card"><div class="k">Dziś do potwierdzenia</div><div class="v">${t.filter(r => !(r.attended && r.paid)).length}</div></div>
+    <div class="stat-card"><div class="k">Zapisów łącznie</div><div class="v">${REGS.length}</div></div>`;
+}
+
+async function refreshPresence({ force = false } = {}) {
+  renderRegStats();
+  /* w trybie ręcznym nie nadpisujemy tego, co admin ustawił w zakładce 3 */
+  if (PRESENCE && PRESENCE.manual && !force) return false;
+  const p = computePresence(REGS, todayISO(), nowMin());
+  await pushPresence({ count: p.count, untilMin: p.untilMin, manual: false });
+  return true;
+}
+
+/* ========================================================= 3. LICZNIK ==== */
+$('#saveManual').onclick = async () => {
+  try {
+    await setPresenceManual(Number($('#mCount').value) || 0, $('#mUntil').value, Number($('#mCap').value) || SETTINGS.capacity);
+    toast('Licznik ustawiony ręcznie.');
+  } catch (e) { toast('Błąd: ' + e.message); }
+};
+$('#autoMode').onclick = async () => {
+  try { await clearPresenceManual(); await refreshPresence({ force: true }); toast('Licznik znów liczy się automatycznie.'); }
+  catch (e) { toast('Błąd: ' + e.message); }
+};
+$('#zero').onclick = async () => {
+  try { await setPresenceManual(0, '', Number($('#mCap').value) || SETTINGS.capacity); toast('Licznik wyzerowany.'); }
+  catch (e) { toast('Błąd: ' + e.message); }
+};
+$('#recountVisits').onclick = async () => {
+  try { await setVisitsBase(Number($('#vBase').value) || 0, REGS.length); toast(`Przeliczono: ${REGS.length} zapisów w bazie.`); }
+  catch (e) { toast('Błąd: ' + e.message); }
+};
+$('#saveVisits').onclick = async () => {
+  try { await setVisitsBase(Number($('#vBase').value) || 0, Number($('#vCount').value) || 0); toast('Licznik odwiedzin zapisany.'); }
+  catch (e) { toast('Błąd: ' + e.message); }
+};
+
+/* ========================================================= 4. RANKING ==== */
+let GUESTS = [];
+async function loadRanking() {
+  try { GUESTS = await listGuests(); } catch (e) { toast('Błąd: ' + e.message); return; }
+  renderRank();
+}
+function renderRank() {
+  const q = $('#qRank').value.trim().toLowerCase();
+  const list = GUESTS
+    .filter(g => !q || [g.childName, g.parentName, g.phone, g.email].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => (b.visits || 0) - (a.visits || 0) || (b.totalMinutes || 0) - (a.totalMinutes || 0));
+  $('#rankRows').innerHTML = list.length ? list.map((g, i) => `
+    <tr>
+      <td class="rank-pos">${i + 1}</td>
+      <td><strong>${esc(g.childName || '—')}</strong></td>
+      <td>${esc(g.parentName || '—')}</td>
+      <td><a href="tel:${esc(g.phone || '')}">${esc(g.phone || '—')}</a></td>
+      <td>${esc(g.email || '—')}</td>
+      <td class="num"><strong>${esc(plWizyty(g.visits))}</strong></td>
+      <td class="num">${humanMinutes(g.totalMinutes)}</td>
+      <td class="num">${g.lastVisit ? esc(shortDate(g.lastVisit)) : '—'}</td>
+    </tr>`).join('')
+    : `<tr><td colspan="8"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
+  $('#rankCount').textContent = `${list.length} dzieci w rankingu.`;
+}
+$('#qRank').addEventListener('input', renderRank);
+$('#exportRank').onclick = () => {
+  const rows = [['Dziecko','Rodzic','Telefon','Email','Wizyty','Minuty','Ostatnia wizyta'],
+    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0, g.lastVisit || ''])];
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `ranking-mala-chmurka-${todayISO()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+};
+</script>
+</body>
+</html>

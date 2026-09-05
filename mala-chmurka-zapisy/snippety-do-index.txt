@@ -1,0 +1,110 @@
+================================================================================
+ MAŁA CHMURKA — CO ZOSTAŁO DOŁOŻONE DO index.html STRONY GŁÓWNEJ
+================================================================================
+
+ STAN: wszystkie 4 wklejki są JUŻ WPROWADZONE w D:\malachmurkaleszno\index.html
+ (lokalnie, bez commita). Poniżej masz je spisane — żebyś wiedział, co dokładnie
+ doszło, i mógł to odtworzyć albo cofnąć.
+
+ Pliki systemu zapisów leżą teraz w podfolderze  /mala-chmurka-zapisy/  —
+ stąd taki przedrostek w adresach. Po przeniesieniu ich do katalogu głównego
+ strony wystarczy usunąć ten przedrostek z 4 miejsc poniżej i ustawić
+ appBase: "/" w assets/firebase-config.js.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 1) PRZYCISKI „GRAFIK ZAJĘĆ" I „ZAPISZ SIĘ" POD „ZOBACZ STREFY ZABAWY"
+────────────────────────────────────────────────────────────────────────────────
+
+W sekcji hero, w <div class="hero-actions"> doszły dwie ostatnie linijki:
+
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://www.google.com/maps/...">Odwiedź nas</a>
+      <a class="btn btn-ghost" href="#strefy">Zobacz strefy zabawy</a>
+      <a class="btn btn-ghost" href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a>
+      <a class="btn btn-primary" href="/mala-chmurka-zapisy/zapisz-sie-na-zajecia.html">Zapisz się</a>
+    </div>
+
+(Na telefonie przyciski układają się jeden pod drugim — tak już masz
+ ustawione w style.css w regule `.hero-actions { flex-direction: column }`.)
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 2) LICZNIK DZIECI — JEDNA LINIJKA PRZED </body>
+────────────────────────────────────────────────────────────────────────────────
+
+    <script type="module" src="/mala-chmurka-zapisy/assets/mc-licznik.js"></script>
+
+To wszystko. Skrypt sam:
+  • wstawia licznik NAD sekcją „120 m² / 0–6 lat / 7 dni / 4 domki",
+  • pokazuje „2 os. / 6" oraz „w bawialni do 18:00",
+  • po 18:00 (albo po godzinie ustawionej w panelu) sam wraca do zera,
+  • pod spodem pokazuje „Odwiedziło nas już 266 dzieci" (+1 przy każdym zapisie).
+
+Jeśli chcesz licznik w innym miejscu niż nad sekcją „.facts", wstaw gdziekolwiek
+w treści strony pusty znacznik — skrypt użyje wtedy tego miejsca:
+
+    <div id="mc-licznik"></div>
+
+Skrypt korzysta z tej samej aplikacji Firebase, którą inicjalizuje blok na dole
+index.html (ta sama wersja SDK 12.18.0), więc biblioteka ładuje się tylko raz.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 3) LINK „GRAFIK ZAJĘĆ" W MENU GŁÓWNYM
+────────────────────────────────────────────────────────────────────────────────
+
+W <nav class="nav" id="navMenu">, przed pozycją Kontakt:
+
+    <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
+
+
+────────────────────────────────────────────────────────────────────────────────
+ 4) LINKI W STOPCE
+────────────────────────────────────────────────────────────────────────────────
+
+W <nav class="footer-nav">, na końcu listy:
+
+    <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
+    <li><a href="/mala-chmurka-zapisy/zapisz-sie-na-zajecia.html">Zapisz się na zajęcia</a></li>
+
+
+================================================================================
+ GDZIE LEŻĄ PLIKI (stan obecny — lokalnie)
+================================================================================
+
+    D:\malachmurkaleszno\
+      index.html                          <- 4 wklejki powyżej
+      img\logo-full.svg, favicon.svg      <- logo bierze się stąd
+      mala-chmurka-zapisy\
+        kalendarz-zajec.html
+        strona-zajec.html
+        zapisz-sie-na-zajecia.html
+        zapisz-sie-na-zajęcia.html        <- przekierowanie
+        logowanie.html
+        dziekujemy.html
+        admin.html                        <- logowanie + zarządzanie zajęciami
+        panel-admina.html                 <- pełny panel, 4 zakładki
+        firestore.rules                   <- DO OPUBLIKOWANIA W KONSOLI FIREBASE
+        tools\set-admin-claim.mjs
+        assets\firebase-config.js         <- konfiguracja + lista adminów
+        assets\mc-firebase.js
+        assets\mc-common.css
+        assets\mc-common.js
+        assets\mc-data.js
+        assets\mc-licznik.js
+
+
+================================================================================
+ JAK TO OBEJRZEĆ LOKALNIE
+================================================================================
+
+W katalogu D:\malachmurkaleszno:
+
+    python -m http.server 5500
+
+  http://localhost:5500/                                        strona główna
+  http://localhost:5500/mala-chmurka-zapisy/kalendarz-zajec.html grafik
+  http://localhost:5500/mala-chmurka-zapisy/admin.html           panel admina
+
+Nie otwieraj podstron podwójnym kliknięciem (file://) — moduły ES nie zadziałają.

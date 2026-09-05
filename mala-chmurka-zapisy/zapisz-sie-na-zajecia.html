@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Zapisz się na zajęcia — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .signup{max-width:620px;margin-inline:auto}
+  .steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;
+    font-family:var(--font-head);font-size:.86rem;color:var(--muted);margin-bottom:20px}
+  .steps .step{font-weight:700;padding:.28em .7em;border-radius:999px;color:var(--muted);
+    transition:background-color .2s var(--ease),color .2s var(--ease)}
+  .steps a.step{color:var(--brand-deep)}
+  .steps a.step:hover,.steps a.step:focus-visible{background:var(--brand-pale);text-decoration:none}
+  .steps .step.is-on{background:var(--brand-pale);color:var(--brand-deep)}
+  .steps .step.is-todo{opacity:.7}
+  .metabox{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--cream);
+    font-size:.9rem;color:var(--muted)}
+  .metabox b{color:var(--ink);font-weight:700}
+  .metabox p{margin:8px 0 0;line-height:1.55}
+  .metabox .meta-desc{color:var(--brand-deep);font-weight:600;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .metabox .meta-desc:hover{color:var(--navy-deep)}
+  .metabox .meta-more{font-size:.85rem}
+  .sumrow{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:.95rem}
+  .sumrow.total{border-top:1px solid var(--line);margin-top:8px;padding-top:12px;
+    font-family:var(--font-head);font-weight:700;font-size:1.15rem;color:var(--brand-deep)}
+  .qtybar{display:flex;align-items:center;gap:14px}
+  .qtybar button{width:38px;height:38px;border-radius:50%;border:1px solid var(--navy);background:#fff;
+    color:var(--navy-deep);font-size:19px;display:grid;place-items:center;flex:none}
+  .qtybar output{min-width:26px;text-align:center;font-family:var(--font-head);font-weight:700}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container signup">
+
+    <div class="steps" id="steps"></div>
+
+    <!-- ====== KROK 1: logowanie albo zapis bez konta ====== -->
+    <section class="card" id="stepLogin" hidden>
+      <h1 style="font-size:1.35rem">Zapisz się na zajęcia</h1>
+      <p class="lead">Zarezerwuj miejsce dla swojego dziecka.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px">
+        <a class="btn btn-navy btn-block" id="goLogin" href="#">Zaloguj się na swoje konto</a>
+        <button class="btn btn-outline btn-block" id="asGuest" type="button">Zapisz bez konta</button>
+      </div>
+      <p class="hint" style="text-align:center;margin:14px 0 0">
+        Konto przyspiesza kolejne zapisy — ale nie jest wymagane.</p>
+    </section>
+
+    <!-- ====== KROK 2: formularz ====== -->
+    <section id="stepForm" hidden>
+      <h1 style="font-size:1.5rem">Zapisz się na zajęcia</h1>
+      <p class="lead">Wypełnij dane — potwierdzenie zapisu zobaczysz od razu na ekranie.</p>
+
+      <div id="msg" style="margin-top:16px"></div>
+
+      <form class="card" id="form" novalidate style="margin-top:16px">
+
+        <div class="field">
+          <label for="event">Zajęcia</label>
+          <select class="control" id="event" required>
+            <option value="" disabled selected>Wybierz zajęcia</option>
+          </select>
+        </div>
+
+        <div class="metabox" id="meta" hidden></div>
+
+        <div class="field" style="margin-top:16px">
+          <label for="slot">Termin</label>
+          <select class="control" id="slot" required disabled>
+            <option value="" disabled selected>Najpierw wybierz zajęcia</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="qty">Liczba dzieci</label>
+          <div class="qtybar">
+            <button type="button" id="minus" aria-label="Mniej">−</button>
+            <output id="qty">1</output>
+            <button type="button" id="plus" aria-label="Więcej">+</button>
+            <span class="hint" id="freeInfo"></span>
+          </div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+
+        <div class="row2">
+          <div class="field">
+            <label for="pFirst">Imię rodzica</label>
+            <input class="control" id="pFirst" autocomplete="given-name" placeholder="Wpisz imię" required>
+          </div>
+          <div class="field">
+            <label for="pLast">Nazwisko rodzica</label>
+            <input class="control" id="pLast" autocomplete="family-name" placeholder="Wpisz nazwisko" required>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="email">Adres e-mail</label>
+            <input class="control" id="email" type="email" autocomplete="email" placeholder="np. anna@example.com" required>
+          </div>
+          <div class="field">
+            <label for="phone">Numer telefonu</label>
+            <input class="control" id="phone" type="tel" autocomplete="tel" placeholder="np. 726 431 978" required>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="cFirst">Imię dziecka</label>
+            <input class="control" id="cFirst" placeholder="Wpisz imię" required>
+          </div>
+          <div class="field">
+            <label for="cLast">Nazwisko dziecka</label>
+            <input class="control" id="cLast" placeholder="Wpisz nazwisko">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="dob">Data urodzenia dziecka</label>
+          <input class="control" id="dob" type="date" required>
+        </div>
+
+        <div class="field">
+          <label for="note">Uwagi (nieobowiązkowe)</label>
+          <textarea class="control" id="note" rows="2"
+            placeholder="Alergie, rodzeństwo, prośby — cokolwiek warto, żebyśmy wiedzieli"></textarea>
+        </div>
+
+        <fieldset id="payWrap">
+          <legend>Metoda płatności</legend>
+          <div id="payOptions" class="hint">Wybierz najpierw zajęcia.</div>
+        </fieldset>
+
+        <div class="card card-tight" style="background:var(--cream);border-color:var(--line)">
+          <div class="sumrow"><span id="sumTitle">Wybrane zajęcia</span><span id="sumWhen">—</span></div>
+          <div class="sumrow"><span>Cena za dziecko</span><span id="sumUnit">—</span></div>
+          <div class="sumrow total"><span>Razem</span><span id="sumTotal">0,00 zł</span></div>
+        </div>
+
+        <label class="check" style="margin-top:16px">
+          <input type="checkbox" id="consent" required>
+          <span><strong>Akceptuję regulamin i zgadzam się na przetwarzanie danych</strong><br>
+            <span class="hint">Dane wykorzystujemy wyłącznie do obsługi zapisu na zajęcia.</span></span>
+        </label>
+
+        <button class="btn btn-primary btn-block" type="submit" id="submit" style="margin-top:18px">
+          Zapisz się i zapłać
+        </button>
+      </form>
+    </section>
+
+    <div class="loading" id="loading"><span class="spin"></span> Wczytuję terminy zajęć…</div>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, toast, $, esc, money, longDate, shortDate, params, URLS, SETTINGS } from './assets/mc-common.js';
+import { listEvents, getEvent, createRegistration, todayISO } from './assets/mc-data.js';
+import { auth, A } from './assets/mc-firebase.js';
+
+mountChrome({ current: 'Grafik zajęć', crumb: 'Zapisy' });
+
+const P = params();
+const preEventId = P.get('event');
+const preQty     = Math.max(1, Number(P.get('qty')) || 1);
+
+let EVENTS = [], byTitle = new Map(), current = null, n = preQty, user = null;
+
+/* ---------------------------------------------------------------- kroki ---
+   Pierwsze dwa kroki są klikalne: „Wybór zajęć" wraca do grafiku, „Twoje dane"
+   prowadzi do logowania (po zalogowaniu dane wpisują się same i wracamy tutaj).
+   Trzeci krok zapala się dopiero na stronie podziękowania. */
+const backHere = encodeURIComponent(location.pathname + location.search);
+$('#steps').innerHTML = [
+  { label: 'Wybór zajęć',   href: URLS.calendar,                  hint: 'Wróć do grafiku i wybierz inne zajęcia' },
+  { label: 'Twoje dane',    href: `${URLS.login}?next=${backHere}`, hint: 'Zaloguj się — dane wpiszą się same' },
+  { label: 'Potwierdzenie', href: null,                            hint: 'Zobaczysz je zaraz po wysłaniu zgłoszenia' }
+].map((s, i) => {
+  const label = `${i + 1}. ${esc(s.label)}`;
+  const cell = s.href
+    ? `<a class="step${i === 1 ? ' is-on' : ''}" href="${s.href}" title="${esc(s.hint)}">${label}</a>`
+    : `<span class="step is-todo" title="${esc(s.hint)}">${label}</span>`;
+  return (i ? '<span aria-hidden="true">›</span>' : '') + cell;
+}).join(' ');
+
+const msg = $('#msg');
+const show = (kind, text) => { msg.innerHTML = `<div class="alert alert-${kind}">${text}</div>`; msg.scrollIntoView({behavior:'smooth', block:'center'}); };
+
+/* ---------------------------------------------------------- krok logowania */
+function openForm() {
+  $('#stepLogin').hidden = true;
+  $('#stepForm').hidden = false;
+}
+$('#asGuest').onclick = openForm;
+$('#goLogin').href = `${URLS.login}?next=${encodeURIComponent(location.pathname + location.search)}`;
+
+/* --------------------------------------------------------------- wczytanie */
+async function load() {
+  const from = todayISO();
+  const to   = new Date(); to.setDate(to.getDate() + 180);
+  const toISO = `${to.getFullYear()}-${String(to.getMonth()+1).padStart(2,'0')}-${String(to.getDate()).padStart(2,'0')}`;
+
+  try {
+    EVENTS = (await listEvents(from, toISO)).filter(e => e.active !== false);
+    /* Wejście prosto z kafelka w kalendarzu: te zajęcia mogą być poza domyślnym
+       zakresem (np. wcześniej w tym tygodniu) — dociągamy je pojedynczo. */
+    if (preEventId && !EVENTS.some(e => e.id === preEventId)) {
+      const one = await getEvent(preEventId);
+      if (one) EVENTS = [one, ...EVENTS];
+    }
+  } catch (e) {
+    $('#loading').hidden = true;
+    $('#stepForm').hidden = false;
+    return show('bad', `Nie udało się wczytać terminów. Zadzwoń do nas: <a href="tel:${SETTINGS.phoneHref}">${SETTINGS.phone}</a>.`);
+  }
+
+  byTitle = new Map();
+  EVENTS.forEach(e => {
+    if (!byTitle.has(e.title)) byTitle.set(e.title, []);
+    byTitle.get(e.title).push(e);
+  });
+
+  const sel = $('#event');
+  sel.innerHTML = '<option value="" disabled selected>Wybierz zajęcia</option>';
+  [...byTitle.keys()].forEach(t => sel.add(new Option(t, t)));
+
+  if (!EVENTS.length) show('warn', 'Nie ma jeszcze otwartych terminów. Zajrzyj za chwilę albo napisz do nas.');
+
+  $('#loading').hidden = true;
+
+  /* przyszliśmy z kafelka w kalendarzu → wypełniamy od razu */
+  const pre = preEventId && EVENTS.find(e => e.id === preEventId);
+  if (pre) {
+    sel.value = pre.title;
+    fillSlots(pre.title);
+    $('#slot').value = pre.id;
+    pick(pre);
+    openForm();
+    if (pre.date < todayISO()) {
+      show('warn', 'Ten termin już minął. Wybierz inny z listy powyżej albo zadzwoń do nas.');
+    }
+  } else {
+    $('#stepLogin').hidden = !!user;
+    $('#stepForm').hidden  = !user;
+  }
+}
+
+function fillSlots(title) {
+  const list = EVENTS.filter(e => e.title === title);
+  const slot = $('#slot');
+  slot.innerHTML = '<option value="" disabled selected>Wybierz termin</option>';
+  list.forEach(e => {
+    const free = Math.max(0, (Number(e.capacity)||0) - (Number(e.booked)||0));
+    const opt = new Option(`${shortDate(e.date)} · ${e.start}–${e.end} · ${free ? free + ' wolnych' : 'BRAK MIEJSC'}`, e.id);
+    opt.disabled = free === 0;
+    slot.add(opt);
+  });
+  slot.disabled = false;
+
+  renderMeta(list[0]);
+}
+
+/* --------------------------------------------------------------------------
+   Ramka pod listą zajęć. Krótki opis jest hiperłączem do strony TYCH
+   konkretnych zajęć (strona-zajec.html?id=…) — tam jest pełny opis, zdjęcia
+   i szczegóły. Otwieramy w nowej karcie, żeby wypełniony formularz nie przepadł.
+   -------------------------------------------------------------------------- */
+function renderMeta(ev) {
+  const box = $('#meta');
+  if (!ev) { box.hidden = true; box.innerHTML = ''; return; }
+
+  const href = `${URLS.event}?id=${encodeURIComponent(ev.id)}`;
+  const desc = String(ev.shortDesc || ev.description || '').trim();
+  const link = (text, cls) =>
+    `<a class="${cls}" href="${href}" target="_blank" rel="noopener"
+        title="Otwórz opis zajęć „${esc(ev.title)}" w nowej karcie">${text}</a>`;
+
+  box.hidden = false;
+  box.innerHTML =
+    `<b>Wiek</b> ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat &nbsp;·&nbsp;
+     <b>Czas</b> ${ev.start}–${ev.end} &nbsp;·&nbsp;
+     <b>Cena</b> ${money(ev.price)}
+     <p>${desc ? link(esc(desc), 'meta-desc') : link('Zobacz pełny opis tych zajęć', 'meta-desc')}</p>
+     ${desc ? `<p class="meta-more">${link('Pełny opis, zdjęcia i szczegóły →', '')}</p>` : ''}`;
+}
+
+function pick(ev) {
+  current = ev;
+  renderMeta(ev);          // opis i link celują teraz w wybrany termin
+  const free = Math.max(0, (Number(ev.capacity)||0) - (Number(ev.booked)||0));
+  n = Math.min(Math.max(1, n), Math.max(1, free));
+  $('#freeInfo').textContent = free ? `wolnych miejsc: ${free}` : 'brak wolnych miejsc';
+
+  const methods = ev.paymentMethods && ev.paymentMethods.length ? ev.paymentMethods : SETTINGS.paymentMethods;
+  $('#payOptions').innerHTML = methods.map((p, i) =>
+    `<label class="check"><input type="radio" name="payment" value="${esc(p)}" ${i===0?'checked':''}><span>${esc(p)}</span></label>`).join('');
+
+  paint();
+}
+
+function paint() {
+  $('#qty').textContent = n;
+  if (!current) return;
+  $('#sumTitle').textContent = current.title;
+  $('#sumWhen').textContent  = `${shortDate(current.date)}, ${current.start}–${current.end}`;
+  $('#sumUnit').textContent  = money(current.price);
+  $('#sumTotal').textContent = money((Number(current.price)||0) * n);
+}
+
+$('#event').onchange = e => { fillSlots(e.target.value); current = null; paint(); };
+$('#slot').onchange  = e => { const ev = EVENTS.find(x => x.id === e.target.value); if (ev) pick(ev); };
+$('#plus').onclick   = () => { const free = current ? Math.max(0,(current.capacity||0)-(current.booked||0)) : 9; if (n < free) { n++; paint(); } };
+$('#minus').onclick  = () => { if (n > 1) { n--; paint(); } };
+
+/* ------------------------------------------------------------------ zapis */
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  msg.innerHTML = '';
+
+  if (!current)               return show('bad', 'Wybierz zajęcia i termin.');
+  if (!$('#pFirst').value.trim() || !$('#pLast').value.trim())
+                              return show('bad', 'Podaj imię i nazwisko rodzica.');
+  if (!$('#email').value.includes('@')) return show('bad', 'Podaj poprawny adres e-mail.');
+  if ($('#phone').value.replace(/\D/g,'').length < 9) return show('bad', 'Podaj poprawny numer telefonu.');
+  if (!$('#cFirst').value.trim()) return show('bad', 'Podaj imię dziecka.');
+  if (!$('#dob').value)        return show('bad', 'Podaj datę urodzenia dziecka.');
+  if (!$('#consent').checked)  return show('bad', 'Do zapisu potrzebna jest zgoda na przetwarzanie danych.');
+
+  const payment = document.querySelector('input[name=payment]:checked');
+  $('#submit').disabled = true;
+  $('#submit').textContent = 'Zapisuję…';
+
+  try {
+    const reg = await createRegistration({
+      eventId: current.id, eventTitle: current.title, eventDate: current.date,
+      eventStart: current.start, eventEnd: current.end,
+      parentFirstName: $('#pFirst').value, parentLastName: $('#pLast').value,
+      email: $('#email').value, phone: $('#phone').value,
+      childFirstName: $('#cFirst').value, childLastName: $('#cLast').value,
+      childDob: $('#dob').value, note: $('#note').value,
+      qty: n, unitPrice: Number(current.price) || 0,
+      paymentMethod: payment ? payment.value : 'Płatność na miejscu',
+      uid: user ? user.uid : null
+    });
+
+    sessionStorage.setItem('mc_last_registration', JSON.stringify({
+      id: reg.id, eventTitle: reg.eventTitle, eventDate: reg.eventDate,
+      eventStart: reg.eventStart, eventEnd: reg.eventEnd,
+      parent: `${reg.parentFirstName} ${reg.parentLastName}`.trim(),
+      child: `${reg.childFirstName} ${reg.childLastName}`.trim(),
+      email: reg.email, phone: reg.phone, qty: reg.qty,
+      total: reg.total, paymentMethod: reg.paymentMethod
+    }));
+    location.href = URLS.thanks;
+  } catch (err) {
+    show('bad', esc(err.message || 'Nie udało się zapisać. Spróbuj ponownie.'));
+    $('#submit').disabled = false;
+    $('#submit').textContent = 'Zapisz się i zapłać';
+  }
+});
+
+/* ------------------------------------------------- podpowiedzi z konta */
+A.onAuthStateChanged(auth, u => {
+  user = u;
+  if (!u) return;
+  $('#stepLogin').hidden = true;
+  $('#stepForm').hidden = false;
+  if (!$('#email').value) $('#email').value = u.email || '';
+  const parts = (u.displayName || '').split(' ');
+  if (!$('#pFirst').value && parts[0]) $('#pFirst').value = parts[0];
+  if (!$('#pLast').value && parts[1])  $('#pLast').value  = parts.slice(1).join(' ');
+});
+
+load();
+</script>
+</body>
+</html>

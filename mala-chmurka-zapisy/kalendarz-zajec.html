@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Grafik zajęć — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Grafik zajęć w Małej Chmurce w Lesznie — sprawdź terminy i zapisz dziecko online.">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .cal-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+  .cal-intro p{margin:0}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container">
+
+    <div class="cal-intro">
+      <div>
+        <h1>Grafik zajęć</h1>
+        <p class="lead">Kliknij w kafelek, żeby zobaczyć szczegóły zajęć i zapisać dziecko.</p>
+      </div>
+      <a class="btn btn-primary btn-auto" href="zapisz-sie-na-zajecia.html">Zapisz się na zajęcia</a>
+    </div>
+
+    <div class="cal-toolbar">
+      <button class="cal-nav" id="prev" aria-label="Poprzedni tydzień">‹</button>
+      <button class="cal-nav" id="next" aria-label="Następny tydzień">›</button>
+      <button class="btn btn-soft cal-today btn-auto" id="today">Dziś</button>
+      <div class="cal-range" id="range">—</div>
+    </div>
+
+    <div class="cal">
+      <!-- widok tygodniowy (desktop) -->
+      <div class="cal-scroll">
+        <div class="cal-inner">
+          <div class="cal-head" id="head"><div class="gut"></div></div>
+          <div class="cal-body" id="body"><div class="gut-col" id="gut"></div></div>
+        </div>
+      </div>
+      <!-- widok agendy (telefon) -->
+      <div class="cal-agenda" id="agenda"></div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+    <div class="loading" id="loading"><span class="spin"></span> Wczytuję grafik…</div>
+    <div id="err"></div>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, $, esc, DAY_NAMES, DAY_SHORT, MONTHS_GEN,
+         weekStart, addDays, isoDate, toMin, fmtMin, URLS, SETTINGS } from './assets/mc-common.js';
+import { watchEvents } from './assets/mc-data.js';
+
+mountChrome({ current: 'Grafik zajęć', crumb: 'Grafik zajęć' });
+
+const SLOT = 34;                 // px na 30 minut
+const PXM  = SLOT / 30;
+let monday = weekStart(new Date());
+let unsub = null;
+
+const cmpISO = isoDate;
+
+function bounds(list) {
+  let s = toMin(SETTINGS.dayStart), e = toMin(SETTINGS.dayEnd);
+  list.forEach(ev => {
+    s = Math.min(s, Math.floor(toMin(ev.start) / 60) * 60);
+    e = Math.max(e, Math.ceil(toMin(ev.end) / 60) * 60);
+  });
+  return [s, Math.max(e, s + 120)];
+}
+
+function render(list) {
+  const days = [...Array(7)].map((_, i) => addDays(monday, i));
+  const a = days[0], b = days[6];
+  $('#range').textContent = a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${MONTHS_GEN[a.getMonth()]} ${a.getFullYear()}`
+    : `${a.getDate()} ${MONTHS_GEN[a.getMonth()]} – ${b.getDate()} ${MONTHS_GEN[b.getMonth()]} ${b.getFullYear()}`;
+
+  const todayIso = cmpISO(new Date());
+  const [START, END] = bounds(list);
+
+  /* ---------- nagłówek dni ---------- */
+  const head = $('#head');
+  head.innerHTML = '<div class="gut"></div>';
+  days.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = 'day-head' + (i >= 5 ? ' is-weekend' : '') + (cmpISO(d) === todayIso ? ' is-today' : '');
+    el.innerHTML = `<div class="day-num">${d.getDate()}</div><div class="day-name">${DAY_NAMES[i]}</div>`;
+    head.appendChild(el);
+  });
+
+  /* ---------- oś godzin ---------- */
+  const gut = $('#gut');
+  gut.innerHTML = '';
+  for (let m = START + 30; m <= END; m += 30) {
+    const h = document.createElement('div');
+    h.className = 'hour';
+    h.innerHTML = m % 60 === 0 ? `<span>${fmtMin(m)}</span>` : '';
+    gut.appendChild(h);
+  }
+
+  /* ---------- kolumny dni ---------- */
+  const body = $('#body');
+  [...body.querySelectorAll('.day-col')].forEach(n => n.remove());
+
+  days.forEach((d, i) => {
+    const iso = cmpISO(d);
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    for (let m = START; m < END; m += 30) {
+      const s = document.createElement('div');
+      s.className = 'slot' + (m % 60 === 30 ? ' hour-line' : '');
+      col.appendChild(s);
+    }
+    const evs = list.filter(e => e.date === iso && e.active !== false)
+                    .map(e => ({ ...e, s: toMin(e.start), e2: toMin(e.end) }))
+                    .sort((x, y) => x.s - y.s);
+
+    // proste układanie obok siebie, gdy zajęcia się nakładają
+    const ends = [];
+    evs.forEach(ev => {
+      let idx = ends.findIndex(t => t <= ev.s);
+      if (idx === -1) { ends.push(ev.e2); idx = ends.length - 1; } else ends[idx] = ev.e2;
+      ev.col = idx;
+    });
+    const cols = Math.max(1, ends.length);
+
+    evs.forEach(ev => {
+      const top = (ev.s - START) * PXM;
+      const h = Math.max(20, (ev.e2 - ev.s) * PXM - 3);
+      const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
+      const el = document.createElement('a');
+      el.href = `${URLS.event}?id=${encodeURIComponent(ev.id)}`;
+      el.className = 'ev' + (h < 52 ? ' is-short' : '') + (free === 0 ? ' is-full' : '');
+      el.style.cssText = `top:${top}px;height:${h}px;background:${ev.color || '#93C7CF'};` +
+        `left:calc(${(ev.col / cols) * 100}% + 3px);width:calc(${100 / cols}% - 6px);`;
+      el.title = `${ev.title}\n${ev.start}–${ev.end}\n${free} z ${ev.capacity} wolnych`;
+      el.innerHTML = `<div class="ev-title">${esc(ev.title)}</div>
+        <div class="ev-sub">${ev.start}–${ev.end}</div>
+        <div class="ev-sub">${free ? free + ' / ' + (ev.capacity || 0) + ' wolnych' : 'brak miejsc'}</div>`;
+      col.appendChild(el);
+    });
+    body.appendChild(col);
+  });
+
+  /* ---------- agenda dla telefonów ---------- */
+  const ag = $('#agenda');
+  ag.innerHTML = days.map((d, i) => {
+    const iso = cmpISO(d);
+    const evs = list.filter(e => e.date === iso && e.active !== false)
+                    .sort((x, y) => toMin(x.start) - toMin(y.start));
+    const items = evs.length ? evs.map(ev => {
+      const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
+      return `<a class="agenda-item" href="${URLS.event}?id=${encodeURIComponent(ev.id)}">
+        <span class="agenda-bar" style="background:${esc(ev.color || '#93C7CF')}"></span>
+        <span style="min-width:0;flex:1">
+          <span class="agenda-time">${esc(ev.start)}–${esc(ev.end)}</span>
+          <span class="agenda-title">${esc(ev.title)}</span>
+          <span class="agenda-meta">${free ? free + ' z ' + (ev.capacity||0) + ' wolnych miejsc' : 'brak wolnych miejsc'}
+            · ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat</span>
+        </span></a>`;
+    }).join('') : '<div class="agenda-empty">Brak zajęć tego dnia.</div>';
+    return `<section class="agenda-day">
+      <div class="agenda-head"><span class="d">${DAY_NAMES[i]}</span>
+        <span class="n">${d.getDate()} ${MONTHS_GEN[d.getMonth()]}${iso === todayIso ? ' · dziś' : ''}</span></div>
+      <div class="agenda-list">${items}</div></section>`;
+  }).join('');
+
+  /* ---------- legenda ---------- */
+  const seen = new Map();
+  list.forEach(e => { if (e.active !== false && !seen.has(e.color)) seen.set(e.color, e.title); });
+  $('#legend').innerHTML = [...seen].slice(0, 8)
+    .map(([c, t]) => `<span><i style="background:${esc(c || '#93C7CF')}"></i>${esc(t)}</span>`).join('');
+
+  $('#loading').hidden = true;
+}
+
+function load() {
+  if (unsub) unsub();
+  $('#loading').hidden = false;
+  const from = cmpISO(monday), to = cmpISO(addDays(monday, 6));
+  unsub = watchEvents(from, to, list => {
+    $('#err').innerHTML = '';
+    render(list);
+  });
+  // gdyby baza nie odpowiedziała (np. brak konfiguracji) — pokaż podpowiedź
+  setTimeout(() => {
+    if (!$('#loading').hidden) {
+      $('#err').innerHTML = `<div class="alert alert-warn">Nie udało się wczytać grafiku.
+        Sprawdź konfigurację Firebase w <code>assets/firebase-config.js</code>
+        albo zadzwoń do nas: <a href="tel:${SETTINGS.phoneHref}">${SETTINGS.phone}</a>.</div>`;
+    }
+  }, 7000);
+}
+
+$('#prev').onclick  = () => { monday = addDays(monday, -7); load(); };
+$('#next').onclick  = () => { monday = addDays(monday,  7); load(); };
+$('#today').onclick = () => { monday = weekStart(new Date()); load(); };
+load();
+</script>
+</body>
+</html>
