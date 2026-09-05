@@ -147,6 +147,29 @@ select.control{
   background-repeat:no-repeat;background-position:right 12px center;
 }
 .control[type=color]{padding:4px;height:44px}
+
+/* Pola daty i godziny.
+   Safari na iPhonie daje im własną, sztywną szerokość i wyśrodkowuje wartość —
+   przez to napis wychodził poza ramkę i nie trzymał się lewej krawędzi jak
+   reszta formularza. `appearance:none` zdejmuje natywny wygląd, `min-width:0`
+   pozwala polu skurczyć się w siatce, a reguły na ::-webkit-date-and-time-value
+   przywracają wyrównanie do lewej i pełną wysokość. */
+.control[type=date],
+.control[type=time],
+.control[type=datetime-local]{
+  -webkit-appearance:none;appearance:none;
+  min-width:0;max-width:100%;
+  text-align:left;
+}
+.control[type=date]::-webkit-date-and-time-value,
+.control[type=time]::-webkit-date-and-time-value,
+.control[type=datetime-local]::-webkit-date-and-time-value{
+  text-align:left;min-height:1.4em;margin:0;
+}
+.control[type=date]::-webkit-datetime-edit,
+.control[type=time]::-webkit-datetime-edit{padding:0}
+.control[type=date]::-webkit-calendar-picker-indicator,
+.control[type=time]::-webkit-calendar-picker-indicator{opacity:.55;margin-left:4px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 fieldset{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 16px}
