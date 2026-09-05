@@ -198,6 +198,12 @@ await t('Klient NIE podepnie rezerwacji pod cudze konto -> NIE', async () =>
   assertFails(addDoc(collection(user('klient', 'k\example.com'), 'bookings'), { ...BOOKING, uid: 'ktos-inny' })));
 await t('Zalogowany podpina rezerwacje pod swoje konto -> TAK', async () =>
   assertSucceeds(addDoc(collection(user('klient', 'k\example.com'), 'bookings'), { ...BOOKING, uid: 'klient' })));
+await t('Admin zaklada wejscie z ulicy (od razu zaakceptowane) -> TAK', async () =>
+  assertSucceeds(addDoc(collection(user('a1', ADMIN, true), 'bookings'),
+    { ...BOOKING, status: 'accepted', source: 'walkin', paid: true, stayUntil: '13:00' })));
+await t('Klient NIE zalozy rezerwacji od razu zaakceptowanej -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'),
+    { ...BOOKING, status: 'accepted', source: 'walkin' })));
 await t('Klient NIE zglosi sie sam jako oplacony -> NIE', async () =>
   assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, paid: true })));
 await t('Klient NIE wpisze sie sam do rankingu -> NIE', async () =>

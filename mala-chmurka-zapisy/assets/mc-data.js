@@ -575,6 +575,52 @@ export const setBookingStatus = (id, status, adminNote = '') =>
 
 export const deleteBooking = id => F.deleteDoc(ref(PATHS.bookings, id));
 
+/**
+ * Dziecko wprowadzone ręcznie przy drzwiach — ktoś przyszedł z ulicy, bez zapisu.
+ * Zapisujemy to jako rezerwację od razu zaakceptowaną, z oznaczeniem `source`.
+ * Dzięki temu bez żadnego dodatkowego kodu wchodzi do licznika na stronie,
+ * do listy „Czas zabawy" i — po odhaczeniu opłaty — do rankingu.
+ */
+export async function createWalkin({ names = [], qty, start, stayUntil, phone = '', paid = false, note = '' }) {
+  const kids = (Array.isArray(names) ? names : String(names).split(','))
+    .map(n => String(n).trim()).filter(Boolean)
+    .map(name => ({ name, dob: '', tier: 'full', price: 0 }));
+  const count = Math.max(1, Math.min(10, Number(qty) || kids.length || 1));
+
+  const doc = {
+    date:            todayISO(),
+    start:           start || '',
+    stayUntil:       stayUntil || '',
+    duration:        'open',
+    durationLabel:   'wejście z ulicy',
+    children:        kids,
+    qty:             count,
+    tariff:          'weekday', base: 0, total: 0, siblingApplies: false,
+    parentFirstName: '', parentLastName: '',
+    email:           '', phone: String(phone || '').trim(), phoneKey: normPhone(phone),
+    note:            String(note || '').trim(),
+    source:          'walkin',
+    status:          BOOKING_STATUS.accepted,   // przy drzwiach nie ma co akceptować
+    adminNote:       '',
+    paid:            !!paid,
+    countedInRanking: false,
+    uid:             null,
+    createdAt:       F.serverTimestamp()
+  };
+
+  const r = await F.addDoc(col(PATHS.bookings), doc);
+  return { id: r.id, ...doc };
+}
+
+/** Dokłada minuty do pobytu (przycisk „+15 min"). */
+export async function extendBooking(b, minutes) {
+  const endMin = bookingEndMin(b, SETTINGS.dayEnd) + (Number(minutes) || 0);
+  const pad = n => String(n).padStart(2, '0');
+  const hhmm = `${pad(Math.floor(Math.max(0, endMin) / 60) % 24)}:${pad(Math.max(0, endMin) % 60)}`;
+  await updateBooking(b.id, { stayUntil: hhmm });
+  return hhmm;
+}
+
 /** Dowolna zmiana w rezerwacji — wyłącznie administrator (opłata, godzina wyjścia). */
 export const updateBooking = (id, patch) =>
   F.updateDoc(ref(PATHS.bookings, id), { ...patch, updatedAt: F.serverTimestamp() });
