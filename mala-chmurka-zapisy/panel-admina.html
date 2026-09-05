@@ -33,6 +33,13 @@
   .reg-row td{vertical-align:top}
   .who-cell strong{display:block}
   .who-cell span{font-size:.85rem;color:var(--muted)}
+  /* Uwagi z formularza zapisu — ten sam problem, co przy rezerwacjach:
+     rodzic je wpisuje, a obsługa nigdzie ich nie widziała. */
+  .who-cell .reg-note{display:block;margin-top:5px;padding:5px 8px;border-radius:8px;
+    background:var(--warn-pale);color:var(--warn);font-size:.79rem;line-height:1.45;
+    white-space:pre-wrap;overflow-wrap:anywhere;max-width:280px}
+  .who-cell .reg-note strong{display:block;font-family:var(--font-head);font-size:.72rem;
+    text-transform:uppercase;letter-spacing:.04em;opacity:.85;color:inherit}
   .mini{width:132px;min-width:132px}
   .gate{max-width:460px;margin:60px auto;text-align:center}
   .day-add{width:100%;margin-top:8px;font-size:.86rem;padding:.55em 1em;border:1px dashed var(--brand-deep);
@@ -55,12 +62,25 @@
   .bk-card.rejected{border-left-color:var(--bad);opacity:.72}
   .bk-card b{display:block;font-family:var(--font-head);color:var(--navy-deep);font-size:.92rem}
   .bk-line{color:var(--muted);font-size:.8rem;margin-top:2px}
+  /* Uwagi od rodzica — alergie, wózek, „przyjdziemy z babcią". Muszą rzucać
+     się w oczy, bo obsługa czyta je przed przyjściem dziecka. */
+  .bk-note{margin-top:7px;padding:7px 9px;border-radius:9px;background:var(--warn-pale);
+    color:var(--warn);font-size:.79rem;line-height:1.45;white-space:pre-wrap;
+    overflow-wrap:anywhere}
+  .bk-note strong{display:block;font-family:var(--font-head);font-size:.74rem;
+    text-transform:uppercase;letter-spacing:.04em;opacity:.85;margin-bottom:2px}
   .bk-check{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.83rem;
     font-family:var(--font-head);font-weight:600;color:var(--navy-deep);cursor:pointer}
   .bk-check input{width:16px;height:16px;accent-color:var(--ok);flex:none}
-  .bk-until{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:.8rem;color:var(--muted)}
-  .bk-until input{flex:1;min-width:0;font:inherit;padding:.2em .4em;border:1px solid var(--line);
-    border-radius:8px;background:var(--white);color:var(--ink)}
+  /* Etykieta nad polem, a nie obok — dzięki temu pole godziny dostaje całą
+     szerokość karty. W wąskiej kolumnie dnia obok siebie się nie mieściły. */
+  .bk-until{display:block;margin-top:8px;font-size:.78rem;color:var(--muted)}
+  .bk-until input{display:block;width:100%;min-width:0;margin-top:3px;
+    font:inherit;font-size:.95rem;font-variant-numeric:tabular-nums;
+    padding:.42em .6em;border:1px solid var(--line);border-radius:9px;
+    background:var(--white);color:var(--ink)}
+  .bk-until input:focus{border-color:var(--brand);outline:none;
+    box-shadow:0 0 0 3px rgba(147,199,207,.3)}
   .bk-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
   .bk-acts button{font-size:.78rem;padding:.3em .7em;border-radius:8px;font-family:var(--font-head);
     font-weight:600;border:1px solid transparent}
@@ -840,7 +860,7 @@ $('#evDelete').onclick = async () => {
 /* ======================================================== 2. ZAPISANI ==== */
 function matches(r, q) {
   if (!q) return true;
-  const hay = [...kidsOf(r), r.childFirstName, r.childLastName, r.parentFirstName, r.parentLastName,
+  const hay = [...kidsOf(r), r.note, r.childFirstName, r.childLastName, r.parentFirstName, r.parentLastName,
                r.phone, r.phoneKey, r.email, r.eventStart, r.eventEnd, r.eventTitle, r.eventDate]
               .join(' ').toLowerCase();
   return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
@@ -874,7 +894,8 @@ function renderRegs() {
         <span class="hint">${esc(r.eventStart || '')}–${esc(r.eventEnd || '')}</span></td>
       <td>${esc(r.eventTitle || '')}<br><span class="hint">${r.qty || 1} × ${money(r.unitPrice)}</span></td>
       <td class="who-cell">${kidsOf(r).map(k => `<strong>${esc(k)}</strong>`).join('')}
-        <span>${esc((r.parentFirstName || '') + ' ' + (r.parentLastName || ''))}</span></td>
+        <span>${esc((r.parentFirstName || '') + ' ' + (r.parentLastName || ''))}</span>
+        ${r.note ? `<span class="reg-note"><strong>Uwagi</strong>${esc(r.note)}</span>` : ''}</td>
       <td><a href="tel:${esc(r.phone || '')}">${esc(r.phone || '')}</a><br>
         <span class="hint">${esc(r.email || '')}</span></td>
       <td><input class="control mini stay" type="time" value="${esc(r.stayUntil || r.eventEnd || '')}"></td>
@@ -1109,6 +1130,7 @@ function renderBookings() {
             · ${esc(plDzieci(b.qty || 1))} · ${esc(money(b.total))}</div>
           ${kids ? `<div class="bk-line">${kids}</div>` : ''}
           <div class="bk-line"><a href="tel:${esc(b.phone || '')}">${esc(b.phone || '')}</a></div>
+          ${b.note ? `<div class="bk-note"><strong>Uwagi od rodzica</strong>${esc(b.note)}</div>` : ''}
           <div class="bk-line"><span class="badge badge-${
             st === 'accepted' ? 'ok' : st === 'rejected' ? 'bad' : 'warn'}">${
             esc(BOOKING_STATUS_SHORT[st] || st)}</span></div>

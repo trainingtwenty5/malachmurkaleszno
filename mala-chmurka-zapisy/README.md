@@ -423,7 +423,13 @@ czerwoną plakietką przy nazwie zakładki, widoczną z każdego innego miejsca 
 
 Zakładka to osobny kalendarz tygodniowy (7 kolumn, na telefonie jedna) z kartami
 rezerwacji: godzina, czas pobytu, rodzic, dzieci, kwota, telefon i przyciski
-**Akceptuj / Odrzuć / Usuń**. Przy odrzuceniu możesz wpisać powód — klient zobaczy go
+**Akceptuj / Odrzuć / Usuń**.
+
+**Uwagi od rodzica** — to, co klient wpisał w polu „Uwagi (nieobowiązkowe)": alergie,
+wózek, „przyjdziemy z babcią" — pokazują się na karcie w wyróżnionej, bursztynowej
+ramce. Wcześniej trafiały do bazy i nikt ich nie widział. Ta sama informacja jest teraz
+widoczna w zakładce **2 · Zapisani** przy danych dziecka i obejmuje ją wyszukiwarka,
+więc da się na przykład znaleźć wszystkie zgłoszenia ze słowem „alergia". Przy odrzuceniu możesz wpisać powód — klient zobaczy go
 w swojej historii.
 
 ### Zakładka 6 · Czas zabawy
