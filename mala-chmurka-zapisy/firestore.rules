@@ -136,7 +136,9 @@ service cloud.firestore {
        ================================================================ */
 
     /* settings/stats — licznik „odwiedziło nas już…”. Formularz zapisu może
-       go podbić, ale wyłącznie o 1 i wyłącznie w tym jednym polu. */
+       go podbić o liczbę zapisanych dzieci (zapis na 2 miejsca = +2), ale
+       tylko w górę, najwyżej o 10 naraz i wyłącznie w tym jednym polu.
+       Ta sama granica 10 obowiązuje w polu `qty` przy tworzeniu zgłoszenia. */
     match /settings/stats {
       allow read:   if true;
       allow create: if isAdmin();
@@ -146,7 +148,8 @@ service cloud.firestore {
              && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['visitsCount', 'updatedAt'])
              && request.resource.data.visitsCount is int
-             && request.resource.data.visitsCount == resource.data.visitsCount + 1 );
+             && request.resource.data.visitsCount > resource.data.visitsCount
+             && request.resource.data.visitsCount <= resource.data.visitsCount + 10 );
     }
 
     /* pozostałe dokumenty settings (m.in. settings/presence) — czyta każdy,

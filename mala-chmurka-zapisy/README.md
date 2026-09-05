@@ -29,7 +29,8 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `assets/mc-data.js` | Cała logika bazy danych. |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 38 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 41 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
 Każda podstrona ma w lewym górnym rogu przycisk **← Powrót do strony głównej**,
@@ -168,7 +169,7 @@ zabezpieczeniem na wypadek, gdyby claim nie został jeszcze nadany.
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **38 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **41 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -183,8 +184,15 @@ npm install --no-save @firebase/rules-unit-testing firebase firebase-tools
 npx firebase emulators:exec --only firestore --project demo-mc "node tools/test-rules.mjs"
 ```
 
-Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **38 zaliczonych, 0 niezaliczonych.**
+Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **41 zaliczonych, 0 niezaliczonych.**
 Uruchom to ponownie za każdym razem, gdy zmienisz `firestore.rules`.
+
+Sam formularz zapisu ma osobny, lekki zestaw (16 testów, bez emulatora i bez
+żadnych zależności — tylko Node):
+
+```bash
+node tools/test-ui.mjs
+```
 
 ### Czego panel *nie* chroni
 
@@ -247,7 +255,9 @@ w tej samej tabelce. Po jej upływie licznik sam wraca do zera.
 **Ręcznie:** zakładka **3 · Licznik w bawialni** — wpisujesz liczbę dzieci i godzinę.
 Przycisk „Wróć do trybu automatycznego” oddaje sterowanie checkboxom.
 
-**Licznik odwiedzin** („Odwiedziło nas już 266 dzieci”) rośnie o 1 przy każdym zapisie.
+**Licznik odwiedzin** („Odwiedziło nas już 266 dzieci”) rośnie o **liczbę zapisanych
+dzieci**, a nie o liczbę zgłoszeń — jeden zapis na 2 miejsca podbija go o 2.
+Górna granica jednego zgłoszenia to 10 dzieci (tak samo w `firestore.rules`).
 
 ## Ranking wizyt (zakładka 4)
 

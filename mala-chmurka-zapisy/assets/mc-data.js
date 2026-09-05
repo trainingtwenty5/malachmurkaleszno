@@ -169,7 +169,7 @@ export async function createRegistration(data) {
   };
 
   const r = await F.addDoc(col(PATHS.registrations), doc);
-  await bumpVisitCounter().catch(() => {});
+  await bumpVisitCounter(qty).catch(() => {});
   return { id: r.id, ...doc };
 }
 
@@ -278,10 +278,13 @@ export async function setPresenceManual(count, untilHHMM, capacity) {
 
 export const clearPresenceManual = () => F.setDoc(presenceRef(), { manual: false }, { merge: true });
 
-/** +1 do licznika „odwiedziło nas już…". */
-export async function bumpVisitCounter() {
+/** Podbija licznik „odwiedziło nas już…" o liczbę zapisanych DZIECI.
+    Jedno zgłoszenie na 2 miejsca to dwoje dzieci, więc licznik rośnie o 2.
+    Górna granica 10 jest ta sama, co w firestore.rules — powyżej baza odrzuci zapis. */
+export async function bumpVisitCounter(qty = 1) {
+  const by = Math.min(10, Math.max(1, Number(qty) || 1));
   await F.setDoc(statsRef(), {
-    visitsCount: F.increment(1),
+    visitsCount: F.increment(by),
     updatedAt: F.serverTimestamp()
   }, { merge: true });
 }

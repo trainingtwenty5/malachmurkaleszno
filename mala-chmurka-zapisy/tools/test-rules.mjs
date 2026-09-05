@@ -184,6 +184,15 @@ await t('settings/presence: czyta każdy, pisze tylko admin', async () => {
 });
 await t('settings/stats: anonim podbija licznik o 1 → TAK', async () =>
   assertSucceeds(updateDoc(doc(anon(), 'settings/stats'), { visitsCount: 5 })));
+await t('settings/stats: zapis na 2 miejsca podbija licznik o 2 -> TAK', async () =>
+  assertSucceeds(setDoc(doc(anon(), 'settings/stats'),
+    { visitsCount: increment(2), updatedAt: serverTimestamp() }, { merge: true })));
+await t('settings/stats: zapis na 10 miejsc podbija licznik o 10 -> TAK', async () =>
+  assertSucceeds(setDoc(doc(anon(), 'settings/stats'),
+    { visitsCount: increment(10), updatedAt: serverTimestamp() }, { merge: true })));
+await t('settings/stats: podbicie o 11 (ponad limit qty) -> NIE', async () =>
+  assertFails(setDoc(doc(anon(), 'settings/stats'),
+    { visitsCount: increment(11), updatedAt: serverTimestamp() }, { merge: true })));
 await t('settings/stats: anonim podbija licznik o 100 → NIE', async () =>
   assertFails(updateDoc(doc(anon(), 'settings/stats'), { visitsCount: 104 })));
 await t('settings/stats: anonim zmienia bazę licznika → NIE', async () =>

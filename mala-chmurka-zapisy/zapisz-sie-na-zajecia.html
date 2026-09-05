@@ -12,13 +12,22 @@
 <link rel="stylesheet" href="assets/mc-common.css">
 <style>
   .signup{max-width:620px;margin-inline:auto}
-  .steps{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+  .steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;
     font-family:var(--font-head);font-size:.86rem;color:var(--muted);margin-bottom:20px}
-  .steps b{color:var(--brand-deep)}
+  .steps .step{font-weight:700;padding:.28em .7em;border-radius:999px;color:var(--muted);
+    transition:background-color .2s var(--ease),color .2s var(--ease)}
+  .steps a.step{color:var(--brand-deep)}
+  .steps a.step:hover,.steps a.step:focus-visible{background:var(--brand-pale);text-decoration:none}
+  .steps .step.is-on{background:var(--brand-pale);color:var(--brand-deep)}
+  .steps .step.is-todo{opacity:.7}
   .metabox{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--cream);
     font-size:.9rem;color:var(--muted)}
   .metabox b{color:var(--ink);font-weight:700}
   .metabox p{margin:8px 0 0;line-height:1.55}
+  .metabox .meta-desc{color:var(--brand-deep);font-weight:600;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .metabox .meta-desc:hover{color:var(--navy-deep)}
+  .metabox .meta-more{font-size:.85rem}
   .sumrow{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:.95rem}
   .sumrow.total{border-top:1px solid var(--line);margin-top:8px;padding-top:12px;
     font-family:var(--font-head);font-weight:700;font-size:1.15rem;color:var(--brand-deep)}
@@ -168,8 +177,22 @@ const preQty     = Math.max(1, Number(P.get('qty')) || 1);
 
 let EVENTS = [], byTitle = new Map(), current = null, n = preQty, user = null;
 
-$('#steps').innerHTML = ['Wybór zajęć','Twoje dane','Potwierdzenie']
-  .map((s,i) => `${i ? '<span>›</span>' : ''}<${i===2?'span':'b'}>${i+1}. ${s}</${i===2?'span':'b'}>`).join(' ');
+/* ---------------------------------------------------------------- kroki ---
+   Pierwsze dwa kroki są klikalne: „Wybór zajęć" wraca do grafiku, „Twoje dane"
+   prowadzi do logowania (po zalogowaniu dane wpisują się same i wracamy tutaj).
+   Trzeci krok zapala się dopiero na stronie podziękowania. */
+const backHere = encodeURIComponent(location.pathname + location.search);
+$('#steps').innerHTML = [
+  { label: 'Wybór zajęć',   href: URLS.calendar,                  hint: 'Wróć do grafiku i wybierz inne zajęcia' },
+  { label: 'Twoje dane',    href: `${URLS.login}?next=${backHere}`, hint: 'Zaloguj się — dane wpiszą się same' },
+  { label: 'Potwierdzenie', href: null,                            hint: 'Zobaczysz je zaraz po wysłaniu zgłoszenia' }
+].map((s, i) => {
+  const label = `${i + 1}. ${esc(s.label)}`;
+  const cell = s.href
+    ? `<a class="step${i === 1 ? ' is-on' : ''}" href="${s.href}" title="${esc(s.hint)}">${label}</a>`
+    : `<span class="step is-todo" title="${esc(s.hint)}">${label}</span>`;
+  return (i ? '<span aria-hidden="true">›</span>' : '') + cell;
+}).join(' ');
 
 const msg = $('#msg');
 const show = (kind, text) => { msg.innerHTML = `<div class="alert alert-${kind}">${text}</div>`; msg.scrollIntoView({behavior:'smooth', block:'center'}); };
@@ -245,19 +268,36 @@ function fillSlots(title) {
   });
   slot.disabled = false;
 
-  const any = list[0];
-  if (any) {
-    $('#meta').hidden = false;
-    $('#meta').innerHTML =
-      `<b>Wiek</b> ${any.ageMin ?? 0}–${any.ageMax ?? 6} lat &nbsp;·&nbsp;
-       <b>Czas</b> ${any.start}–${any.end} &nbsp;·&nbsp;
-       <b>Cena</b> ${money(any.price)}
-       <p>${esc(any.shortDesc || any.description || '')}</p>`;
-  }
+  renderMeta(list[0]);
+}
+
+/* --------------------------------------------------------------------------
+   Ramka pod listą zajęć. Krótki opis jest hiperłączem do strony TYCH
+   konkretnych zajęć (strona-zajec.html?id=…) — tam jest pełny opis, zdjęcia
+   i szczegóły. Otwieramy w nowej karcie, żeby wypełniony formularz nie przepadł.
+   -------------------------------------------------------------------------- */
+function renderMeta(ev) {
+  const box = $('#meta');
+  if (!ev) { box.hidden = true; box.innerHTML = ''; return; }
+
+  const href = `${URLS.event}?id=${encodeURIComponent(ev.id)}`;
+  const desc = String(ev.shortDesc || ev.description || '').trim();
+  const link = (text, cls) =>
+    `<a class="${cls}" href="${href}" target="_blank" rel="noopener"
+        title="Otwórz opis zajęć „${esc(ev.title)}" w nowej karcie">${text}</a>`;
+
+  box.hidden = false;
+  box.innerHTML =
+    `<b>Wiek</b> ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat &nbsp;·&nbsp;
+     <b>Czas</b> ${ev.start}–${ev.end} &nbsp;·&nbsp;
+     <b>Cena</b> ${money(ev.price)}
+     <p>${desc ? link(esc(desc), 'meta-desc') : link('Zobacz pełny opis tych zajęć', 'meta-desc')}</p>
+     ${desc ? `<p class="meta-more">${link('Pełny opis, zdjęcia i szczegóły →', '')}</p>` : ''}`;
 }
 
 function pick(ev) {
   current = ev;
+  renderMeta(ev);          // opis i link celują teraz w wybrany termin
   const free = Math.max(0, (Number(ev.capacity)||0) - (Number(ev.booked)||0));
   n = Math.min(Math.max(1, n), Math.max(1, free));
   $('#freeInfo').textContent = free ? `wolnych miejsc: ${free}` : 'brak wolnych miejsc';
