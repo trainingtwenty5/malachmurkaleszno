@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Historia zamówień — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .hist{max-width:760px;margin-inline:auto}
+  .who{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+  .who .av{width:44px;height:44px;border-radius:50%;background:var(--brand-pale);color:var(--brand-deep);
+    display:grid;place-items:center;font-family:var(--font-head);font-weight:700;font-size:1.05rem}
+  .who .grow{flex:1;min-width:160px}
+
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--cream-deep);
+    padding:5px;border-radius:999px;margin-bottom:20px}
+  .tabs button{padding:.62em 1em;border-radius:999px;font-family:var(--font-head);
+    font-weight:600;font-size:.93rem;color:var(--navy-deep);transition:background-color .2s var(--ease)}
+  .tabs button.is-on{background:var(--white);box-shadow:var(--shadow-sm)}
+  .pane{display:none}
+  .pane.is-on{display:block}
+
+  .order{border:1px solid var(--line);border-radius:var(--radius);background:var(--white);
+    box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:14px}
+  .order-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  .order-head h3{margin:0 0 2px;font-size:1.05rem}
+  .order-when{font-size:.88rem;color:var(--muted)}
+  .order-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.87rem;color:var(--muted)}
+  .order-meta span{background:var(--cream);border-radius:999px;padding:.18em .75em}
+  .order-price{font-family:var(--font-head);font-weight:700;color:var(--brand-deep);white-space:nowrap}
+
+  .status{margin-top:12px;border-radius:12px;padding:11px 14px;font-size:.92rem;line-height:1.55;
+    display:flex;gap:10px;align-items:flex-start}
+  .status .ico{flex:none;width:20px;height:20px;margin-top:1px}
+  .status.pending{background:var(--warn-pale);color:var(--warn)}
+  .status.accepted{background:var(--ok-pale);color:var(--ok)}
+  .status.rejected{background:var(--bad-pale);color:var(--bad)}
+  .status.info{background:var(--sky-pale);color:var(--navy)}
+  .status.ok{background:var(--ok-pale);color:var(--ok)}
+  .status.warn{background:var(--warn-pale);color:var(--warn)}
+  .status b{font-weight:700}
+  .admin-note{display:block;margin-top:4px;font-size:.88rem;opacity:.85}
+  .kids-line{font-size:.88rem;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container hist">
+
+    <h1>Historia zamówień</h1>
+    <p class="lead">Twoje rezerwacje bawialni i zapisy na zajęcia — razem ze statusem każdego z nich.</p>
+
+    <div class="loading" id="loading"><span class="spin"></span> Sprawdzam Twoje konto…</div>
+
+    <!-- ====== niezalogowany ====== -->
+    <section class="card" id="anon" hidden>
+      <h2 style="font-size:1.15rem">Zaloguj się, żeby zobaczyć swoje zamówienia</h2>
+      <p>Historia pokazuje wpisy powiązane z Twoim kontem — dzięki temu nikt poza Tobą ich nie zobaczy.</p>
+      <a class="btn btn-primary btn-block" id="goLogin" href="#" style="margin-top:14px">Zaloguj się</a>
+      <p class="hint" style="text-align:center;margin:12px 0 0">
+        Rezerwowałeś bez konta? Zadzwoń do nas — potwierdzimy status telefonicznie.</p>
+    </section>
+
+    <!-- ====== zalogowany ====== -->
+    <div id="app" hidden>
+      <div class="who">
+        <div class="av" id="avatar">?</div>
+        <div class="grow">
+          <strong id="whoName">—</strong><br>
+          <span class="hint" id="whoMail">—</span>
+        </div>
+        <button class="btn btn-soft btn-sm btn-auto" id="logout">Wyloguj</button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button id="tabBookings" class="is-on" role="tab" aria-selected="true">Bawialnia</button>
+        <button id="tabClasses" role="tab" aria-selected="false">Zajęcia</button>
+      </div>
+
+      <section class="pane is-on" id="paneBookings">
+        <div id="bookings"><div class="loading"><span class="spin"></span> Wczytuję rezerwacje…</div></div>
+      </section>
+
+      <section class="pane" id="paneClasses">
+        <div id="classes"><div class="loading"><span class="spin"></span> Wczytuję zapisy…</div></div>
+      </section>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:22px">
+        <a class="btn btn-primary" style="flex:1" href="rezerwacja-bawialni.html">Zarezerwuj miejsce</a>
+        <a class="btn btn-outline" style="flex:1" href="kalendarz-zajec.html">Grafik zajęć</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, plDzieci, URLS, SETTINGS }
+  from './assets/mc-common.js';
+import { auth, A } from './assets/mc-firebase.js';
+import { watchMyBookings, watchMyRegistrations, registrationStatusText,
+         BOOKING_STATUS_TEXT } from './assets/mc-data.js';
+
+mountChrome({ current: 'Moje zamówienia', crumb: 'Historia zamówień' });
+
+$('#goLogin').href = `${URLS.login}?next=${encodeURIComponent(location.pathname)}`;
+$('#logout').onclick = async () => { await A.signOut(auth); toast('Wylogowano.'); };
+
+/* ---------------------------------------------------------------- zakładki */
+function tab(which) {
+  const b = which === 'bookings';
+  $('#tabBookings').classList.toggle('is-on', b);
+  $('#tabClasses').classList.toggle('is-on', !b);
+  $('#tabBookings').setAttribute('aria-selected', String(b));
+  $('#tabClasses').setAttribute('aria-selected', String(!b));
+  $('#paneBookings').classList.toggle('is-on', b);
+  $('#paneClasses').classList.toggle('is-on', !b);
+}
+$('#tabBookings').onclick = () => tab('bookings');
+$('#tabClasses').onclick  = () => tab('classes');
+
+/* ------------------------------------------------------------------ ikony */
+const ICON = {
+  pending:  '<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/>',
+  accepted: '<path d="M20 6 9 17l-5-5"/>',
+  rejected: '<path d="M18 6 6 18M6 6l12 12"/>'
+};
+const svg = kind => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${
+  ICON[kind] || ICON.pending}</svg>`;
+
+/* ============================================== REZERWACJE BAWIALNI ====== */
+function renderBookings(list) {
+  if (!list.length) {
+    $('#bookings').innerHTML = `<div class="empty">
+      Nie masz jeszcze żadnej rezerwacji bawialni.<br>
+      <a href="rezerwacja-bawialni.html">Zarezerwuj miejsce →</a></div>`;
+    return;
+  }
+
+  $('#bookings').innerHTML = list.map(b => {
+    const st = b.status || 'pending';
+    const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
+    return `
+      <article class="order">
+        <div class="order-head">
+          <div>
+            <h3>Wstęp do bawialni</h3>
+            <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}</div>
+          </div>
+          <div class="order-price">${esc(money(b.total))}</div>
+        </div>
+        <div class="order-meta">
+          <span>${esc(b.durationLabel || b.duration || '')}</span>
+          <span>${esc(plDzieci(b.qty || 1))}</span>
+          ${b.siblingApplies ? '<span>rodzeństwo −20%</span>' : ''}
+        </div>
+        ${kids ? `<div class="kids-line">Dzieci: ${kids}</div>` : ''}
+        <div class="status ${esc(st)}">
+          ${svg(st)}
+          <span><b>${esc(BOOKING_STATUS_TEXT[st] || BOOKING_STATUS_TEXT.pending)}</b>
+          ${b.adminNote ? `<span class="admin-note">${esc(b.adminNote)}</span>` : ''}</span>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+/* ==================================================== ZAPISY NA ZAJĘCIA == */
+function renderClasses(list) {
+  if (!list.length) {
+    $('#classes').innerHTML = `<div class="empty">
+      Nie masz jeszcze żadnego zapisu na zajęcia.<br>
+      <a href="kalendarz-zajec.html">Zobacz grafik zajęć →</a></div>`;
+    return;
+  }
+
+  $('#classes').innerHTML = list.map(r => {
+    const st = registrationStatusText(r);
+    return `
+      <article class="order">
+        <div class="order-head">
+          <div>
+            <h3>${esc(r.eventTitle || 'Zajęcia')}</h3>
+            <div class="order-when">${esc(longDate(r.eventDate))}${
+              r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}</div>
+          </div>
+          <div class="order-price">${esc(money(r.total))}</div>
+        </div>
+        <div class="order-meta">
+          <span>${esc(plDzieci(r.qty || 1))}</span>
+          <span>${esc(r.paymentMethod || '')}</span>
+        </div>
+        ${r.childFirstName ? `<div class="kids-line">Dziecko: ${esc(
+          `${r.childFirstName} ${r.childLastName || ''}`.trim())}</div>` : ''}
+        <div class="status ${esc(st.kind)}">
+          ${svg(st.kind === 'ok' ? 'accepted' : 'pending')}
+          <span><b>${esc(st.text)}</b></span>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+/* ------------------------------------------------------- stan logowania -- */
+let offB = null, offR = null;
+
+A.onAuthStateChanged(auth, user => {
+  $('#loading').hidden = true;
+  if (offB) { offB(); offB = null; }
+  if (offR) { offR(); offR = null; }
+
+  if (!user) {
+    $('#app').hidden = true;
+    $('#anon').hidden = false;
+    return;
+  }
+
+  $('#anon').hidden = true;
+  $('#app').hidden = false;
+
+  const name = user.displayName || (user.email || '').split('@')[0];
+  $('#whoName').textContent = name;
+  $('#whoMail').textContent = user.email || '';
+  $('#avatar').textContent = (name || '?').trim().charAt(0).toUpperCase();
+
+  /* Nasłuch na żywo: gdy administrator zaakceptuje rezerwację,
+     status zmieni się na tej stronie sam, bez odświeżania. */
+  offB = watchMyBookings(user.uid, renderBookings);
+  offR = watchMyRegistrations(user.uid, renderClasses);
+});
+</script>
+</body>
+</html>

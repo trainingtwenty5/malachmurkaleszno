@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails }
   from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, addDoc,
-         runTransaction, increment, serverTimestamp } from 'firebase/firestore';
+         runTransaction, increment, serverTimestamp, query, where } from 'firebase/firestore';
 
 const testEnv = await initializeTestEnvironment({
   projectId: 'mala-chmurka-test',
@@ -39,6 +39,14 @@ const EVENT = {
   title: 'Logosensoryka', color: '#93C7CF', date: '2026-09-10', start: '09:30', end: '10:30',
   capacity: 10, booked: 2, price: 45, active: true
 };
+const BOOKING = {
+  date: '2026-09-10', start: '10:00', duration: '2h', durationLabel: '2 godziny',
+  children: [{ name: 'Zosia', dob: '2022-01-01', tier: 'full', price: 40 }],
+  qty: 1, tariff: 'weekday', base: 40, total: 40, siblingApplies: false,
+  parentFirstName: 'Anna', parentLastName: 'Kowalska',
+  email: 'anna@example.com', phone: '726431978', phoneKey: '726431978',
+  note: '', status: 'pending', adminNote: '', uid: null
+};
 const REG = {
   eventId: 'ev1', eventTitle: 'Logosensoryka', eventDate: '2026-09-10',
   email: 'rodzic@example.com', phone: '726431978', childFirstName: 'Zosia',
@@ -56,6 +64,9 @@ async function seed() {
     await setDoc(doc(db, 'settings/presence'), { count: 0, until: '', capacity: 6, manual: false });
     await setDoc(doc(db, 'settings/stats'), { visitsBase: 266, visitsCount: 4 });
     await setDoc(doc(db, 'admins/uid-admin'), { email: ADMIN });
+    await setDoc(doc(db, 'bookings/b-guest'), { ...BOOKING, uid: null });
+    await setDoc(doc(db, 'bookings/b-mine'),  { ...BOOKING, uid: 'klient' });
+    await setDoc(doc(db, 'bookings/b-other'), { ...BOOKING, uid: 'ktos-inny' });
     await setDoc(doc(db, 'sekrety/x'), { a: 1 });
   });
 }
@@ -170,6 +181,54 @@ await t('Admin czyta i edytuje zgłoszenia → TAK', async () => {
 });
 await t('Klient NIE zmienia cudzego zgłoszenia → NIE', async () =>
   assertFails(updateDoc(doc(user('klient', 'ktos@example.com'), 'registrations/r1'), { paid: true })));
+
+console.log('\n=== REZERWACJE BAWIALNI (bookings) ===');
+
+await t('Anonim tworzy rezerwacje jako oczekujaca -> TAK', async () =>
+  assertSucceeds(addDoc(collection(anon(), 'bookings'), BOOKING)));
+await t('Anonim tworzy rezerwacje od razu zaakceptowana -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, status: 'accepted' })));
+await t('Klient NIE zmienia statusu swojej rezerwacji -> NIE', async () =>
+  assertFails(updateDoc(doc(user('klient', 'k\example.com'), 'bookings/b-mine'), { status: 'accepted' })));
+await t('Klient NIE podepnie rezerwacji pod cudze konto -> NIE', async () =>
+  assertFails(addDoc(collection(user('klient', 'k\example.com'), 'bookings'), { ...BOOKING, uid: 'ktos-inny' })));
+await t('Zalogowany podpina rezerwacje pod swoje konto -> TAK', async () =>
+  assertSucceeds(addDoc(collection(user('klient', 'k\example.com'), 'bookings'), { ...BOOKING, uid: 'klient' })));
+await t('Rezerwacja na 11 dzieci -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, qty: 11 })));
+await t('Rezerwacja z bzdurnym czasem pobytu -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, duration: '8h' })));
+await t('Anonim NIE czyta cudzych rezerwacji -> NIE', async () =>
+  assertFails(getDoc(doc(anon(), 'bookings/b-mine'))));
+await t('Klient czyta SWOJA rezerwacje -> TAK', async () =>
+  assertSucceeds(getDoc(doc(user('klient', 'k\example.com'), 'bookings/b-mine'))));
+await t('Klient NIE czyta rezerwacji innej osoby -> NIE', async () =>
+  assertFails(getDoc(doc(user('klient', 'k\example.com'), 'bookings/b-other'))));
+await t('Admin czyta i akceptuje rezerwacje -> TAK', async () => {
+  const db = user('a1', ADMIN, true);
+  await assertSucceeds(getDoc(doc(db, 'bookings/b-mine')));
+  await assertSucceeds(updateDoc(doc(db, 'bookings/b-mine'), { status: 'accepted', adminNote: '' }));
+  await assertSucceeds(updateDoc(doc(db, 'bookings/b-guest'), { status: 'rejected', adminNote: 'komplet' }));
+});
+
+console.log('\n=== HISTORIA ZAMOWIEN (zapytania o swoje wpisy) ===');
+
+await t('Historia: zapytanie o SWOJE rezerwacje -> TAK', async () => {
+  const db = user('klient', 'k\example.com');
+  await assertSucceeds(getDocs(query(collection(db, 'bookings'), where('uid', '==', 'klient'))));
+});
+await t('Historia: zapytanie o SWOJE zapisy na zajecia -> TAK', async () => {
+  const db = user('klient', 'k\example.com');
+  await assertSucceeds(getDocs(query(collection(db, 'registrations'), where('uid', '==', 'klient'))));
+});
+await t('Zapytanie o CUDZE rezerwacje -> NIE', async () => {
+  const db = user('klient', 'k\example.com');
+  await assertFails(getDocs(query(collection(db, 'bookings'), where('uid', '==', 'ktos-inny'))));
+});
+await t('Zapytanie o WSZYSTKIE rezerwacje (bez filtra) -> NIE', async () =>
+  assertFails(getDocs(collection(user('klient', 'k\example.com'), 'bookings'))));
+await t('Admin pobiera wszystkie rezerwacje -> TAK', async () =>
+  assertSucceeds(getDocs(collection(user('a1', ADMIN, true), 'bookings'))));
 
 console.log('\n=== RANKING, LICZNIKI, RESZTA ===');
 

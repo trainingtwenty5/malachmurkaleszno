@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Dziękujemy za rezerwację — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .thanks{max-width:640px;margin-inline:auto}
+  .tick{width:74px;height:74px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;
+    background:var(--ok-pale);color:var(--ok)}
+  .tick svg{width:38px;height:38px}
+  .head{text-align:center;margin-bottom:24px}
+  .steps3{list-style:none;margin:0;padding:0;counter-reset:s}
+  .steps3 li{counter-increment:s;display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .steps3 li:last-child{border-bottom:0}
+  .steps3 li::before{content:counter(s);flex:none;width:34px;height:34px;border-radius:50%;
+    background:var(--brand-pale);color:var(--brand-deep);display:grid;place-items:center;
+    font-family:var(--font-head);font-weight:700}
+  .steps3 h3{margin:0 0 3px;font-size:1.02rem}
+  .steps3 p{margin:0;font-size:.93rem;color:var(--muted);line-height:1.6}
+  .sumrow{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:.95rem}
+  .sumrow.total{border-top:1px solid var(--line);margin-top:8px;padding-top:12px;
+    font-family:var(--font-head);font-weight:700;font-size:1.15rem;color:var(--brand-deep)}
+  .pending{display:inline-flex;align-items:center;gap:8px;background:var(--warn-pale);color:var(--warn);
+    border-radius:999px;padding:.3em .9em;font-family:var(--font-head);font-weight:700;font-size:.9rem}
+  .pending .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container thanks">
+
+    <div class="head">
+      <div class="tick" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <h1>Rezerwacja przyjęta!</h1>
+      <p class="lead">Mamy Twoje zgłoszenie. Teraz sprawdzamy, czy tego dnia mamy komplet miejsc.</p>
+      <p><span class="pending"><span class="dot" aria-hidden="true"></span>Oczekujesz na potwierdzenie</span></p>
+    </div>
+
+    <!-- ====== podsumowanie rezerwacji ====== -->
+    <section class="card" id="summary" hidden>
+      <h2 style="font-size:1.1rem">Twoja rezerwacja</h2>
+      <div id="sum"></div>
+    </section>
+
+    <!-- ====== 3 kroki: co dalej ====== -->
+    <section class="card" style="margin-top:16px">
+      <h2 style="font-size:1.1rem">Co dalej — trzy kroki</h2>
+      <ol class="steps3">
+        <li>
+          <div>
+            <h3>Przejdź do „Historii zamówień"</h3>
+            <p>To Twoje miejsce na wszystkie rezerwacje bawialni i zapisy na zajęcia —
+               razem ze statusem każdego z nich.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Poczekaj na zmianę statusu</h3>
+            <p>Teraz widnieje tam <strong>„Oczekujesz na potwierdzenie"</strong>. Sprawdzamy grafik
+               i zmieniamy status zwykle tego samego dnia — nie musisz nic robić.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3>Przyjdź, gdy zobaczysz zielony status</h3>
+            <p><strong>„Status zaakceptowany, zapraszamy do bawialni"</strong> oznacza, że miejsce czeka.
+               Gdyby tego dnia zabrakło miejsc, napiszemy to w statusie i zaproponujemy inny termin.
+               Płacisz na miejscu.</p>
+          </div>
+        </li>
+      </ol>
+
+      <a class="btn btn-primary btn-block" id="toHistory" href="historia-zamowien.html" style="margin-top:8px">
+        Przejdź do historii zamówień
+      </a>
+
+      <div class="alert alert-warn" id="guestNote" hidden style="margin-top:14px">
+        <strong>Rezerwujesz bez konta.</strong> Historia zamówień pokazuje wpisy powiązane z kontem,
+        więc statusu tej rezerwacji tam nie zobaczysz — potwierdzimy ją telefonicznie.
+        Jeśli chcesz śledzić status samodzielnie,
+        <a href="logowanie.html">załóż konto na ten sam adres e-mail</a> i przy kolejnej
+        rezerwacji zaloguj się przed wysłaniem.
+      </div>
+    </section>
+
+    <!-- ====== kontakt ====== -->
+    <section class="card" style="margin-top:16px">
+      <h2 style="font-size:1.1rem">Coś się zmieniło?</h2>
+      <p class="hint" style="margin-bottom:12px">Napisz albo zadzwoń — najszybciej odbierzemy telefon.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn btn-outline" style="flex:1" id="tel" href="#">Zadzwoń</a>
+        <a class="btn btn-outline" style="flex:1" id="mail" href="#">Napisz e-mail</a>
+      </div>
+    </section>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+      <a class="btn btn-soft" style="flex:1" href="rezerwacja-bawialni.html">Zarezerwuj kolejny termin</a>
+      <a class="btn btn-soft" style="flex:1" href="kalendarz-zajec.html">Zobacz grafik zajęć</a>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, $, esc, money, longDate, SETTINGS } from './assets/mc-common.js';
+import { auth, A } from './assets/mc-firebase.js';
+
+mountChrome({ crumb: 'Rezerwacja przyjęta' });
+
+$('#tel').href  = `tel:${SETTINGS.phoneHref}`;
+$('#tel').textContent = `Zadzwoń: ${SETTINGS.phone}`;
+$('#mail').href = `mailto:${SETTINGS.email}`;
+
+/* Dane rezerwacji zostawił formularz — pokazujemy je bez pytania bazy,
+   dzięki czemu strona działa też dla osób bez konta. */
+let b = null;
+try { b = JSON.parse(sessionStorage.getItem('mc_last_booking') || 'null'); } catch { b = null; }
+
+if (b) {
+  $('#summary').hidden = false;
+  $('#sum').innerHTML = `
+    <div class="sumrow"><span>Dzień</span><span>${esc(longDate(b.date))}</span></div>
+    <div class="sumrow"><span>Godzina przyjścia</span><span>${esc(b.start || '—')}</span></div>
+    <div class="sumrow"><span>Czas pobytu</span><span>${esc(b.durationLabel || '—')}</span></div>
+    <div class="sumrow"><span>Liczba dzieci</span><span>${esc(String(b.qty || 1))}</span></div>
+    <div class="sumrow"><span>Rezerwacja na</span><span>${esc(b.parent || '')}</span></div>
+    <div class="sumrow total"><span>Do zapłaty na miejscu</span><span>${esc(money(b.total))}</span></div>`;
+  $('#guestNote').hidden = !!b.hasAccount;
+}
+
+/* Gdyby ktoś zalogował się dopiero teraz — notka dla gości przestaje być potrzebna. */
+A.onAuthStateChanged(auth, u => {
+  if (u) $('#guestNote').hidden = true;
+  else if (b && !b.hasAccount) $('#guestNote').hidden = false;
+});
+</script>
+</body>
+</html>

@@ -308,3 +308,157 @@ export async function setVisitsBase(base, count) {
     updatedAt: F.serverTimestamp()
   }, { merge: true });
 }
+
+/* ==========================================================================
+   REZERWACJE BAWIALNI  (kolekcja `bookings`)
+   --------------------------------------------------------------------------
+   To NIE są zapisy na zajęcia — to zwykłe wejście do bawialni na godzinę,
+   dwie albo bez limitu. Każda rezerwacja startuje jako `pending` i dopiero
+   administrator ją akceptuje albo odrzuca (zakładka „Rezerwacje" w panelu).
+   Klient widzi status w „Historii zamówień".
+
+   bookings/{id}
+     date "YYYY-MM-DD", start "HH:MM", duration "1h"|"2h"|"open", durationLabel,
+     children[{ name, dob, tier, price }], qty,
+     tariff "weekday"|"weekend", base, total, siblingApplies,
+     parentFirstName, parentLastName, email, phone, phoneKey, note,
+     status "pending"|"accepted"|"rejected", adminNote,
+     uid|null, createdAt, decidedAt
+   ========================================================================== */
+
+export const BOOKING_STATUS = {
+  pending:  'pending',
+  accepted: 'accepted',
+  rejected: 'rejected'
+};
+
+/** Teksty pokazywane klientowi w historii zamówień. */
+export const BOOKING_STATUS_TEXT = {
+  pending:  'Oczekujesz na potwierdzenie',
+  accepted: 'Status zaakceptowany, zapraszamy do bawialni',
+  rejected: 'Bawialnia w tym dniu ma już komplet i niestety nie możemy zaakceptować zgłoszenia — zapraszamy w innym dogodnym terminie'
+};
+
+/** Krótka etykieta na plakietkę (panel admina, listy). */
+export const BOOKING_STATUS_SHORT = {
+  pending:  'oczekuje',
+  accepted: 'zaakceptowana',
+  rejected: 'odrzucona'
+};
+
+/** Tworzy rezerwację. Zawsze `pending` — statusu nie da się ustawić z formularza. */
+export async function createBooking(data) {
+  const kids = (data.children || []).map(c => ({
+    name:  String(c.name || '').trim(),
+    dob:   c.dob || '',
+    tier:  c.tier || 'full',
+    price: Number(c.price) || 0
+  }));
+  const qty = Math.max(1, Math.min(10, kids.length || Number(data.qty) || 1));
+
+  const doc = {
+    date:            data.date || '',
+    start:           data.start || '',
+    duration:        data.duration || '1h',
+    durationLabel:   data.durationLabel || '',
+    children:        kids,
+    qty,
+    tariff:          data.tariff || 'weekday',
+    base:            Number(data.base) || 0,
+    total:           Number(data.total) || 0,
+    siblingApplies:  !!data.siblingApplies,
+    parentFirstName: (data.parentFirstName || '').trim(),
+    parentLastName:  (data.parentLastName || '').trim(),
+    email:           (data.email || '').trim().toLowerCase(),
+    phone:           (data.phone || '').trim(),
+    phoneKey:        normPhone(data.phone),
+    note:            (data.note || '').trim(),
+    status:          BOOKING_STATUS.pending,
+    adminNote:       '',
+    uid:             data.uid || null,
+    createdAt:       F.serverTimestamp()
+  };
+
+  const r = await F.addDoc(col(PATHS.bookings), doc);
+  return { id: r.id, ...doc };
+}
+
+/** Rezerwacje w zakresie dat — dla panelu admina. */
+export async function listBookings({ fromISO, toISO } = {}) {
+  let q = col(PATHS.bookings);
+  q = (fromISO && toISO)
+    ? F.query(q, F.where('date', '>=', fromISO), F.where('date', '<=', toISO), F.orderBy('date'))
+    : F.query(q, F.orderBy('date', 'desc'), F.limit(500));
+  const snap = await F.getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Nasłuch na żywo — panel admina odświeża się, gdy ktoś zarezerwuje miejsce. */
+export function watchBookings({ fromISO, toISO } = {}, cb) {
+  let q = col(PATHS.bookings);
+  q = (fromISO && toISO)
+    ? F.query(q, F.where('date', '>=', fromISO), F.where('date', '<=', toISO), F.orderBy('date'))
+    : F.query(q, F.orderBy('date', 'desc'), F.limit(500));
+  return F.onSnapshot(q,
+    s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
+             .sort((a, b) => (a.date || '').localeCompare(b.date || '') || toMin(a.start) - toMin(b.start))),
+    err => console.error('watchBookings', err));
+}
+
+/** Akceptacja / odrzucenie rezerwacji — wyłącznie administrator. */
+export const setBookingStatus = (id, status, adminNote = '') =>
+  F.updateDoc(ref(PATHS.bookings, id), {
+    status,
+    adminNote: String(adminNote || ''),
+    decidedAt: F.serverTimestamp(),
+    updatedAt: F.serverTimestamp()
+  });
+
+export const deleteBooking = id => F.deleteDoc(ref(PATHS.bookings, id));
+
+/* ==========================================================================
+   HISTORIA ZAMÓWIEŃ KLIENTA
+   Zalogowany użytkownik widzi wyłącznie swoje wpisy — pilnują tego reguły
+   Firestore, nie ten kod.
+   ========================================================================== */
+
+/** Moje rezerwacje bawialni, od najnowszej. */
+export async function myBookings(uid) {
+  if (!uid) return [];
+  const snap = await F.getDocs(F.query(col(PATHS.bookings), F.where('uid', '==', uid)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+/** Nasłuch na moje rezerwacje — status zmienia się bez odświeżania strony. */
+export function watchMyBookings(uid, cb) {
+  if (!uid) { cb([]); return () => {}; }
+  return F.onSnapshot(F.query(col(PATHS.bookings), F.where('uid', '==', uid)),
+    s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
+             .sort((a, b) => (b.date || '').localeCompare(a.date || ''))),
+    err => console.error('watchMyBookings', err));
+}
+
+/** Moje zapisy na zajęcia, od najnowszego. */
+export async function myRegistrations(uid) {
+  if (!uid) return [];
+  const snap = await F.getDocs(F.query(col(PATHS.registrations), F.where('uid', '==', uid)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || ''));
+}
+
+export function watchMyRegistrations(uid, cb) {
+  if (!uid) { cb([]); return () => {}; }
+  return F.onSnapshot(F.query(col(PATHS.registrations), F.where('uid', '==', uid)),
+    s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
+             .sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || ''))),
+    err => console.error('watchMyRegistrations', err));
+}
+
+/** Status zapisu na zajęcia, opisany po ludzku — na potrzeby historii. */
+export function registrationStatusText(reg) {
+  if (reg.attended && reg.paid) return { kind: 'ok',   text: 'Wizyta odbyta i rozliczona' };
+  if (reg.paid)                  return { kind: 'ok',   text: 'Opłacone — do zobaczenia na zajęciach' };
+  if (reg.attended)              return { kind: 'warn', text: 'Obecność potwierdzona, płatność na miejscu' };
+  return { kind: 'info', text: 'Zapis przyjęty — płatność przed zajęciami lub na miejscu' };
+}

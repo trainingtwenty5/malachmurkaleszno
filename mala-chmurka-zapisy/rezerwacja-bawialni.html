@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Zarezerwuj miejsce w bawialni — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Zarezerwuj wstęp do bawialni Mała Chmurka w Lesznie — 1 godzina, 2 godziny albo bez limitu. Cena nalicza się automatycznie razem ze zniżkami.">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .signup{max-width:660px;margin-inline:auto}
+  .steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;
+    font-family:var(--font-head);font-size:.86rem;color:var(--muted);margin-bottom:20px}
+  .steps .step{font-weight:700;padding:.28em .7em;border-radius:999px;color:var(--muted);
+    transition:background-color .2s var(--ease),color .2s var(--ease)}
+  .steps a.step{color:var(--brand-deep)}
+  .steps a.step:hover,.steps a.step:focus-visible{background:var(--brand-pale);text-decoration:none}
+  .steps .step.is-on{background:var(--brand-pale);color:var(--brand-deep)}
+  .steps .step.is-todo{opacity:.7}
+
+  .tariff{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--brand-pale);
+    border-radius:14px;padding:10px 14px;font-size:.9rem;color:var(--brand-deep);font-weight:600;
+    font-family:var(--font-head);margin-bottom:14px}
+  .tariff .tag{background:var(--white);border-radius:999px;padding:.1em .7em;font-size:.85rem}
+
+  .durations{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .dur{position:relative}
+  .dur input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+  .dur span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px;
+    border:2px solid var(--line);border-radius:16px;background:var(--white);text-align:center;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);transition:.18s var(--ease)}
+  .dur b{font-size:1.3rem;color:var(--brand-deep);line-height:1.1}
+  .dur input:checked + span{border-color:var(--brand-deep);background:var(--brand-pale);
+    box-shadow:var(--shadow-sm)}
+  .dur input:focus-visible + span{outline:3px solid var(--brand);outline-offset:2px}
+
+  .kid{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--white);
+    margin-bottom:10px}
+  .kid-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .kid-head strong{font-family:var(--font-head);color:var(--navy-deep);font-size:.95rem}
+  .kid-drop{font-size:.83rem;color:var(--bad);text-decoration:underline;text-underline-offset:2px}
+  .kid-tag{font-size:.8rem;border-radius:999px;padding:.15em .7em;font-weight:700;
+    font-family:var(--font-head);white-space:nowrap}
+  .kid-tag.free{background:var(--ok-pale);color:var(--ok)}
+  .kid-tag.half{background:var(--warn-pale);color:var(--warn)}
+  .kid-tag.full{background:var(--cream-deep);color:var(--muted)}
+  .addkid{width:100%;padding:.6em 1em;border:1px dashed var(--brand-deep);border-radius:12px;
+    color:var(--brand-deep);background:var(--brand-pale);font-family:var(--font-head);font-weight:600}
+
+  .sumrow{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:.94rem}
+  .sumrow .cut{color:var(--muted);font-size:.86rem}
+  .sumrow.total{border-top:1px solid var(--line);margin-top:8px;padding-top:12px;
+    font-family:var(--font-head);font-weight:700;font-size:1.2rem;color:var(--brand-deep)}
+  .cuts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .cuts span{font-size:.8rem;background:var(--ok-pale);color:var(--ok);border-radius:999px;
+    padding:.15em .7em;font-weight:700;font-family:var(--font-head)}
+
+  .pricelist{font-size:.88rem;color:var(--muted);margin-top:8px;line-height:1.7}
+  .pricelist b{color:var(--ink)}
+  @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container signup">
+
+    <div class="steps" id="steps"></div>
+
+    <!-- ====== KROK 1: logowanie albo rezerwacja bez konta ====== -->
+    <section class="card" id="stepLogin" hidden>
+      <h1 style="font-size:1.35rem">Zarezerwuj miejsce w bawialni</h1>
+      <p class="lead">Sam wstęp do bawialni — bez zapisu na zajęcia.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px">
+        <a class="btn btn-navy btn-block" id="goLogin" href="#">Zaloguj się na swoje konto</a>
+        <button class="btn btn-outline btn-block" id="asGuest" type="button">Rezerwuj bez konta</button>
+      </div>
+      <div class="alert alert-info" style="margin-top:16px">
+        <strong>Z kontem widzisz status rezerwacji.</strong><br>
+        Każda rezerwacja czeka na potwierdzenie przez nas. Zalogowanym pokazujemy je
+        w „Historii zamówień"; bez konta potwierdzimy telefonicznie.
+      </div>
+    </section>
+
+    <!-- ====== KROK 2: formularz ====== -->
+    <section id="stepForm" hidden>
+      <h1 style="font-size:1.5rem">Zarezerwuj miejsce w bawialni</h1>
+      <p class="lead">Wybierz dzień i czas pobytu — cenę policzymy na bieżąco,
+        razem ze wszystkimi zniżkami.</p>
+
+      <div id="msg" style="margin-top:16px"></div>
+
+      <form class="card" id="form" novalidate style="margin-top:16px">
+
+        <div class="row2">
+          <div class="field">
+            <label for="date">Dzień wizyty</label>
+            <input class="control" id="date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="start">Planowana godzina przyjścia</label>
+            <input class="control" id="start" type="time" value="10:00" required>
+          </div>
+        </div>
+
+        <div class="tariff" id="tariff">Wybierz dzień, żeby zobaczyć taryfę.</div>
+
+        <div class="field">
+          <label>Czas pobytu</label>
+          <div class="durations" id="durations"></div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+
+        <div class="field">
+          <label>Dzieci</label>
+          <p class="hint" style="margin:-4px 0 10px">Data urodzenia jest potrzebna do naliczenia
+            zniżek — do 6. miesiąca wstęp jest bezpłatny, do 1. roku płacisz połowę.</p>
+          <div id="kids"></div>
+          <button class="addkid" type="button" id="addKid">+ Dodaj kolejne dziecko</button>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+
+        <div class="row2">
+          <div class="field">
+            <label for="pFirst">Imię rodzica</label>
+            <input class="control" id="pFirst" autocomplete="given-name" placeholder="Wpisz imię" required>
+          </div>
+          <div class="field">
+            <label for="pLast">Nazwisko rodzica</label>
+            <input class="control" id="pLast" autocomplete="family-name" placeholder="Wpisz nazwisko" required>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="email">Adres e-mail</label>
+            <input class="control" id="email" type="email" autocomplete="email" placeholder="np. anna@example.com" required>
+          </div>
+          <div class="field">
+            <label for="phone">Numer telefonu</label>
+            <input class="control" id="phone" type="tel" autocomplete="tel" placeholder="np. 726 431 978" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="note">Uwagi (nieobowiązkowe)</label>
+          <textarea class="control" id="note" rows="2"
+            placeholder="Alergie, wózek, przyjdziemy z babcią — cokolwiek warto, żebyśmy wiedzieli"></textarea>
+        </div>
+
+        <div class="card card-tight" style="background:var(--cream);border-color:var(--line)">
+          <div id="sum"></div>
+          <div class="cuts" id="cuts"></div>
+        </div>
+
+        <label class="check" style="margin-top:16px">
+          <input type="checkbox" id="consent" required>
+          <span><strong>Akceptuję regulamin i zgadzam się na przetwarzanie danych</strong><br>
+            <span class="hint">Dane wykorzystujemy wyłącznie do obsługi rezerwacji.</span></span>
+        </label>
+
+        <button class="btn btn-primary btn-block" type="submit" id="submit" style="margin-top:18px">
+          Zarezerwuj miejsce
+        </button>
+        <p class="hint" style="text-align:center;margin:10px 0 0">
+          Rezerwacja czeka na nasze potwierdzenie — płacisz dopiero na miejscu.</p>
+      </form>
+
+      <div class="card" style="margin-top:16px">
+        <h2 style="font-size:1.05rem">Cennik wstępu</h2>
+        <div class="pricelist">
+          <b>Poniedziałek – czwartek:</b> 1 h — 25 zł &nbsp;·&nbsp; 2 h — 40 zł &nbsp;·&nbsp; bez limitu — 50 zł<br>
+          <b>Piątek – niedziela i święta:</b> 1 h — 30 zł &nbsp;·&nbsp; 2 h — 45 zł &nbsp;·&nbsp; bez limitu — 55 zł<br>
+          <b>Zniżki:</b> dzieci do 6. miesiąca — za darmo &nbsp;·&nbsp;
+          od 6. miesiąca do 1. roku — 50% &nbsp;·&nbsp; rodzeństwo — −20%
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, toast, $, $$, esc, money, longDate, params, URLS, SETTINGS } from './assets/mc-common.js';
+import { quote, discountSummary, DURATIONS, PRICES, tariffFor, tariffLabel, isHoliday, AGE_TIERS, ageTier }
+  from './assets/mc-cennik.js';
+import { createBooking, todayISO } from './assets/mc-data.js';
+import { auth, A } from './assets/mc-firebase.js';
+
+mountChrome({ crumb: 'Rezerwacja bawialni' });
+
+let user = null;
+let kids = [{ name: '', dob: '' }];
+
+/* ---------------------------------------------------------------- kroki --- */
+const backHere = encodeURIComponent(location.pathname + location.search);
+$('#steps').innerHTML = [
+  { label: 'Termin i dzieci', href: null,                              hint: 'Jesteś tutaj' },
+  { label: 'Twoje dane',      href: `${URLS.login}?next=${backHere}`,   hint: 'Zaloguj się — dane wpiszą się same' },
+  { label: 'Potwierdzenie',   href: null,                              hint: 'Potwierdzimy rezerwację po jej wysłaniu' }
+].map((s, i) => {
+  const label = `${i + 1}. ${esc(s.label)}`;
+  const cell = s.href
+    ? `<a class="step" href="${s.href}" title="${esc(s.hint)}">${label}</a>`
+    : `<span class="step ${i === 0 ? 'is-on' : 'is-todo'}" title="${esc(s.hint)}">${label}</span>`;
+  return (i ? '<span aria-hidden="true">›</span>' : '') + cell;
+}).join(' ');
+
+const msg = $('#msg');
+const show = (kind, text) => {
+  msg.innerHTML = `<div class="alert alert-${kind}">${text}</div>`;
+  msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+/* ------------------------------------------------------- krok logowania --- */
+function openForm() { $('#stepLogin').hidden = true; $('#stepForm').hidden = false; }
+$('#asGuest').onclick = openForm;
+$('#goLogin').href = `${URLS.login}?next=${backHere}`;
+
+/* ------------------------------------------------------------ formularz --- */
+$('#date').min = todayISO();
+$('#date').value = params().get('date') || todayISO();
+
+/** Kafelki „1 h / 2 h / bez limitu" z cenami dla wybranego dnia. */
+function renderDurations() {
+  const date = $('#date').value || todayISO();
+  const t = tariffFor(date);
+  const chosen = (document.querySelector('input[name=duration]:checked') || {}).value || '2h';
+
+  $('#durations').innerHTML = DURATIONS.map(d => `
+    <label class="dur">
+      <input type="radio" name="duration" value="${d.id}" ${d.id === chosen ? 'checked' : ''}>
+      <span>${esc(d.label)}<b>${money(PRICES[t][d.id])}</b></span>
+    </label>`).join('');
+  $$('input[name=duration]').forEach(r => r.onchange = paint);
+
+  const holiday = isHoliday(date);
+  $('#tariff').innerHTML =
+    `<span class="tag">${esc(tariffLabel(date))}</span>
+     ${holiday ? 'Święto — obowiązuje taryfa weekendowa.' : 'Taryfa naliczy się sama.'}
+     <span style="font-weight:400;color:var(--muted)">${esc(longDate(date))}</span>`;
+}
+
+/** Lista dzieci — każde z imieniem, datą urodzenia i plakietką zniżki. */
+function renderKids() {
+  const date = $('#date').value || todayISO();
+  $('#kids').innerHTML = kids.map((k, i) => {
+    const tier = k.dob ? ageTier(k.dob, date) : null;
+    const tag = tier
+      ? `<span class="kid-tag ${tier}">${esc(AGE_TIERS[tier].short)}</span>`
+      : '<span class="kid-tag full">podaj datę</span>';
+    return `
+      <div class="kid">
+        <div class="kid-head">
+          <strong>Dziecko ${i + 1}</strong>
+          <span style="display:flex;align-items:center;gap:10px">
+            ${tag}
+            ${kids.length > 1 ? `<button type="button" class="kid-drop" data-drop="${i}">usuń</button>` : ''}
+          </span>
+        </div>
+        <div class="row2">
+          <div class="field" style="margin:0">
+            <label for="kn${i}">Imię</label>
+            <input class="control" id="kn${i}" data-name="${i}" value="${esc(k.name)}" placeholder="Wpisz imię">
+          </div>
+          <div class="field" style="margin:0">
+            <label for="kd${i}">Data urodzenia</label>
+            <input class="control" id="kd${i}" data-dob="${i}" type="date" value="${esc(k.dob)}" max="${todayISO()}">
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  $$('#kids [data-name]').forEach(el => el.oninput = e => { kids[+e.target.dataset.name].name = e.target.value; });
+  $$('#kids [data-dob]').forEach(el => el.onchange = e => {
+    kids[+e.target.dataset.dob].dob = e.target.value; renderKids(); paint();
+  });
+  $$('#kids [data-drop]').forEach(el => el.onclick = e => {
+    kids.splice(+e.target.dataset.drop, 1); renderKids(); paint();
+  });
+  $('#addKid').hidden = kids.length >= 10;
+}
+
+$('#addKid').onclick = () => {
+  if (kids.length >= 10) return;
+  kids.push({ name: '', dob: '' });
+  renderKids(); paint();
+};
+
+/** Aktualna wycena — jedno miejsce prawdy dla podsumowania i dla zapisu. */
+function currentQuote() {
+  const duration = (document.querySelector('input[name=duration]:checked') || {}).value || '2h';
+  return quote({ date: $('#date').value || todayISO(), duration, children: kids });
+}
+
+function paint() {
+  const q = currentQuote();
+  $('#sum').innerHTML = q.lines.map((l, i) => `
+    <div class="sumrow">
+      <span>${esc(l.name || `Dziecko ${i + 1}`)}
+        <span class="cut">${esc(AGE_TIERS[l.tier].label)}${l.siblingDiscount ? ', rodzeństwo −20%' : ''}</span></span>
+      <span>${l.price === 0 ? 'gratis' : esc(money(l.price))}</span>
+    </div>`).join('') +
+    `<div class="sumrow total"><span>Razem</span><span>${esc(money(q.total))}</span></div>`;
+
+  const cuts = discountSummary(q);
+  $('#cuts').innerHTML = cuts.map(c => `<span>${esc(c)}</span>`).join('');
+}
+
+$('#date').onchange = () => { renderDurations(); renderKids(); paint(); };
+
+renderDurations();
+renderKids();
+paint();
+
+/* ---------------------------------------------------------------- zapis --- */
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  msg.innerHTML = '';
+
+  const date = $('#date').value;
+  if (!date)                    return show('bad', 'Wybierz dzień wizyty.');
+  if (date < todayISO())        return show('bad', 'Ten dzień już minął — wybierz dzisiejszą albo późniejszą datę.');
+  if (!$('#start').value)       return show('bad', 'Podaj planowaną godzinę przyjścia.');
+  if (!kids.length)             return show('bad', 'Dodaj przynajmniej jedno dziecko.');
+  if (kids.some(k => !k.name.trim())) return show('bad', 'Podaj imię każdego dziecka.');
+  if (kids.some(k => !k.dob))   return show('bad', 'Podaj datę urodzenia każdego dziecka — bez niej nie naliczymy zniżek.');
+  if (!$('#pFirst').value.trim() || !$('#pLast').value.trim())
+                                return show('bad', 'Podaj imię i nazwisko rodzica.');
+  if (!$('#email').value.includes('@')) return show('bad', 'Podaj poprawny adres e-mail.');
+  if ($('#phone').value.replace(/\D/g, '').length < 9) return show('bad', 'Podaj poprawny numer telefonu.');
+  if (!$('#consent').checked)   return show('bad', 'Do rezerwacji potrzebna jest zgoda na przetwarzanie danych.');
+
+  const q = currentQuote();
+  const duration = (document.querySelector('input[name=duration]:checked') || {}).value || '2h';
+  const durLabel = (DURATIONS.find(d => d.id === duration) || {}).label || '';
+
+  $('#submit').disabled = true;
+  $('#submit').textContent = 'Rezerwuję…';
+
+  try {
+    const booking = await createBooking({
+      date, start: $('#start').value,
+      duration, durationLabel: durLabel,
+      children: q.lines.map(l => ({ name: l.name, dob: l.dob, tier: l.tier, price: l.price })),
+      qty: q.lines.length,
+      tariff: q.tariff, base: q.base, total: q.total, siblingApplies: q.siblingApplies,
+      parentFirstName: $('#pFirst').value, parentLastName: $('#pLast').value,
+      email: $('#email').value, phone: $('#phone').value,
+      note: $('#note').value,
+      uid: user ? user.uid : null
+    });
+
+    sessionStorage.setItem('mc_last_booking', JSON.stringify({
+      id: booking.id, date: booking.date, start: booking.start,
+      durationLabel: booking.durationLabel, qty: booking.qty, total: booking.total,
+      parent: `${booking.parentFirstName} ${booking.parentLastName}`.trim(),
+      email: booking.email, phone: booking.phone, hasAccount: !!user
+    }));
+    location.href = URLS.thanksBooking;
+  } catch (err) {
+    show('bad', esc(err.message || 'Nie udało się zarezerwować. Spróbuj ponownie.'));
+    $('#submit').disabled = false;
+    $('#submit').textContent = 'Zarezerwuj miejsce';
+  }
+});
+
+/* -------------------------------------------------- podpowiedzi z konta --- */
+A.onAuthStateChanged(auth, u => {
+  user = u;
+  if (!u) { $('#stepLogin').hidden = false; return; }
+  openForm();
+  if (!$('#email').value) $('#email').value = u.email || '';
+  const parts = (u.displayName || '').split(' ');
+  if (!$('#pFirst').value && parts[0]) $('#pFirst').value = parts[0];
+  if (!$('#pLast').value && parts[1])  $('#pLast').value  = parts.slice(1).join(' ');
+});
+</script>
+</body>
+</html>

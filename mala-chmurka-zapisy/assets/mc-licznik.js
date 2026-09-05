@@ -55,7 +55,7 @@ box.innerHTML = `
         <span class="mc-live-v" id="mcNowV">— <em>/ ${SETTINGS.capacity}</em></span>
         <span class="mc-live-until" id="mcNowUntil"></span>
       </div>
-      <a class="btn btn-primary mc-live-cta" href="${appUrl('zapisz-sie-na-zajecia.html')}">Zapisz się</a>
+      <a class="btn btn-primary mc-live-cta" href="${appUrl('rezerwacja-bawialni.html')}">Zarezerwuj miejsce</a>
     </div>
     <div class="mc-live-card">
       <div>

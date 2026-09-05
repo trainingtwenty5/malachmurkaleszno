@@ -7,20 +7,24 @@ export { SETTINGS };
 
 /* ------------------------------------------------------------- ADRESY STRON */
 export const URLS = {
-  home:      SETTINGS.homeUrl,
-  calendar:  'kalendarz-zajec.html',
-  event:     'strona-zajec.html',
-  signup:    'zapisz-sie-na-zajecia.html',
-  login:     'logowanie.html',
-  thanks:    'dziekujemy.html',
-  admin:     'panel-admina.html'
+  home:          SETTINGS.homeUrl,
+  calendar:      'kalendarz-zajec.html',
+  event:         'strona-zajec.html',
+  signup:        'zapisz-sie-na-zajecia.html',
+  booking:       'rezerwacja-bawialni.html',
+  login:         'logowanie.html',
+  thanks:        'dziekujemy.html',
+  thanksBooking: 'dziekujemy-rezerwacja.html',
+  history:       'historia-zamowien.html',
+  admin:         'panel-admina.html'
 };
 
 const NAV = [
   ['O nas',          SETTINGS.homeUrl + '#o-nas'],
-  ['Strefy zabawy',  SETTINGS.homeUrl + '#strefy'],
   ['Cennik',         SETTINGS.homeUrl + '#cennik'],
   ['Grafik zajęć',   URLS.calendar],
+  ['Bawialnia',      URLS.booking],
+  ['Moje zamówienia', URLS.history],
   ['Kontakt',        SETTINGS.homeUrl + '#kontakt']
 ];
 
@@ -51,7 +55,7 @@ export function mountChrome(opts = {}) {
         <ul>
           ${NAV.map(([label, href]) =>
             `<li><a href="${href}"${label === opts.current ? ' class="is-current"' : ''}>${label}</a></li>`).join('')}
-          <li><a href="${URLS.signup}" class="nav-cta">Zapisz się na zajęcia</a></li>
+          <li><a href="${URLS.booking}" class="nav-cta">Zarezerwuj miejsce</a></li>
         </ul>
       </nav>
     </div>`;
@@ -88,6 +92,8 @@ export function mountChrome(opts = {}) {
           <li><a href="${SETTINGS.homeUrl}#cennik">Cennik</a></li>
           <li><a href="${SETTINGS.homeUrl}#galeria">Galeria</a></li>
           <li><a href="${URLS.calendar}">Grafik zajęć</a></li>
+          <li><a href="${URLS.booking}">Rezerwacja bawialni</a></li>
+          <li><a href="${URLS.history}">Moje zamówienia</a></li>
         </ul>
       </nav>
       <div class="footer-contact">
