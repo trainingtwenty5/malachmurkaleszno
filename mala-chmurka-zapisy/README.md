@@ -31,11 +31,14 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `assets/mc-common.css/.js` | Wspólny wygląd: navbar i stopka 1:1 jak na malachmurkaleszno.pl. |
 | `assets/mc-data.js` | Cała logika bazy danych. |
 | **`assets/mc-cennik.js`** | **Cennik bawialni: taryfy, święta, progi wiekowe, zniżki.** |
+| **`assets/mc-dzieci.js`** | **Pamięć dzieci — podpowiedzi przy kolejnym zapisie.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 57 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 58 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
+| `tools/test-zapisy.mjs` | 29 testów: zamykanie terminów i pamięć dzieci — sam Node. |
+| **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
 Każda podstrona ma w lewym górnym rogu przycisk **← Powrót do strony głównej**,
@@ -172,9 +175,33 @@ i nigdy nie wgrywaj na stronę. Po nadaniu claimu wyloguj się i zaloguj ponowni
 Reguły akceptują **obie** drogi — claim ma pierwszeństwo, lista adresów jest
 zabezpieczeniem na wypadek, gdyby claim nie został jeszcze nadany.
 
+### „Missing or insufficient permissions" — co to znaczy
+
+Ten komunikat prawie zawsze znaczy jedno: **w konsoli Firebase wisi starsza wersja reguł
+niż w repozytorium**. Reguł nie publikuje wgranie plików na serwer — to osobny krok
+w konsoli, który trzeba powtórzyć po każdej zmianie `firestore.rules`.
+
+Typowy objaw: strona ładuje się poprawnie, grafik i liczniki działają (bo te reguły
+były już opublikowane wcześniej), ale zapis formularza kończy się błędem — bo nowa
+kolekcja, której dotyczy, nie ma jeszcze swojej sekcji w opublikowanych regułach
+i wpada w domyślną blokadę.
+
+**Otwórz `diagnostyka.html`** — strona odpytuje bazę kilkoma bezpiecznymi zapytaniami
+i mówi wprost, czy problem leży w regułach, czy gdzie indziej. Po zalogowaniu kontem
+administratora robi dodatkowo test zapisu rezerwacji: tworzy próbny wpis i od razu go
+kasuje. To jedyny test, który rozstrzyga sprawę w stu procentach.
+
+Naprawa zajmuje minutę: Firebase Console → Firestore Database → **Rules** → wklej całą
+zawartość `firestore.rules` → **Publish**. Albo z terminala, w katalogu
+`mala-chmurka-zapisy`:
+
+```bash
+npx firebase deploy --only firestore:rules
+```
+
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **57 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **58 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -189,7 +216,7 @@ npm install --no-save @firebase/rules-unit-testing firebase firebase-tools
 npx firebase emulators:exec --only firestore --project demo-mc "node tools/test-rules.mjs"
 ```
 
-Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **57 zaliczonych, 0 niezaliczonych.**
+Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **58 zaliczonych, 0 niezaliczonych.**
 Uruchom to ponownie za każdym razem, gdy zmienisz `firestore.rules`.
 
 Formularze i cennik mają osobne, lekkie zestawy — bez emulatora i bez żadnych
@@ -198,6 +225,7 @@ zależności, sam Node:
 ```bash
 node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
+node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
 ```
 
 ### Czego panel *nie* chroni
@@ -249,6 +277,35 @@ kto i od kiedy ma dostęp.
   podsumowania, **+ Nowe zajęcia**, **Edytuj**, **Duplikuj**, **Usuń**,
   „Powiel na kolejne tygodnie”.
 * **Wyloguj** natychmiast zwija panel i wraca do ekranu logowania.
+
+---
+
+## Zapisy na zajęcia — co warto wiedzieć
+
+**Dane każdego dziecka osobno.** Licznik „liczba dzieci" dodaje i zabiera komplet pól
+(imię, nazwisko, data urodzenia), więc przy zapisie dwójki wpisujesz dane obojga.
+Dane trafiają do pola `children[]` w zapisie; pierwsze dziecko ląduje dodatkowo
+w starych polach `childFirstName`/`childLastName`/`childDob`, żeby panel, ranking
+i wcześniejsze zapisy działały bez zmian.
+
+**Strona pamięta dzieci.** Kto raz zapisał Zosię, przy kolejnym zapisie zobaczy ją
+podpowiedzianą — wystarczy kliknąć. Dla zalogowanych źródłem jest własna historia
+(zapisy na zajęcia + rezerwacje bawialni), dla pozostałych pamięć przeglądarki.
+Nie trzymamy tego w żadnej nowej kolekcji, więc nie przybywa miejsc, w których
+mogłyby wyciec dane osobowe. Gdy odczyt historii się nie powiedzie (np. reguły nie
+są jeszcze opublikowane), formularz działa dalej — po prostu bez podpowiedzi.
+
+**Termin, który minął, nie przyjmuje zapisów.** Zamiast mylącego „brak miejsc"
+pojawia się **„Termin zapisów upłynął"** — na liście terminów, na stronie zajęć,
+w grafiku i na przycisku wysyłki. Zajęcia zamykają się po godzinie zakończenia,
+a nie o północy.
+
+**Licznik zapisanych zawsze mówi prawdę.** Po każdym zapisaniu zajęć w panelu
+system przepisuje nowy termin do wszystkich powiązanych zapisów i przelicza pole
+`booked` z faktycznej liczby zapisanych dzieci (`refreshEvent`). Dzięki temu
+przeniesienie zajęć na inny dzień, zmiana nazwy czy godziny nie gubi nikogo
+z listy, a kafelek pokazuje właściwą liczbę — niezależnie od tego, czy zajęcia są
+nowe, zduplikowane, czy edytowane.
 
 ---
 

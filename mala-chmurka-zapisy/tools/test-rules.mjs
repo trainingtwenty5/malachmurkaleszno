@@ -166,6 +166,10 @@ console.log('\n=== ZAPISY (registrations) — dane osobowe ===');
 
 await t('Anonim tworzy poprawne zgłoszenie → TAK', async () =>
   assertSucceeds(addDoc(collection(anon(), 'registrations'), REG)));
+await t('Zgloszenie z lista dzieci (children[]) -> TAK', async () =>
+  assertSucceeds(addDoc(collection(anon(), 'registrations'), { ...REG, qty: 2,
+    children: [{ firstName: 'Zosia', lastName: 'Kowalska', dob: '2022-01-01' },
+               { firstName: 'Antek', lastName: 'Kowalski', dob: '2024-05-05' }] })));
 await t('Anonim tworzy zgłoszenie od razu opłacone → NIE', async () =>
   assertFails(addDoc(collection(anon(), 'registrations'), { ...REG, paid: true })));
 await t('Anonim NIE czyta cudzych zgłoszeń → NIE', async () =>

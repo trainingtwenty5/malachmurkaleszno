@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Diagnostyka bazy — Mała Chmurka</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .diag{max-width:780px;margin-inline:auto}
+  .verdict{border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;display:flex;gap:14px;
+    align-items:flex-start}
+  .verdict .ico{flex:none;width:26px;height:26px;margin-top:2px}
+  .verdict h2{margin:0 0 6px;font-size:1.12rem}
+  .verdict p{margin:0 0 6px;font-size:.95rem;line-height:1.6}
+  .verdict.ok{background:var(--ok-pale);color:var(--ok)}
+  .verdict.bad{background:var(--bad-pale);color:var(--bad)}
+  .verdict.wait{background:var(--sky-pale);color:var(--navy)}
+  .verdict code{background:rgba(255,255,255,.6);border-radius:6px;padding:.05em .4em}
+
+  .check{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+  .check:last-child{border-bottom:0}
+  .check .dot{flex:none;width:11px;height:11px;border-radius:50%;margin-top:6px;background:var(--line)}
+  .check.pass .dot{background:var(--ok)}
+  .check.fail .dot{background:var(--bad)}
+  .check.skip .dot{background:var(--wood)}
+  .check .body{flex:1;min-width:0}
+  .check strong{display:block;font-family:var(--font-head);font-size:.96rem;color:var(--navy-deep)}
+  .check span{font-size:.87rem;color:var(--muted);line-height:1.55}
+  .check .why{display:block;margin-top:3px;font-size:.85rem}
+  .check.fail .why{color:var(--bad)}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:0}
+  .steps li{counter-increment:s;display:flex;gap:12px;padding:10px 0}
+  .steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:50%;
+    background:var(--brand-pale);color:var(--brand-deep);display:grid;place-items:center;
+    font-family:var(--font-head);font-weight:700;font-size:.88rem}
+  .steps p{margin:0;font-size:.93rem;line-height:1.6}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container diag">
+
+    <h1>Diagnostyka bazy</h1>
+    <p class="lead">Sprawdza, czy reguły bezpieczeństwa wgrane w Firebase odpowiadają temu,
+      czego potrzebuje strona. Zajmuje kilka sekund i niczego nie psuje.</p>
+
+    <div class="verdict wait" id="verdict">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" aria-hidden="true"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      <div><h2>Sprawdzam…</h2><p>Odpytuję bazę kilkoma bezpiecznymi zapytaniami.</p></div>
+    </div>
+
+    <section class="card">
+      <h2 style="font-size:1.05rem">Wyniki</h2>
+      <div id="checks"><div class="loading"><span class="spin"></span> Testuję…</div></div>
+      <button class="btn btn-soft btn-block" id="again" style="margin-top:14px">Sprawdź ponownie</button>
+    </section>
+
+    <section class="card" id="howto" hidden style="margin-top:16px">
+      <h2 style="font-size:1.05rem">Jak to naprawić</h2>
+      <ol class="steps">
+        <li><p>Otwórz <a href="https://console.firebase.google.com/project/mala-chmurka-leszno/firestore/rules"
+          target="_blank" rel="noopener">Firebase Console → Firestore Database → zakładka <strong>Rules</strong></a>.</p></li>
+        <li><p>Zaznacz całą zawartość okna i skasuj.</p></li>
+        <li><p>Wklej całą zawartość pliku <code>mala-chmurka-zapisy/firestore.rules</code>
+          z repozytorium (najnowsza wersja z gałęzi <code>main</code>).</p></li>
+        <li><p>Kliknij <strong>Publish</strong> i odśwież tę stronę.</p></li>
+      </ol>
+      <p class="hint">Z terminala to samo robi jedna komenda w katalogu
+        <code>mala-chmurka-zapisy</code>: <code>npx firebase deploy --only firestore:rules</code></p>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2 style="font-size:1.05rem">Test zapisu rezerwacji</h2>
+      <p class="hint">Tworzy jedną próbną rezerwację i od razu ją kasuje — to najpewniejszy sposób,
+        żeby sprawdzić, czy formularz na stronie zadziała. Wymaga zalogowania kontem administratora,
+        żeby dało się posprzątać po teście.</p>
+      <div id="writeBox"><div class="loading"><span class="spin"></span> Sprawdzam uprawnienia…</div></div>
+    </section>
+
+    <p class="hint" style="text-align:center;margin-top:18px">
+      <a href="rezerwacja-bawialni.html">Formularz rezerwacji</a> ·
+      <a href="panel-admina.html">Panel admina</a> ·
+      <a href="admin.html">Logowanie administratora</a>
+    </p>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, $, esc } from './assets/mc-common.js';
+import { db, F, auth, A, adminStatus, authError } from './assets/mc-firebase.js';
+
+mountChrome({ crumb: 'Diagnostyka' });
+
+const ICON = {
+  ok:  '<path d="M20 6 9 17l-5-5"/>',
+  bad: '<path d="M12 8v5"/><path d="M12 16.5v.01"/><circle cx="12" cy="12" r="9"/>'
+};
+
+/* ==========================================================================
+   Zestaw sprawdzeń. Każde mówi, czego oczekujemy — dzięki temu wynik da się
+   odczytać bez zaglądania do reguł.
+   ========================================================================== */
+const CHECKS = [
+  { id: 'events', name: 'Grafik zajęć jest publiczny',
+    why: 'Bez tego klienci nie zobaczą kalendarza.',
+    expect: 'allow',
+    run: () => F.getDocs(F.query(F.collection(db, 'events'), F.limit(1))) },
+
+  { id: 'presence', name: 'Licznik dzieci jest publiczny',
+    why: 'Bez tego licznik na stronie głównej stoi na zerze.',
+    expect: 'allow',
+    run: () => F.getDoc(F.doc(db, 'settings', 'presence')) },
+
+  { id: 'stats', name: 'Licznik odwiedzin jest publiczny',
+    why: 'Bez tego nie policzymy „odwiedziło nas już…".',
+    expect: 'allow',
+    run: () => F.getDoc(F.doc(db, 'settings', 'stats')) },
+
+  { id: 'regs', name: 'Dane zapisanych dzieci są zamknięte',
+    why: 'Gdyby to przeszło, każdy odczytałby dane osobowe. Odmowa to dobry wynik.',
+    expect: 'deny',
+    run: () => F.getDocs(F.query(F.collection(db, 'registrations'), F.limit(1))) },
+
+  { id: 'bookingsRead', name: 'Rezerwacje są zamknięte dla obcych',
+    why: 'Odmowa to dobry wynik — rezerwacje widzi tylko właściciel i administrator.',
+    expect: 'deny',
+    run: () => F.getDocs(F.query(F.collection(db, 'bookings'), F.limit(1))) }
+];
+
+const row = (state, name, detail) => `
+  <div class="check ${state}">
+    <span class="dot" aria-hidden="true"></span>
+    <div class="body">
+      <strong>${esc(name)}</strong>
+      <span>${detail}</span>
+    </div>
+  </div>`;
+
+async function runChecks() {
+  $('#checks').innerHTML = '<div class="loading"><span class="spin"></span> Testuję…</div>';
+  const out = [];
+  let broken = 0;
+
+  for (const c of CHECKS) {
+    let denied = false, err = null;
+    try { await c.run(); }
+    catch (e) { denied = true; err = e; }
+
+    const good = c.expect === 'allow' ? !denied : denied;
+    if (!good) broken++;
+    out.push(row(good ? 'pass' : 'fail', c.name,
+      good ? esc(c.why)
+           : `<span class="why">Wynik odwrotny do oczekiwanego${
+               err ? ` (<code>${esc(err.code || err.message)}</code>)` : ''}. ${esc(c.why)}</span>`));
+  }
+
+  $('#checks').innerHTML = out.join('');
+  return broken;
+}
+
+function verdict(kind, title, text) {
+  const v = $('#verdict');
+  v.className = 'verdict ' + kind;
+  v.innerHTML = `
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[kind === 'ok' ? 'ok' : 'bad']}</svg>
+    <div><h2>${esc(title)}</h2><p>${text}</p></div>`;
+}
+
+/* ==========================================================================
+   Test zapisu — jedyny, który rozstrzyga, czy w regułach jest blok `bookings`.
+   Wymaga administratora, bo po udanym teście trzeba posprzątać.
+   ========================================================================== */
+async function writeTest(user, isAdmin) {
+  const box = $('#writeBox');
+
+  if (!user) {
+    box.innerHTML = `<div class="alert alert-info">Zaloguj się kontem administratora, żeby
+      uruchomić test zapisu. <a href="admin.html?next=${encodeURIComponent(location.pathname)}">Przejdź do logowania →</a></div>`;
+    return null;
+  }
+  if (!isAdmin) {
+    box.innerHTML = `<div class="alert alert-warn">Konto <strong>${esc(user.email || '')}</strong>
+      nie ma uprawnień administratora, więc pomijamy test zapisu.</div>`;
+    return null;
+  }
+
+  box.innerHTML = '<div class="loading"><span class="spin"></span> Tworzę próbną rezerwację…</div>';
+
+  /* dokładnie taki kształt dokumentu wysyła formularz rezerwacji */
+  const probe = {
+    date: '2000-01-01', start: '00:00', duration: '1h', durationLabel: 'test diagnostyczny',
+    children: [{ name: 'TEST — do skasowania', dob: '2000-01-01', tier: 'full', price: 0 }],
+    qty: 1, tariff: 'weekday', base: 0, total: 0, siblingApplies: false,
+    parentFirstName: 'TEST', parentLastName: 'DIAGNOSTYKA',
+    email: 'test@example.com', phone: '000000000', phoneKey: '000000000',
+    note: 'Wpis testowy z diagnostyki — kasuje się sam.',
+    status: 'pending', adminNote: '', uid: user.uid,
+    createdAt: F.serverTimestamp()
+  };
+
+  try {
+    const r = await F.addDoc(F.collection(db, 'bookings'), probe);
+    let cleaned = true;
+    try { await F.deleteDoc(F.doc(db, 'bookings', r.id)); }
+    catch { cleaned = false; }
+
+    box.innerHTML = `<div class="alert alert-ok">
+      <strong>Zapis rezerwacji działa.</strong> Formularz na stronie powinien przyjmować zgłoszenia.
+      ${cleaned ? 'Wpis testowy został skasowany.'
+                : `Nie udało się skasować wpisu testowego — usuń go ręcznie w panelu (rezerwacja z 01.01.2000).`}
+      </div>`;
+    return true;
+  } catch (e) {
+    box.innerHTML = `<div class="alert alert-bad">
+      <strong>Zapis rezerwacji jest zablokowany</strong> (<code>${esc(e.code || e.message)}</code>).<br>
+      ${esc(authError(e))}</div>`;
+    return false;
+  }
+}
+
+/* ------------------------------------------------------------- przebieg -- */
+async function run(user, isAdmin) {
+  const broken = await runChecks();
+  const write = await writeTest(user, isAdmin);
+
+  if (write === false) {
+    $('#howto').hidden = false;
+    verdict('bad', 'Reguły w Firebase są nieaktualne',
+      'Publiczne odczyty działają, ale zapis rezerwacji jest odrzucany — w konsoli Firebase wisi ' +
+      'starsza wersja reguł, bez sekcji <code>bookings</code>. To dokładnie ten błąd, który widzą klienci: ' +
+      '<em>Missing or insufficient permissions</em>. Instrukcja niżej.');
+    return;
+  }
+  if (broken) {
+    $('#howto').hidden = false;
+    verdict('bad', 'Reguły nie zgadzają się z tym, czego potrzebuje strona',
+      'Część sprawdzeń wypadła odwrotnie, niż powinna. Opublikuj aktualny plik ' +
+      '<code>firestore.rules</code> — instrukcja niżej.');
+    return;
+  }
+  if (write === true) {
+    $('#howto').hidden = true;
+    verdict('ok', 'Wszystko gra',
+      'Reguły są aktualne: grafik i liczniki są publiczne, dane osobowe zamknięte, ' +
+      'a zapis rezerwacji przechodzi.');
+    return;
+  }
+  verdict('ok', 'Odczyty są w porządku',
+    'Publiczne dane są dostępne, a prywatne zamknięte. Żeby sprawdzić też zapis rezerwacji, ' +
+    'zaloguj się kontem administratora.');
+}
+
+$('#again').onclick = () => location.reload();
+
+A.onAuthStateChanged(auth, async user => {
+  const st = user ? await adminStatus(user, { forceRefresh: true }) : { ok: false };
+  run(user, st.ok);
+});
+</script>
+</body>
+</html>

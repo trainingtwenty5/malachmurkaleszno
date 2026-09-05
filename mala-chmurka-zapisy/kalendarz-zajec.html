@@ -57,7 +57,8 @@
 
 <script type="module">
 import { mountChrome, $, esc, DAY_NAMES, DAY_SHORT, MONTHS_GEN,
-         weekStart, addDays, isoDate, toMin, fmtMin, URLS, SETTINGS } from './assets/mc-common.js';
+         weekStart, addDays, isoDate, toMin, fmtMin, URLS, SETTINGS,
+         seatState } from './assets/mc-common.js';
 import { watchEvents } from './assets/mc-data.js';
 
 mountChrome({ current: 'Grafik zajęć', crumb: 'Grafik zajęć' });
@@ -137,16 +138,18 @@ function render(list) {
     evs.forEach(ev => {
       const top = (ev.s - START) * PXM;
       const h = Math.max(20, (ev.e2 - ev.s) * PXM - 3);
-      const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
+      const st = seatState(ev);
+      const free = st.free;
       const el = document.createElement('a');
       el.href = `${URLS.event}?id=${encodeURIComponent(ev.id)}`;
-      el.className = 'ev' + (h < 52 ? ' is-short' : '') + (free === 0 ? ' is-full' : '');
+      el.className = 'ev' + (h < 52 ? ' is-short' : '') + (st.state !== 'open' ? ' is-full' : '');
       el.style.cssText = `top:${top}px;height:${h}px;background:${ev.color || '#93C7CF'};` +
         `left:calc(${(ev.col / cols) * 100}% + 3px);width:calc(${100 / cols}% - 6px);`;
       el.title = `${ev.title}\n${ev.start}–${ev.end}\n${free} z ${ev.capacity} wolnych`;
       el.innerHTML = `<div class="ev-title">${esc(ev.title)}</div>
         <div class="ev-sub">${ev.start}–${ev.end}</div>
-        <div class="ev-sub">${free ? free + ' / ' + (ev.capacity || 0) + ' wolnych' : 'brak miejsc'}</div>`;
+        <div class="ev-sub">${st.state === 'closed' ? 'termin minął'
+          : free ? free + ' / ' + (ev.capacity || 0) + ' wolnych' : 'brak miejsc'}</div>`;
       col.appendChild(el);
     });
     body.appendChild(col);
@@ -159,13 +162,15 @@ function render(list) {
     const evs = list.filter(e => e.date === iso && e.active !== false)
                     .sort((x, y) => toMin(x.start) - toMin(y.start));
     const items = evs.length ? evs.map(ev => {
-      const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
+      const st = seatState(ev);
+      const free = st.free;
       return `<a class="agenda-item" href="${URLS.event}?id=${encodeURIComponent(ev.id)}">
         <span class="agenda-bar" style="background:${esc(ev.color || '#93C7CF')}"></span>
         <span style="min-width:0;flex:1">
           <span class="agenda-time">${esc(ev.start)}–${esc(ev.end)}</span>
           <span class="agenda-title">${esc(ev.title)}</span>
-          <span class="agenda-meta">${free ? free + ' z ' + (ev.capacity||0) + ' wolnych miejsc' : 'brak wolnych miejsc'}
+          <span class="agenda-meta">${st.state === 'closed' ? 'termin zapisów upłynął'
+            : free ? free + ' z ' + (ev.capacity||0) + ' wolnych miejsc' : 'brak wolnych miejsc'}
             · ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat</span>
         </span></a>`;
     }).join('') : '<div class="agenda-empty">Brak zajęć tego dnia.</div>';

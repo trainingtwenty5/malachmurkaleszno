@@ -116,7 +116,12 @@ export function authError(err) {
   if (c.includes('popup-blocked'))         return 'Przeglądarka zablokowała okno Google — zezwól na wyskakujące okienka.';
   if (c.includes('operation-not-allowed')) return 'Ta metoda logowania nie jest włączona w Firebase (Authentication → Sign-in method).';
   if (c.includes('unauthorized-domain'))   return 'Ta domena nie jest dopuszczona w Firebase (Authentication → Settings → Authorized domains).';
-  if (c.includes('permission-denied'))     return 'Baza odrzuciła operację — to konto nie ma uprawnień administratora.';
+  if (c.includes('permission-denied'))
+    return 'Baza odrzuciła operację (brak uprawnień). Jeśli widzisz to zaraz po wdrożeniu — '
+         + 'w konsoli Firebase trzeba opublikować reguły z pliku firestore.rules '
+         + '(Firestore Database → Rules → Publish).';
+  if (c.includes('unavailable') || c.includes('failed-precondition'))
+    return 'Baza chwilowo nie odpowiada. Sprawdź połączenie i spróbuj ponownie.';
   if (c.includes('network'))               return 'Brak połączenia z siecią.';
   return (err && err.message) || 'Coś poszło nie tak. Spróbuj ponownie.';
 }

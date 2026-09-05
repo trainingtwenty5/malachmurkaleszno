@@ -106,6 +106,7 @@ import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, plDzieci, U
 import { auth, A } from './assets/mc-firebase.js';
 import { watchMyBookings, watchMyRegistrations, registrationStatusText,
          BOOKING_STATUS_TEXT } from './assets/mc-data.js';
+import { authError } from './assets/mc-firebase.js';
 
 mountChrome({ current: 'Moje zamówienia', crumb: 'Historia zamówień' });
 
@@ -230,8 +231,12 @@ A.onAuthStateChanged(auth, user => {
 
   /* Nasłuch na żywo: gdy administrator zaakceptuje rezerwację,
      status zmieni się na tej stronie sam, bez odświeżania. */
-  offB = watchMyBookings(user.uid, renderBookings);
-  offR = watchMyRegistrations(user.uid, renderClasses);
+  const fail = where => err => {
+    document.getElementById(where).innerHTML =
+      `<div class="alert alert-bad">${esc(authError(err))}</div>`;
+  };
+  offB = watchMyBookings(user.uid, renderBookings, fail('bookings'));
+  offR = watchMyRegistrations(user.uid, renderClasses, fail('classes'));
 });
 </script>
 </body>

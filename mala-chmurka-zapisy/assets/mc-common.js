@@ -259,3 +259,41 @@ export function computePresence(regs, dateISO, atMin) {
   });
   return { count, untilMin };
 }
+
+/* ==========================================================================
+   CZY ZAPISY NA ZAJĘCIA SĄ JESZCZE OTWARTE
+   --------------------------------------------------------------------------
+   Zajęcia, które już się odbyły, nie mogą przyjmować zapisów — i nie chodzi
+   o „brak miejsc", tylko o upływ terminu. Funkcja czysta, żeby dała się
+   przetestować bez przeglądarki.
+   ========================================================================== */
+
+export const SIGNUP_CLOSED_TEXT = 'Termin zapisów upłynął';
+
+/**
+ * @param {object} ev  zajęcia: { date "YYYY-MM-DD", end "HH:MM" }
+ * @param {string} [todayISO]  dzień „dziś" (do testów)
+ * @param {number} [nowMinutes]  minuta dnia (do testów)
+ * @returns {boolean} true, gdy termin minął
+ */
+export function signupClosed(ev, todayISO, nowMinutes) {
+  if (!ev || !ev.date) return false;
+  const now = new Date();
+  const today = todayISO || isoDate(now);
+  const minutes = nowMinutes === undefined ? now.getHours() * 60 + now.getMinutes() : nowMinutes;
+
+  if (ev.date < today) return true;                 // dzień już minął
+  if (ev.date > today) return false;                // dopiero będzie
+  /* dziś — decyduje godzina zakończenia; bez godziny traktujemy jako otwarte */
+  return ev.end ? toMin(ev.end) <= minutes : false;
+}
+
+/** Stan miejsca na zajęciach: 'closed' | 'full' | 'open' + gotowy opis. */
+export function seatState(ev, todayISO, nowMinutes) {
+  if (signupClosed(ev, todayISO, nowMinutes)) {
+    return { state: 'closed', free: 0, text: SIGNUP_CLOSED_TEXT, short: SIGNUP_CLOSED_TEXT };
+  }
+  const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
+  if (free === 0) return { state: 'full', free: 0, text: 'Brak wolnych miejsc', short: 'brak miejsc' };
+  return { state: 'open', free, text: `${free} z ${ev.capacity || 0} wolnych`, short: `${free} wolnych` };
+}

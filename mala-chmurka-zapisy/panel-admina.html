@@ -353,7 +353,7 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          setPresenceManual, clearPresenceManual, watchPresence, watchStats,
          setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin,
          watchBookings, setBookingStatus, deleteBooking,
-         BOOKING_STATUS_SHORT } from './assets/mc-data.js';
+         BOOKING_STATUS_SHORT, refreshEvent } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -645,6 +645,9 @@ $('#evForm').addEventListener('submit', async e => {
   $('#evSave').disabled = true;
   try {
     const id = await saveEvent(editingId, data);
+    /* Termin mógł się zmienić — przepisujemy go do zapisów i przeliczamy
+       licznik zajętych miejsc, żeby kafelek pokazywał faktyczną liczbę dzieci. */
+    await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
     const rep = Number($('#fRepeat').value) || 0;
     if (rep > 0) { await repeatWeekly(id, rep); toast(`Zapisano i powielono na ${rep} kolejnych tygodni.`); }
     else toast('Zapisano zajęcia.');

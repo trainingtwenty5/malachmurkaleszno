@@ -119,7 +119,8 @@
 </main>
 
 <script type="module">
-import { mountChrome, $, esc, longDate, shortDate, money, params, URLS, SETTINGS } from './assets/mc-common.js';
+import { mountChrome, $, esc, longDate, shortDate, money, params, URLS, SETTINGS,
+         seatState, SIGNUP_CLOSED_TEXT } from './assets/mc-common.js';
 import { getEvent, otherDatesOf } from './assets/mc-data.js';
 
 const id = params().get('id');
@@ -161,8 +162,9 @@ async function init() {
   if (ev.arriveMinutes) $('#arrive').innerHTML = `Przyjdź <strong>${ev.arriveMinutes} minut</strong> przed zajęciami`;
   else $('#arriveWrap').hidden = true;
 
-  const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
-  $('#seats').textContent = `${free} z ${ev.capacity || 0}`;
+  const st = seatState(ev);
+  const free = st.free;
+  $('#seats').textContent = st.state === 'closed' ? SIGNUP_CLOSED_TEXT : `${free} z ${ev.capacity || 0}`;
   $('#cancel').textContent = ev.cancelHours ? `do ${ev.cancelHours} godz. przed` : 'skontaktuj się z nami';
   $('#payList').textContent = (ev.paymentMethods || SETTINGS.paymentMethods).join(' · ');
 
@@ -183,7 +185,10 @@ async function init() {
   $('#plus').onclick  = () => { if (n < Math.max(1, free)) { n++; paintQty(); } };
   $('#minus').onclick = () => { if (n > 1) { n--; paintQty(); } };
 
-  if (free === 0) {
+  if (st.state === 'closed') {
+    $('#buy').disabled = true;
+    $('#buy').textContent = SIGNUP_CLOSED_TEXT;
+  } else if (st.state === 'full') {
     $('#buy').disabled = true;
     $('#buy').textContent = 'Brak wolnych miejsc';
   }
@@ -197,10 +202,12 @@ async function init() {
     if (others.length) {
       $('#otherWrap').hidden = false;
       $('#other').innerHTML = others.map(o => {
-        const f = Math.max(0, (Number(o.capacity) || 0) - (Number(o.booked) || 0));
+        const os = seatState(o);
+        const f = os.free;
         return `<a href="${URLS.event}?id=${encodeURIComponent(o.id)}">
           <span>${shortDate(o.date)} · ${esc(o.start)}</span>
-          <span class="hint">${f ? f + ' wolnych' : 'brak miejsc'}</span></a>`;
+          <span class="hint">${os.state === 'closed' ? 'termin minął'
+                              : f ? f + ' wolnych' : 'brak miejsc'}</span></a>`;
       }).join('');
     }
   } catch (e) { /* lista dodatkowa — brak jej nie blokuje strony */ }
