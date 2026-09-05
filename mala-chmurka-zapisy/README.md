@@ -41,7 +41,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
-| `tools/test-czas.mjs` | 28 testów zakładki „Czas zabawy” (odliczanie) — sam Node. |
+| `tools/test-czas.mjs` | 41 testów zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
@@ -233,7 +233,7 @@ node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
-node tools/test-czas.mjs    # 28 testów: czas zabawy, odliczanie w dół
+node tools/test-czas.mjs    # 41 testów: czas zabawy, odliczanie w dół
 ```
 
 ### Czego panel *nie* chroni
@@ -384,11 +384,21 @@ ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekund�
 * Kafelki: dzieci teraz w bawialni, kończący w ciągu 15 minut, po czasie, najbliższe wyjście.
 * Wiersz robi się **żółty** na kwadrans przed końcem i **czerwony** po czasie, pokazując wtedy,
   o ile jest po (np. `−12:30`).
+* Po **15 minutach** od końca wiersz **zamarza**: przestaje odliczać, dostaje opis
+  „po upływie czasu 15 min” i spada na dół tabeli. Zamrożony wiersz obsługuje się tak samo
+  jak każdy inny — dziecko może przecież zostać dłużej.
+* Lista dotyczy **dzisiejszego dnia**; jutro zaczyna się od nowa, bez sprzątania ręką.
 * **Wyszukiwarka** po imieniu, telefonie, źródle i godzinach; **Pobierz CSV** zgrywa to,
   co aktualnie widać.
-* **+15 min** przedłuża pobyt, **Zakończ** ustawia koniec na teraz. Obie akcje przeliczają
-  licznik na stronie głównej, a jeśli wizyta jest już w rankingu — także jej czas pobytu.
-  Pobyty z zajęć zmienia się tam, gdzie powstały: w zakładce **Zapisani**.
+* Akcje w każdym wierszu: **+15 min**, **+ minuty** (dowolna liczba), **Zakończ**,
+  **Usuń** oraz **Zmień** przy godzinie wyjścia. Każda pyta o potwierdzenie — przy ladzie
+  łatwo o kliknięcie w biegu, a te operacje ruszają licznik na stronie i ranking.
+  Zmiana godziny pyta dwa razy: raz przed odblokowaniem pola, drugi raz przed zapisem.
+* Wszystkie akcje przeliczają licznik na stronie głównej, a jeśli wizyta jest już
+  w rankingu — także jej czas pobytu.
+* **Usuń** znaczy co innego zależnie od źródła: wejście z ulicy i rezerwację kasuje na dobre,
+  a przy zapisie na zajęcia tylko odznacza obecność, więc dziecko znika z bawialni,
+  ale sam zapis zostaje.
 
 **Dziecko z ulicy.** Przycisk **„+ Dziecko z ulicy”** otwiera formularz: imiona po przecinku,
 godzina od i do, liczba dzieci, telefon i opcjonalnie „opłacone”. Taki wpis zapisujemy jako

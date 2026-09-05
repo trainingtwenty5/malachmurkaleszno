@@ -373,6 +373,11 @@ export const PLAYTIME_SOURCE = {
   walkin:   'z ulicy'
 };
 
+/* Ile minut po końcu pobytu wiersz jeszcze „tyka". Potem zamarza: przestaje
+   odliczać i ląduje na dole tabeli, żeby nie mieszał się z tymi, którzy
+   naprawdę są jeszcze w bawialni. */
+export const FREEZE_AFTER_MIN = 15;
+
 /** Nazwy dzieci z zapisu na zajęcia — nowy kształt i stary. */
 function namesFromRegistration(r) {
   if (Array.isArray(r.children) && r.children.length) {
@@ -426,10 +431,29 @@ export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd = '20:00' 
   });
 
   return rows.map(row => {
-    const remaining = row.endMin - atMin;
-    const state = atMin < row.startMin ? 'waiting' : (remaining > 0 ? 'playing' : 'over');
-    return { ...row, remaining, state, sourceLabel: PLAYTIME_SOURCE[row.source] };
-  }).sort((a, b) => a.endMin - b.endMin || a.startMin - b.startMin);
+    const remaining = row.endMin - atMin;      // ujemne = po czasie
+    const overtime  = -remaining;
+
+    let state;
+    if (atMin < row.startMin)                 state = 'waiting';
+    else if (remaining > 0)                   state = 'playing';
+    else if (overtime < FREEZE_AFTER_MIN)     state = 'overtime';
+    else                                      state = 'frozen';
+
+    /* Zamrożonym nie odliczamy dalej — zatrzymujemy licznik na 15 minutach,
+       żeby wiersz nie puchł do „po czasie 4:12:33" przez pół dnia. */
+    const shown = state === 'frozen' ? -FREEZE_AFTER_MIN : remaining;
+
+    return {
+      ...row,
+      remaining, overtime, shown,
+      frozen: state === 'frozen',
+      state,
+      sourceLabel: PLAYTIME_SOURCE[row.source]
+    };
+  }).sort((a, b) =>
+    /* zamrożone spadają na dół, reszta po godzinie wyjścia */
+    (a.frozen - b.frozen) || (a.endMin - b.endMin) || (a.startMin - b.startMin));
 }
 
 /**

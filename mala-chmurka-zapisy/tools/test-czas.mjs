@@ -7,7 +7,7 @@
    URUCHOMIENIE:   node tools/test-czas.mjs
    ========================================================================== */
 
-import { playtimeRows, fmtCountdown, PLAYTIME_SOURCE } from '../assets/mc-common.js';
+import { playtimeRows, fmtCountdown, PLAYTIME_SOURCE, FREEZE_AFTER_MIN } from '../assets/mc-common.js';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, dump = '') => {
@@ -51,10 +51,48 @@ eq('przed przyjściem — czeka',
    playtimeRows({ bookings: [bkg({ start: '16:00' })], dateISO: DZIS, atMin: at(11) })[0].state, 'waiting');
 eq('w trakcie — gra',
    playtimeRows({ bookings: [bkg()], dateISO: DZIS, atMin: at(11, 30) })[0].state, 'playing');
-eq('po czasie — koniec',
-   playtimeRows({ bookings: [bkg()], dateISO: DZIS, atMin: at(14) })[0].state, 'over');
-eq('po czasie pokazuje, o ile',
-   fmtCountdown(playtimeRows({ bookings: [bkg()], dateISO: DZIS, atMin: at(13, 20) })[0].remaining), '−20:00');
+eq('po czasie, ale przed zamrożeniem',
+   playtimeRows({ bookings: [bkg()], dateISO: DZIS, atMin: at(13, 5) })[0].state, 'overtime');
+eq('długo po czasie — zamrożone',
+   playtimeRows({ bookings: [bkg()], dateISO: DZIS, atMin: at(14) })[0].state, 'frozen');
+eq('w oknie kwadransa pokazuje, o ile jest po',
+   fmtCountdown(playtimeRows({ bookings: [bkg()], dateISO: DZIS, atMin: at(13, 10) })[0].shown), '−10:00');
+
+console.log('\n=== ZAMRAŻANIE PO 15 MINUTACH ===');
+{
+  const godzinny = o => bkg({ start: '10:00', duration: '1h', ...o });   // koniec 11:00
+  const st = min => playtimeRows({ bookings: [godzinny()], dateISO: DZIS, atMin: min })[0];
+
+  eq('limit zamrożenia', FREEZE_AFTER_MIN, 15);
+  eq('minutę po czasie — jeszcze tyka', st(at(11, 1)).state, 'overtime');
+  eq('i pokazuje, o ile jest po', fmtCountdown(st(at(11, 1)).shown), '−01:00');
+  eq('czternaście minut po — nadal tyka', st(at(11, 14)).state, 'overtime');
+  eq('dokładnie piętnaście minut po — zamrożone', st(at(11, 15)).state, 'frozen');
+  ok('zamrożony wiersz jest oznaczony flagą', st(at(11, 15)).frozen === true);
+  eq('zamrożonemu licznik staje na piętnastu minutach',
+     fmtCountdown(st(at(11, 15)).shown), '−15:00');
+  eq('po dwóch godzinach nadal stoi na piętnastu',
+     fmtCountdown(st(at(13)).shown), '−15:00');
+  ok('prawdziwy czas po terminie jest dalej dostępny, tylko nie pokazywany',
+     Math.round(st(at(13)).overtime) === 120);
+  ok('przed zamrożeniem wiersz nie jest oznaczony', st(at(11, 14)).frozen === false);
+}
+
+console.log('\n=== ZAMROŻONE SPADAJĄ NA DÓŁ ===');
+{
+  const rows = playtimeRows({
+    bookings: [
+      bkg({ id: 'zamrozony', start: '08:00', duration: '1h' }),        // koniec 09:00
+      bkg({ id: 'gra',       start: '11:00', duration: '2h' }),        // koniec 13:00
+      bkg({ id: 'konczy',    start: '10:00', duration: '2h' })         // koniec 12:00
+    ],
+    dateISO: DZIS, atMin: at(11, 30)
+  });
+  eq('kolejność: najpierw aktywni po godzinie wyjścia, zamrożony na końcu',
+     rows.map(r => r.id), ['konczy', 'gra', 'zamrozony']);
+  ok('tylko ostatni jest zamrożony',
+     rows[2].frozen === true && rows[0].frozen === false && rows[1].frozen === false);
+}
 
 console.log('\n=== SKĄD SIĘ WZIĘLI ===');
 {
