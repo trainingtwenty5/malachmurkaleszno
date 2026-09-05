@@ -40,6 +40,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-zapisy.mjs` | 29 testów: zamykanie terminów i pamięć dzieci — sam Node. |
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
+| `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
@@ -230,6 +231,7 @@ node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniż
 node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
+node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 ```
 
 ### Czego panel *nie* chroni
@@ -257,7 +259,7 @@ nadal będą wpadać, ale liczbę wolnych miejsc trzeba prowadzić ręcznie w pa
 |---|---|---|
 | `events` | wszyscy | admin (+ wyjątek `booked` wyżej) |
 | `registrations` | admin; zalogowany rodzic tylko swoje | CREATE: formularz (z walidacją pól); UPDATE/DELETE: admin |
-| `bookings` (rezerwacje) | admin; zalogowany klient tylko swoje | CREATE: formularz, zawsze jako `pending`; UPDATE/DELETE: admin |
+| `bookings` (rezerwacje) | admin; zalogowany klient tylko swoje | CREATE: formularz, zawsze jako `pending`, nieopłacona i niepoliczona; UPDATE/DELETE: admin |
 | `guests` (ranking) | admin | admin |
 | `settings/presence` | wszyscy | admin |
 | `settings/stats` | wszyscy | admin (+ formularz może podbić licznik odwiedzin o 1) |
@@ -337,6 +339,28 @@ więc nie trzeba go co roku aktualizować.
 
 Przykład z testów: poniedziałek, 2 h, dwoje dzieci — 3-latek i 8-miesięczne niemowlę.
 40 zł + 20 zł, po zniżce rodzeństwa **48 zł**.
+
+### Rozliczenie rezerwacji: opłata, godzina wyjścia, ranking
+
+Każda karta rezerwacji w zakładce **5 · Rezerwacje** ma dwa dodatkowe pola:
+
+* **Do godz.** — ustawiasz według tego, za ile faktycznie zapłacono. To ona decyduje,
+  jak długo dzieci z tej rezerwacji są widoczne w liczniku na stronie głównej;
+  po jej upływie licznik sam je wygasza. Domyślnie wypełnia się z czasu pobytu
+  (1 h, 2 h albo do zamknięcia), ale możesz ją skrócić albo wydłużyć.
+* **Opłacone** — dopisuje wizytę do **rankingu wizyt**, dokładnie tak samo jak
+  „przyszedł + opłacone" przy zajęciach.
+
+**Ranking nie rozróżnia, skąd wzięła się wizyta.** Dziecko, które przyszło na
+zajęcia, i dziecko, które przyszło po prostu do bawialni, trafiają do tej samej
+kartoteki (klucz: numer telefonu) i tak samo podbijają liczbę wizyt oraz łączny
+czas pobytu. Czas liczy się jako `(godzina wyjścia − godzina wejścia) × liczba dzieci`.
+
+Wizyta wchodzi do rankingu, gdy rezerwacja jest **zaakceptowana i opłacona**.
+Zdjęcie któregokolwiek z tych oznaczeń cofa ją — pilnuje tego pole
+`countedInRanking`, więc klikanie tam i z powrotem nie zdublowuje wpisu.
+Zmiana godziny wyjścia przelicza czas pobytu w rankingu, a usunięcie rezerwacji
+cofa wizytę.
 
 ### Rezerwacja działa dopiero po akceptacji
 

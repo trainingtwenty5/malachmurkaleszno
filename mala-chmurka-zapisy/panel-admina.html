@@ -53,6 +53,12 @@
   .bk-card.rejected{border-left-color:var(--bad);opacity:.72}
   .bk-card b{display:block;font-family:var(--font-head);color:var(--navy-deep);font-size:.92rem}
   .bk-line{color:var(--muted);font-size:.8rem;margin-top:2px}
+  .bk-check{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:.83rem;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);cursor:pointer}
+  .bk-check input{width:16px;height:16px;accent-color:var(--ok);flex:none}
+  .bk-until{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:.8rem;color:var(--muted)}
+  .bk-until input{flex:1;min-width:0;font:inherit;padding:.2em .4em;border:1px solid var(--line);
+    border-radius:8px;background:var(--white);color:var(--ink)}
   .bk-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
   .bk-acts button{font-size:.78rem;padding:.3em .7em;border-radius:8px;font-family:var(--font-head);
     font-weight:600;border:1px solid transparent}
@@ -267,7 +273,13 @@
         <p class="hint" style="margin:-6px 0 12px">
           To rezerwacje samego wstępu do bawialni, złożone przez klientów. Dopóki nie klikniesz
           <strong>Akceptuj</strong>, klient widzi u siebie „Oczekujesz na potwierdzenie”.
-          Po akceptacji zobaczy „Status zaakceptowany, zapraszamy do bawialni”.</p>
+          Po akceptacji zobaczy „Status zaakceptowany, zapraszamy do bawialni”, a dzieci z tej
+          rezerwacji od razu wchodzą do licznika na stronie głównej — do godziny wyjścia,
+          po której licznik sam je wygasza.<br>
+          <strong>Do godz.</strong> ustaw według tego, za ile faktycznie zapłacono — to ona
+          decyduje, jak długo dzieci są widoczne w liczniku.
+          <strong>Opłacone</strong> dopisuje wizytę do rankingu, dokładnie tak samo jak
+          „przyszedł + opłacone” przy zajęciach.</p>
 
         <div class="bk-grid" id="bkGrid"></div>
         <p class="hint" id="bkCount" style="margin-top:12px"></p>
@@ -369,7 +381,8 @@
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
-         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren } from './assets/mc-common.js';
+         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren,
+         bookingEndMin } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          watchRegistrations, updateRegistration, deleteRegistration,
@@ -378,7 +391,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin,
          watchBookings, setBookingStatus, deleteBooking,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
-         addVisitCount, recountVisitsFromDb, markBookingCounted } from './assets/mc-data.js';
+         addVisitCount, recountVisitsFromDb, markBookingCounted,
+         updateBooking, applyBookingToRanking } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -996,6 +1010,13 @@ function renderBookings() {
             st === 'accepted' ? 'ok' : st === 'rejected' ? 'bad' : 'warn'}">${
             esc(BOOKING_STATUS_SHORT[st] || st)}</span></div>
           ${b.adminNote ? `<div class="bk-line">Powód: ${esc(b.adminNote)}</div>` : ''}
+          <label class="bk-check">
+            <input type="checkbox" data-paid="${b.id}" ${b.paid ? 'checked' : ''}>
+            <span>Opłacone</span>
+          </label>
+          <label class="bk-until">Do godz.
+            <input type="time" data-until="${b.id}" value="${esc(b.stayUntil || fmtMin(bookingEndMin(b, SETTINGS.dayEnd)))}">
+          </label>
           <div class="bk-acts">
             ${st !== 'accepted' ? `<button class="bk-yes" data-yes="${b.id}">Akceptuj</button>` : ''}
             ${st !== 'rejected' ? `<button class="bk-no" data-no="${b.id}">Odrzuć</button>` : ''}
@@ -1010,6 +1031,8 @@ function renderBookings() {
       </div>`;
   }).join('');
 
+  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
+  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
   $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
   $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
   $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
@@ -1044,6 +1067,9 @@ async function decide(id, status) {
       }
     }
 
+    /* Decyzja zmienia też ranking — o ile rezerwacja jest opłacona. */
+    if (b) await syncBookingRanking(b, { status }).catch(e => console.warn('ranking:', e.message));
+
     /* Zaakceptowana rezerwacja od razu wchodzi do licznika na stronie. */
     await refreshPresence();
     toast(status === 'accepted' ? 'Rezerwacja zaakceptowana — licznik zaktualizowany.'
@@ -1054,9 +1080,55 @@ async function decide(id, status) {
 }
 
 
+/* --------------------------------------------------------------------------
+   Rozliczenie rezerwacji.
+   Ranking liczy wizytę tak samo jak przy zajęciach: potrzebna jest decyzja
+   „zaakceptowana" ORAZ odhaczona opłata. Flaga `countedInRanking` pilnuje,
+   żeby wizyta nie policzyła się dwa razy przy klikaniu tam i z powrotem.
+   -------------------------------------------------------------------------- */
+async function syncBookingRanking(b, { paid = b.paid, status = b.status } = {}) {
+  const should = status === 'accepted' && !!paid;
+  const counted = !!b.countedInRanking;
+  if (should === counted) return;
+
+  const next = { ...b, paid, status };
+  await applyBookingToRanking(next, should ? +1 : -1);
+  await updateBooking(b.id, { countedInRanking: should });
+}
+
+async function setPaid(id, paid) {
+  const b = BOOKINGS.find(x => x.id === id);
+  if (!b) return;
+  try {
+    await updateBooking(id, { paid: !!paid });
+    await syncBookingRanking(b, { paid });
+    toast(paid ? 'Oznaczone jako opłacone.' : 'Zdjęto oznaczenie opłaty.');
+  } catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
+}
+
+async function setUntil(id, hhmm) {
+  const b = BOOKINGS.find(x => x.id === id);
+  if (!b) return;
+  try {
+    /* jeśli wizyta jest już policzona w rankingu, najpierw ją cofamy — inaczej
+       zmiana godziny zostawiłaby w rankingu stary czas pobytu */
+    if (b.countedInRanking) await applyBookingToRanking(b, -1);
+    await updateBooking(id, { stayUntil: hhmm || '' });
+    if (b.countedInRanking) await applyBookingToRanking({ ...b, stayUntil: hhmm || '' }, +1);
+    await refreshPresence();
+    toast('Godzina wyjścia zapisana.');
+  } catch (err) { toast('Nie udało się zapisać godziny: ' + (err.message || '')); }
+}
+
 async function removeBooking(id) {
   if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;
-  try { await deleteBooking(id); toast('Rezerwacja usunięta.'); }
+  const b = BOOKINGS.find(x => x.id === id);
+  try {
+    if (b && b.countedInRanking) await applyBookingToRanking(b, -1).catch(() => {});
+    await deleteBooking(id);
+    await refreshPresence();
+    toast('Rezerwacja usunięta.');
+  }
   catch (err) { toast('Nie udało się usunąć: ' + (err.message || '')); }
 }
 

@@ -257,10 +257,16 @@ export const PALETTE = ['#93C7CF','#3E7C89','#C9A87C','#A9834F','#3D5A78','#A9C6
    Funkcje czyste (bez bazy i bez DOM-u), żeby dały się przetestować osobno.
    ========================================================================== */
 
-/** Do której minuty dnia trwa rezerwacja wstępu. */
+/**
+ * Do której minuty dnia trwa rezerwacja wstępu.
+ * Ręcznie ustawiona godzina wyjścia (`stayUntil`) ma pierwszeństwo — dzięki
+ * temu administrator odwzorowuje to, za ile faktycznie zapłacono, np. gdy
+ * ktoś zarezerwował dwie godziny, a dopłacił do „bez limitu" albo wyszedł wcześniej.
+ */
 export function bookingEndMin(b, dayEnd = '20:00') {
-  const start = toMin(b && b.start);
   if (!b) return 0;
+  if (b.stayUntil) return toMin(b.stayUntil);
+  const start = toMin(b.start);
   if (b.duration === '1h') return start + 60;
   if (b.duration === '2h') return start + 120;
   return Math.max(start + 60, toMin(dayEnd));   // „bez limitu" — do zamknięcia
