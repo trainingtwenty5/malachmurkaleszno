@@ -38,6 +38,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 29 testów: zamykanie terminów i pamięć dzieci — sam Node. |
+| **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
 Każda podstrona ma w lewym górnym rogu przycisk **← Powrót do strony głównej**,
@@ -173,6 +174,30 @@ i nigdy nie wgrywaj na stronę. Po nadaniu claimu wyloguj się i zaloguj ponowni
 
 Reguły akceptują **obie** drogi — claim ma pierwszeństwo, lista adresów jest
 zabezpieczeniem na wypadek, gdyby claim nie został jeszcze nadany.
+
+### „Missing or insufficient permissions" — co to znaczy
+
+Ten komunikat prawie zawsze znaczy jedno: **w konsoli Firebase wisi starsza wersja reguł
+niż w repozytorium**. Reguł nie publikuje wgranie plików na serwer — to osobny krok
+w konsoli, który trzeba powtórzyć po każdej zmianie `firestore.rules`.
+
+Typowy objaw: strona ładuje się poprawnie, grafik i liczniki działają (bo te reguły
+były już opublikowane wcześniej), ale zapis formularza kończy się błędem — bo nowa
+kolekcja, której dotyczy, nie ma jeszcze swojej sekcji w opublikowanych regułach
+i wpada w domyślną blokadę.
+
+**Otwórz `diagnostyka.html`** — strona odpytuje bazę kilkoma bezpiecznymi zapytaniami
+i mówi wprost, czy problem leży w regułach, czy gdzie indziej. Po zalogowaniu kontem
+administratora robi dodatkowo test zapisu rezerwacji: tworzy próbny wpis i od razu go
+kasuje. To jedyny test, który rozstrzyga sprawę w stu procentach.
+
+Naprawa zajmuje minutę: Firebase Console → Firestore Database → **Rules** → wklej całą
+zawartość `firestore.rules` → **Publish**. Albo z terminala, w katalogu
+`mala-chmurka-zapisy`:
+
+```bash
+npx firebase deploy --only firestore:rules
+```
 
 ### Skąd wiadomo, że reguły faktycznie działają
 

@@ -496,7 +496,14 @@ $('#form').addEventListener('submit', async e => {
     }));
     location.href = URLS.thanks;
   } catch (err) {
-    show('bad', esc(authError(err)));
+    /* Zgłoszenie nie doszło — nie gubimy tego, co rodzic wpisał.
+       Dane zostają w formularzu, a obok dajemy drogę awaryjną: telefon i mail. */
+    console.error('createRegistration', err);
+    show('bad', `<strong>Nie udało się wysłać zgłoszenia.</strong><br>
+      ${esc(authError(err))}<br><br>
+      Twoje dane zostały w formularzu — spróbuj ponownie za chwilę albo umów się z nami wprost:
+      <a href="tel:${SETTINGS.phoneHref}">${esc(SETTINGS.phone)}</a> ·
+      <a href="mailto:${SETTINGS.email}">${esc(SETTINGS.email)}</a>.`);
     $('#submit').disabled = false;
     $('#submit').textContent = 'Zapisz się i zapłać';
   }
