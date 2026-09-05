@@ -133,10 +133,10 @@ if (reg) {
   const rows = [
     ['Zajęcia',        esc(reg.eventTitle)],
     ['Termin',         `${esc(longDate(reg.eventDate))}, ${esc(reg.eventStart)}–${esc(reg.eventEnd)}`],
-    ['Dziecko',        esc(reg.child || '—')],
+    [reg.qty > 1 ? 'Dzieci' : 'Dziecko', esc(reg.children || reg.child || '—')],
     ['Rodzic',         esc(reg.parent || '—')],
     ['Kontakt',        `${esc(reg.email)}<br>${esc(reg.phone)}`],
-    ['Liczba miejsc',  String(reg.qty)],
+    ['Liczba dzieci',  String(reg.qty)],
     ['Forma płatności',esc(reg.paymentMethod)],
     ['Do zapłaty',     `<strong>${money(reg.total)}</strong>`],
     ['Numer rezerwacji', `<code>${esc(String(reg.id).slice(0, 8).toUpperCase())}</code>`]

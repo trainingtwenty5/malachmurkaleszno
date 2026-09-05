@@ -243,22 +243,75 @@ export function plDzieci(n) {
 export const PALETTE = ['#93C7CF','#3E7C89','#C9A87C','#A9834F','#3D5A78','#A9C6DD',
                         '#E29578','#8FB996','#B08BBB','#E6A57E','#6B9AC4','#D98BA0'];
 
-/* --------------------------------------------------------------------------
-   Ile dzieci jest teraz w bawialni — liczone z potwierdzonych zapisów.
-   Funkcja czysta (bez bazy), dzięki temu daje się przetestować osobno.
-   -------------------------------------------------------------------------- */
-export function computePresence(regs, dateISO, atMin) {
-  let count = 0, untilMin = 0;
+/* ==========================================================================
+   ILE DZIECI JEST TERAZ W BAWIALNI
+   --------------------------------------------------------------------------
+   Liczymy z dwóch źródeł:
+     • zapisy na zajęcia — te, przy których admin odhaczył „przyszedł"
+       i „opłacone" (checkboxy w zakładce „Zapisani");
+     • zaakceptowane rezerwacje samego wstępu — od godziny przyjścia do końca
+       opłaconego czasu pobytu.
+   W obu przypadkach liczy się LICZBA DZIECI (pole qty), a nie liczba rekordów:
+   jedno zgłoszenie na czworo dzieci to czworo dzieci.
+
+   Funkcje czyste (bez bazy i bez DOM-u), żeby dały się przetestować osobno.
+   ========================================================================== */
+
+/** Do której minuty dnia trwa rezerwacja wstępu. */
+export function bookingEndMin(b, dayEnd = '20:00') {
+  const start = toMin(b && b.start);
+  if (!b) return 0;
+  if (b.duration === '1h') return start + 60;
+  if (b.duration === '2h') return start + 120;
+  return Math.max(start + 60, toMin(dayEnd));   // „bez limitu" — do zamknięcia
+}
+
+/**
+ * Stan bawialni w danej chwili.
+ * @param {object} o
+ * @param {Array}  o.regs      zapisy na zajęcia
+ * @param {Array}  o.bookings  rezerwacje wstępu
+ * @param {string} o.dateISO   dzień
+ * @param {number} o.atMin     minuta dnia
+ * @param {string} [o.dayEnd]  godzina zamknięcia dla „bez limitu"
+ * @returns {{count, untilMin, fromClasses, fromBookings}}
+ */
+export function computeLivePresence({ regs, bookings, dateISO, atMin, dayEnd = '20:00' } = {}) {
+  let fromClasses = 0, fromBookings = 0, untilMin = 0;
+
   (regs || []).forEach(r => {
     if (r.eventDate !== dateISO) return;
-    if (!r.attended || !r.paid) return;
+    if (!r.attended || !r.paid) return;              // admin potwierdził obecność
     const end = toMin(r.stayUntil || r.eventEnd);
     if (end <= atMin) return;
-    count += Number(r.qty) || 1;
+    fromClasses += Number(r.qty) || 1;
     if (end > untilMin) untilMin = end;
   });
+
+  (bookings || []).forEach(b => {
+    if (b.date !== dateISO) return;
+    if (b.status !== 'accepted') return;             // czeka na decyzję albo odrzucona
+    const start = toMin(b.start);
+    const end = bookingEndMin(b, dayEnd);
+    /* rezerwacja liczy się dopiero od godziny przyjścia — inaczej wieczorna
+       wizyta podbijałaby licznik od rana */
+    if (atMin < start || end <= atMin) return;
+    fromBookings += Number(b.qty) || 1;
+    if (end > untilMin) untilMin = end;
+  });
+
+  return { count: fromClasses + fromBookings, untilMin, fromClasses, fromBookings };
+}
+
+/** Zgodność wstecz: sam licznik z zapisów na zajęcia. */
+export function computePresence(regs, dateISO, atMin) {
+  const { count, untilMin } = computeLivePresence({ regs, bookings: [], dateISO, atMin });
   return { count, untilMin };
 }
+
+/** Suma dzieci w zgłoszeniach — liczy pole qty, a nie rekordy. */
+export const countChildren = list =>
+  (list || []).reduce((sum, r) => sum + (Number(r.qty) || 1), 0);
 
 /* ==========================================================================
    CZY ZAPISY NA ZAJĘCIA SĄ JESZCZE OTWARTE
