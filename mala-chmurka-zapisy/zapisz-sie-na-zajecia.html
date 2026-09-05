@@ -491,6 +491,7 @@ $('#form').addEventListener('submit', async e => {
       eventStart: reg.eventStart, eventEnd: reg.eventEnd,
       parent: `${reg.parentFirstName} ${reg.parentLastName}`.trim(),
       child: `${reg.childFirstName} ${reg.childLastName}`.trim(),
+      children: kids.map(k => `${k.firstName} ${k.lastName}`.trim()).filter(Boolean).join(', '),
       email: reg.email, phone: reg.phone, qty: reg.qty,
       total: reg.total, paymentMethod: reg.paymentMethod
     }));

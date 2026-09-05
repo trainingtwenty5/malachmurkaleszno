@@ -134,7 +134,7 @@
         <div class="table-wrap">
           <table class="tbl">
             <thead><tr>
-              <th>Termin</th><th>Zajęcia</th><th>Dziecko / rodzic</th><th>Kontakt</th>
+              <th>Termin</th><th>Zajęcia</th><th>Dzieci / rodzic</th><th>Kontakt</th>
               <th>Do godz.</th><th>Przyszedł</th><th>Opłacone</th><th></th>
             </tr></thead>
             <tbody id="regRows"></tbody>
@@ -149,6 +149,8 @@
           <div class="stat-card"><div class="k">Teraz w bawialni</div><div class="v" id="cNow">—</div></div>
           <div class="stat-card"><div class="k">Pokazywane do godziny</div><div class="v" id="cUntil">—</div></div>
           <div class="stat-card"><div class="k">Tryb licznika</div><div class="v" id="cMode">—</div></div>
+          <div class="stat-card"><div class="k">Dzieci z zajęć</div><div class="v" id="cFromClasses">—</div></div>
+          <div class="stat-card"><div class="k">Dzieci z rezerwacji</div><div class="v" id="cFromBookings">—</div></div>
           <div class="stat-card"><div class="k">Odwiedziło nas łącznie</div><div class="v" id="cVisits">—</div></div>
         </div>
 
@@ -176,11 +178,32 @@
             <button class="btn btn-outline btn-auto" id="autoMode">Wróć do trybu automatycznego</button>
             <button class="btn btn-soft btn-auto" id="zero">Wyzeruj licznik</button>
           </div>
+          <p class="hint" style="margin:10px 0 0">Licznik automatyczny sumuje <strong>dzieci</strong>
+            (a nie zgłoszenia) z dwóch źródeł: zapisów na zajęcia z odhaczonym <em>przyszedł</em>
+            i <em>opłacone</em> oraz zaakceptowanych rezerwacji wstępu — od godziny przyjścia
+            do końca opłaconego czasu pobytu.</p>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <h2 style="font-size:1.1rem">Maksimum miejsc</h2>
+          <p class="hint">Mianownik licznika na stronie głównej — „2 os. / <strong>6</strong>".
+            Obowiązuje w obu trybach i nie resetuje się przy odświeżaniu licznika.</p>
+          <div class="row2">
+            <div class="field">
+              <label for="capOnly">Ile dzieci mieści się jednocześnie</label>
+              <input class="control" id="capOnly" type="number" min="1" max="99" value="6">
+            </div>
+            <div class="field" style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary btn-block" id="saveCap">Zapisz maksimum</button>
+            </div>
+          </div>
         </div>
 
         <div class="card" style="margin-top:18px">
           <h2 style="font-size:1.1rem">Licznik odwiedzin</h2>
-          <p class="hint">Liczba pokazywana na stronie głównej: „odwiedziło nas już…". Rośnie o 1 przy każdym zapisie.</p>
+          <p class="hint">Liczba pokazywana na stronie głównej: „odwiedziło nas już…".
+            Rośnie o <strong>liczbę zapisanych dzieci</strong> — zgłoszenie na czworo dzieci
+            podbija licznik o cztery, a nie o jeden.</p>
           <div class="row2">
             <div class="field">
               <label for="vBase">Wartość startowa</label>
@@ -195,8 +218,9 @@
             <button class="btn btn-primary btn-auto" id="saveVisits">Zapisz licznik odwiedzin</button>
             <button class="btn btn-outline btn-auto" id="recountVisits">Przelicz z bazy zapisów</button>
           </div>
-          <p class="hint" style="margin:0">„Przelicz z bazy" ustawia doliczone zapisy na faktyczną liczbę
-            rekordów w bazie — przydaje się, gdyby licznik kiedykolwiek się rozjechał.</p>
+          <p class="hint" style="margin:0">„Przelicz z bazy" sumuje <strong>dzieci</strong> ze wszystkich
+            zapisów na zajęcia i z zaakceptowanych rezerwacji wstępu — nie rekordy. Przydaje się,
+            gdyby licznik kiedykolwiek się rozjechał.</p>
         </div>
       </section>
 
@@ -209,7 +233,7 @@
         <div class="table-wrap">
           <table class="tbl">
             <thead><tr>
-              <th>#</th><th>Dziecko</th><th>Rodzic</th><th>Telefon</th><th>E-mail</th>
+              <th>#</th><th>Dzieci</th><th>Rodzic</th><th>Telefon</th><th>E-mail</th>
               <th>Liczba wizyt</th><th>Łączny czas</th><th>Ostatnia wizyta</th>
             </tr></thead>
             <tbody id="rankRows"></tbody>
@@ -345,7 +369,7 @@
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
-         PALETTE, URLS, SETTINGS } from './assets/mc-common.js';
+         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          watchRegistrations, updateRegistration, deleteRegistration,
@@ -353,7 +377,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          setPresenceManual, clearPresenceManual, watchPresence, watchStats,
          setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin,
          watchBookings, setBookingStatus, deleteBooking,
-         BOOKING_STATUS_SHORT, refreshEvent } from './assets/mc-data.js';
+         BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
+         addVisitCount, recountVisitsFromDb, markBookingCounted } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -435,7 +460,9 @@ function start() {
     $('#cMode').textContent  = p.manual ? 'ręczny' : 'automatyczny';
     $('#mCount').value = p.count ?? 0;
     if (p.until) $('#mUntil').value = p.until;
-    $('#mCap').value = p.capacity ?? SETTINGS.capacity;
+    const cap = p.capacity ?? SETTINGS.capacity;
+    $('#mCap').value = cap;
+    $('#capOnly').value = cap;
   });
   watchStats(s => {
     if (!s) return;
@@ -674,7 +701,7 @@ $('#evDelete').onclick = async () => {
 /* ======================================================== 2. ZAPISANI ==== */
 function matches(r, q) {
   if (!q) return true;
-  const hay = [r.childFirstName, r.childLastName, r.parentFirstName, r.parentLastName,
+  const hay = [...kidsOf(r), r.childFirstName, r.childLastName, r.parentFirstName, r.parentLastName,
                r.phone, r.phoneKey, r.email, r.eventStart, r.eventEnd, r.eventTitle, r.eventDate]
               .join(' ').toLowerCase();
   return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
@@ -707,7 +734,7 @@ function renderRegs() {
       <td class="num"><strong>${esc(shortDate(r.eventDate || todayISO()))}</strong><br>
         <span class="hint">${esc(r.eventStart || '')}–${esc(r.eventEnd || '')}</span></td>
       <td>${esc(r.eventTitle || '')}<br><span class="hint">${r.qty || 1} × ${money(r.unitPrice)}</span></td>
-      <td class="who-cell"><strong>${esc((r.childFirstName || '') + ' ' + (r.childLastName || ''))}</strong>
+      <td class="who-cell">${kidsOf(r).map(k => `<strong>${esc(k)}</strong>`).join('')}
         <span>${esc((r.parentFirstName || '') + ' ' + (r.parentLastName || ''))}</span></td>
       <td><a href="tel:${esc(r.phone || '')}">${esc(r.phone || '')}</a><br>
         <span class="hint">${esc(r.email || '')}</span></td>
@@ -786,9 +813,26 @@ async function refreshPresence({ force = false } = {}) {
   renderRegStats();
   /* w trybie ręcznym nie nadpisujemy tego, co admin ustawił w zakładce 3 */
   if (PRESENCE && PRESENCE.manual && !force) return false;
-  const p = computePresence(REGS, todayISO(), nowMin());
+
+  /* Licznik sumuje dzieci z zajęć ORAZ z zaakceptowanych rezerwacji wstępu.
+     Maksimum zostawiamy w spokoju — zmienia je tylko przycisk „Zapisz maksimum". */
+  const p = computeLivePresence({
+    regs: REGS, bookings: BOOKINGS,
+    dateISO: todayISO(), atMin: nowMin(), dayEnd: SETTINGS.dayEnd
+  });
   await pushPresence({ count: p.count, untilMin: p.untilMin, manual: false });
+  $('#cFromClasses').textContent  = p.fromClasses;
+  $('#cFromBookings').textContent = p.fromBookings;
   return true;
+}
+
+/** Wszystkie dzieci z zapisu — nowy kształt (children[]) i stary (childFirstName). */
+function kidsOf(r) {
+  if (Array.isArray(r.children) && r.children.length) {
+    return r.children.map(c => `${c.firstName || ''} ${c.lastName || ''}`.trim()).filter(Boolean);
+  }
+  const one = `${r.childFirstName || ''} ${r.childLastName || ''}`.trim();
+  return one ? [one] : ['—'];
 }
 
 /* ========================================================= 3. LICZNIK ==== */
@@ -806,9 +850,23 @@ $('#zero').onclick = async () => {
   try { await setPresenceManual(0, '', Number($('#mCap').value) || SETTINGS.capacity); toast('Licznik wyzerowany.'); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
+$('#saveCap').onclick = async () => {
+  const cap = Math.max(1, Number($('#capOnly').value) || SETTINGS.capacity);
+  try {
+    await setPresenceCapacity(cap);
+    $('#mCap').value = cap;
+    toast(`Maksimum ustawione na ${cap}.`);
+  } catch (e) { toast('Błąd: ' + e.message); }
+};
 $('#recountVisits').onclick = async () => {
-  try { await setVisitsBase(Number($('#vBase').value) || 0, REGS.length); toast(`Przeliczono: ${REGS.length} zapisów w bazie.`); }
-  catch (e) { toast('Błąd: ' + e.message); }
+  const btn = $('#recountVisits');
+  btn.disabled = true;
+  try {
+    const r = await recountVisitsFromDb();
+    await setVisitsBase(Number($('#vBase').value) || 0, r.total);
+    toast(`Przeliczono: ${r.total} dzieci (zajęcia: ${r.fromRegistrations}, bawialnia: ${r.fromBookings}).`);
+  } catch (e) { toast('Błąd: ' + e.message); }
+  finally { btn.disabled = false; }
 };
 $('#saveVisits').onclick = async () => {
   try { await setVisitsBase(Number($('#vBase').value) || 0, Number($('#vCount').value) || 0); toast('Licznik odwiedzin zapisany.'); }
@@ -842,7 +900,7 @@ function renderRank() {
 }
 $('#qRank').addEventListener('input', renderRank);
 $('#exportRank').onclick = () => {
-  const rows = [['Dziecko','Rodzic','Telefon','Email','Wizyty','Minuty','Ostatnia wizyta'],
+  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Ostatnia wizyta'],
     ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0, g.lastVisit || ''])];
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -940,6 +998,7 @@ function renderBookings() {
 }
 
 async function decide(id, status) {
+  const b = BOOKINGS.find(x => x.id === id);
   let note = '';
   if (status === 'rejected') {
     note = prompt('Powód odmowy (zobaczy go klient — możesz zostawić puste):',
@@ -948,11 +1007,30 @@ async function decide(id, status) {
   }
   try {
     await setBookingStatus(id, status, note);
-    toast(status === 'accepted' ? 'Rezerwacja zaakceptowana.' : 'Rezerwacja odrzucona.');
+
+    /* Licznik odwiedzin rośnie o liczbę dzieci w rezerwacji — raz, przy
+       akceptacji. Flaga `countedInVisits` pilnuje, żeby powtórne kliknięcie
+       albo późniejsza zmiana decyzji nie policzyły tego drugi raz. */
+    if (b) {
+      const qty = Number(b.qty) || 1;
+      if (status === 'accepted' && !b.countedInVisits) {
+        await addVisitCount(qty);
+        await markBookingCounted(id, true);
+      } else if (status !== 'accepted' && b.countedInVisits) {
+        await addVisitCount(-qty);
+        await markBookingCounted(id, false);
+      }
+    }
+
+    /* Zaakceptowana rezerwacja od razu wchodzi do licznika na stronie. */
+    await refreshPresence();
+    toast(status === 'accepted' ? 'Rezerwacja zaakceptowana — licznik zaktualizowany.'
+                                : 'Rezerwacja odrzucona.');
   } catch (err) {
     toast('Nie udało się zapisać decyzji: ' + (err.message || ''));
   }
 }
+
 
 async function removeBooking(id) {
   if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;

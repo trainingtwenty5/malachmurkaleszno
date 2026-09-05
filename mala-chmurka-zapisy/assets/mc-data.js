@@ -338,14 +338,26 @@ export function watchStats(cb) {
 
 export { computePresence } from './mc-common.js';
 
-/** Zapisuje wyliczony stan do bazy (wywoływane z panelu admina). */
-export async function pushPresence({ count, untilMin, manual = false }) {
-  await F.setDoc(presenceRef(), {
+/** Zapisuje wyliczony stan do bazy (wywoływane z panelu admina).
+    `capacity` podaje się tylko wtedy, gdy ma się zmienić — bez tego zostaje
+    to, co administrator ustawił w zakładce „Licznik w bawialni". Wcześniej
+    każde odświeżenie licznika cofało maksimum do wartości domyślnej. */
+export async function pushPresence({ count, untilMin, manual = false, capacity }) {
+  const doc = {
     count: Number(count) || 0,
     until: untilMin ? `${String(Math.floor(untilMin/60)).padStart(2,'0')}:${String(untilMin%60).padStart(2,'0')}` : '',
     date: todayISO(),
-    capacity: SETTINGS.capacity,
     manual: !!manual,
+    updatedAt: F.serverTimestamp()
+  };
+  if (capacity !== undefined && capacity !== null) doc.capacity = Number(capacity) || SETTINGS.capacity;
+  await F.setDoc(presenceRef(), doc, { merge: true });
+}
+
+/** Samo maksimum (mianownik licznika) — bez ruszania liczby dzieci i trybu. */
+export async function setPresenceCapacity(capacity) {
+  await F.setDoc(presenceRef(), {
+    capacity: Math.max(1, Number(capacity) || SETTINGS.capacity),
     updatedAt: F.serverTimestamp()
   }, { merge: true });
 }
@@ -385,6 +397,33 @@ export async function ensureSettings() {
     await F.setDoc(presenceRef(), { count: 0, until: '', date: todayISO(),
       capacity: SETTINGS.capacity, manual: false, updatedAt: F.serverTimestamp() });
   }
+}
+
+/** Zmienia licznik odwiedzin o dowolną wartość — także w dół (tylko admin). */
+export async function addVisitCount(delta) {
+  const by = Math.round(Number(delta) || 0);
+  if (!by) return;
+  await F.setDoc(statsRef(), {
+    visitsCount: F.increment(by),
+    updatedAt: F.serverTimestamp()
+  }, { merge: true });
+}
+
+/**
+ * Przelicza licznik odwiedzin z bazy: sumuje LICZBĘ DZIECI, a nie rekordów.
+ * Zgłoszenie na czworo dzieci liczy się jako czworo. Bierze pod uwagę zapisy
+ * na zajęcia oraz zaakceptowane rezerwacje wstępu.
+ * @returns {{ total, fromRegistrations, fromBookings }}
+ */
+export async function recountVisitsFromDb() {
+  const [regsSnap, bookSnap] = await Promise.all([
+    F.getDocs(col(PATHS.registrations)),
+    F.getDocs(F.query(col(PATHS.bookings), F.where('status', '==', 'accepted')))
+  ]);
+  const sum = docs => docs.reduce((n, d) => n + (Number(d.data().qty) || 1), 0);
+  const fromRegistrations = sum(regsSnap.docs);
+  const fromBookings = sum(bookSnap.docs);
+  return { total: fromRegistrations + fromBookings, fromRegistrations, fromBookings };
 }
 
 export async function setVisitsBase(base, count) {
@@ -501,6 +540,10 @@ export const setBookingStatus = (id, status, adminNote = '') =>
   });
 
 export const deleteBooking = id => F.deleteDoc(ref(PATHS.bookings, id));
+
+/** Odhacza, że rezerwacja została już policzona w liczniku odwiedzin. */
+export const markBookingCounted = (id, counted) =>
+  F.updateDoc(ref(PATHS.bookings, id), { countedInVisits: !!counted, updatedAt: F.serverTimestamp() });
 
 /* ==========================================================================
    HISTORIA ZAMÓWIEŃ KLIENTA

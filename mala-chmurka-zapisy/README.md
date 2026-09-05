@@ -38,6 +38,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 29 testów: zamykanie terminów i pamięć dzieci — sam Node. |
+| `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
@@ -226,6 +227,7 @@ zależności, sam Node:
 node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
 node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
+node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 ```
 
 ### Czego panel *nie* chroni
@@ -368,10 +370,22 @@ kod strony. Kto zarezerwuje bez konta, dostanie na stronie podziękowania jasną
 
 ## Jak działa licznik na stronie głównej
 
-**Automatycznie:** w `panel-admina.html`, zakładka **2 · Zapisani** zaznaczasz przy
-dziecku „Przyszedł” i „Opłacone”. Od tego momentu na stronie głównej widać np.
-`2 os. / 6` i `w bawialni do 18:00`. Godzina bierze się z pola **„Do godz.”**
-w tej samej tabelce. Po jej upływie licznik sam wraca do zera.
+**Automatycznie:** licznik sumuje **dzieci** (a nie zgłoszenia) z dwóch źródeł:
+
+1. **Zapisy na zajęcia** — te, przy których w zakładce **2 · Zapisani** odhaczysz
+   „Przyszedł” i „Opłacone”. Godzina wyjścia bierze się z pola **„Do godz.”**
+   w tej samej tabelce.
+2. **Zaakceptowane rezerwacje wstępu** — od godziny przyjścia do końca opłaconego
+   czasu pobytu (1 h, 2 h albo do zamknięcia). Rezerwacja czekająca na decyzję
+   albo odrzucona nie liczy się wcale.
+
+Jedno zgłoszenie na czworo dzieci to **czworo dzieci**, nie jedno. Kafelki
+„Dzieci z zajęć” i „Dzieci z rezerwacji” w zakładce 3 pokazują rozbicie.
+Po upływie ostatniej godziny wyjścia licznik sam wraca do zera.
+
+**Maksimum (mianownik).** Osobna karta **„Maksimum miejsc”** w zakładce 3 —
+ustawiasz, ile dzieci mieści się jednocześnie, i klikasz „Zapisz maksimum”.
+Obowiązuje w obu trybach i nie resetuje się przy odświeżaniu licznika.
 
 **Ręcznie:** zakładka **3 · Licznik w bawialni** — wpisujesz liczbę dzieci i godzinę.
 Przycisk „Wróć do trybu automatycznego” oddaje sterowanie checkboxom.
@@ -379,6 +393,12 @@ Przycisk „Wróć do trybu automatycznego” oddaje sterowanie checkboxom.
 **Licznik odwiedzin** („Odwiedziło nas już 266 dzieci”) rośnie o **liczbę zapisanych
 dzieci**, a nie o liczbę zgłoszeń — jeden zapis na 2 miejsca podbija go o 2.
 Górna granica jednego zgłoszenia to 10 dzieci (tak samo w `firestore.rules`).
+Zaakceptowanie rezerwacji wstępu też go podbija — o tyle dzieci, ile jest
+w rezerwacji, i tylko raz (pilnuje tego pole `countedInVisits`).
+
+Przycisk **„Przelicz z bazy”** sumuje dzieci ze wszystkich zapisów na zajęcia
+i z zaakceptowanych rezerwacji — **nie rekordy**. Zgłoszenie na czworo dzieci
+liczy się jako cztery.
 
 ## Ranking wizyt (zakładka 4)
 

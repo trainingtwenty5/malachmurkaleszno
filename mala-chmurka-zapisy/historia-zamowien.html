@@ -197,8 +197,14 @@ function renderClasses(list) {
           <span>${esc(plDzieci(r.qty || 1))}</span>
           <span>${esc(r.paymentMethod || '')}</span>
         </div>
-        ${r.childFirstName ? `<div class="kids-line">Dziecko: ${esc(
-          `${r.childFirstName} ${r.childLastName || ''}`.trim())}</div>` : ''}
+        ${(() => {
+          const list = Array.isArray(r.children) && r.children.length
+            ? r.children.map(c => `${c.firstName || ''} ${c.lastName || ''}`.trim()).filter(Boolean)
+            : [`${r.childFirstName || ''} ${r.childLastName || ''}`.trim()].filter(Boolean);
+          if (!list.length) return '';
+          return `<div class="kids-line">${list.length > 1 ? 'Dzieci' : 'Dziecko'}: ${
+            esc(list.join(', '))}</div>`;
+        })()}
         <div class="status ${esc(st.kind)}">
           ${svg(st.kind === 'ok' ? 'accepted' : 'pending')}
           <span><b>${esc(st.text)}</b></span>
