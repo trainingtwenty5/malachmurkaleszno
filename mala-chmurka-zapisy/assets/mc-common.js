@@ -330,6 +330,31 @@ export const countChildren = list =>
 export const SIGNUP_CLOSED_TEXT = 'Termin zapisów upłynął';
 
 /**
+ * Czy wybrany termin (dzień + godzina) już minął.
+ * Używane w formularzu rezerwacji: o 21:00 nie ma sensu rezerwować dzisiaj
+ * na 10:00. Dzień wcześniejszy niż dzisiejszy jest przeterminowany zawsze,
+ * dzień późniejszy — nigdy.
+ *
+ * @param {string} dateISO   'YYYY-MM-DD'
+ * @param {string} hhmm      'HH:MM' (puste = sprawdzamy sam dzień)
+ * @param {string} todayISO  dzisiejszy dzień
+ * @param {number} nowMinutes bieżąca minuta dnia
+ */
+export function slotInPast(dateISO, hhmm, todayISO, nowMinutes) {
+  if (!dateISO || !todayISO) return false;
+  if (dateISO < todayISO) return true;
+  if (dateISO > todayISO) return false;
+  if (!hhmm) return false;
+  return toMin(hhmm) < nowMinutes;
+}
+
+/** Najbliższy sensowny kwadrans od podanej minuty — podpowiedź godziny. */
+export function nextQuarter(nowMinutes, dayEnd = '20:00') {
+  const q = Math.ceil((Number(nowMinutes) || 0) / 15) * 15;
+  return Math.min(q, toMin(dayEnd), 23 * 60 + 45);
+}
+
+/**
  * @param {object} ev  zajęcia: { date "YYYY-MM-DD", end "HH:MM" }
  * @param {string} [todayISO]  dzień „dziś" (do testów)
  * @param {number} [nowMinutes]  minuta dnia (do testów)

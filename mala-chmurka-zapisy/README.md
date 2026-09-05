@@ -37,7 +37,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-rules.mjs` | 58 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
-| `tools/test-zapisy.mjs` | 29 testów: zamykanie terminów i pamięć dzieci — sam Node. |
+| `tools/test-zapisy.mjs` | 42 testy: terminy, pamięć dzieci, przeterminowane godziny — sam Node. |
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
@@ -253,7 +253,7 @@ zależności, sam Node:
 ```bash
 node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
-node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
+node tools/test-zapisy.mjs  # 42 testy: terminy, pamięć dzieci, przeterminowane godziny
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
@@ -344,7 +344,13 @@ nowe, zduplikowane, czy edytowane.
 ## Rezerwacja bawialni (bez zajęć)
 
 Osobna ścieżka dla samego wstępu: przycisk **„Zarezerwuj miejsce"** w hero na stronie
-głównej, w menu i w liczniku. Formularz (`rezerwacja-bawialni.html`) wygląda i działa
+głównej, w menu i w liczniku.
+
+**Nie da się zarezerwować terminu, który minął.** Pole daty nie schodzi poniżej dzisiaj,
+a pole godziny — poniżej bieżącej minuty, jeśli wybrany jest dzisiejszy dzień. Godzina
+przyjścia podpowiada się jako najbliższy kwadrans. Gdy bawialnia jest już zamknięta,
+formularz mówi to wprost, blokuje wysyłkę i daje przycisk **„Zarezerwuj na jutro"**,
+który przestawia datę i godzinę otwarcia jednym kliknięciem. Formularz (`rezerwacja-bawialni.html`) wygląda i działa
 jak zapis na zajęcia — ten sam krok logowania („zaloguj się" albo „rezerwuj bez konta"),
 ten sam pasek kroków, ta sama stopka.
 

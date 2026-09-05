@@ -116,6 +116,12 @@
           </div>
         </div>
 
+        <div class="alert alert-warn" id="lateNote" hidden>
+          <strong>Bawialnia jest dziś już zamknięta.</strong> Dzisiejsze godziny nie są
+          dostępne — wybierz kolejny dzień.
+          <button class="btn btn-outline btn-sm btn-block" type="button" id="goTomorrow"
+                  style="margin-top:10px">Zarezerwuj na jutro</button></div>
+
         <div class="tariff" id="tariff">Wybierz dzień, żeby zobaczyć taryfę.</div>
 
         <div class="field">
@@ -196,7 +202,8 @@
 </main>
 
 <script type="module">
-import { mountChrome, toast, $, $$, esc, money, longDate, params, URLS, SETTINGS } from './assets/mc-common.js';
+import { mountChrome, toast, $, $$, esc, money, longDate, params, URLS, SETTINGS,
+         slotInPast, nextQuarter, toMin, fmtMin } from './assets/mc-common.js';
 import { quote, discountSummary, DURATIONS, PRICES, tariffFor, tariffLabel, isHoliday, AGE_TIERS, ageTier }
   from './assets/mc-cennik.js';
 import { createBooking, todayISO, myRegistrations, myBookings } from './assets/mc-data.js';
@@ -239,8 +246,43 @@ $('#goLogin').href = `${URLS.login}?next=${backHere}`;
 $('#stepLogin').hidden = false;
 
 /* ------------------------------------------------------------ formularz --- */
+/* --------------------------------------------------------- data i godzina --
+   Nie pozwalamy zarezerwować terminu, który już minął: ani dnia z przeszłości,
+   ani dzisiejszej godziny sprzed chwili. Podpowiadamy najbliższy kwadrans. */
+const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+
 $('#date').min = todayISO();
 $('#date').value = params().get('date') || todayISO();
+$('#start').value = fmtMin(nextQuarter(nowMin(), SETTINGS.dayEnd));
+
+/** Data jutrzejsza w formacie ISO. */
+function tomorrowISO() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Pilnuje, żeby w polu godziny nie dało się wybrać czasu, który już minął.
+ * Gdy bawialnia jest dziś zamknięta, nie ma sensu podpowiadać żadnej godziny —
+ * blokujemy pole i proponujemy przeskok na jutro.
+ */
+function syncTimeLimits() {
+  const today = $('#date').value === todayISO();
+  const closed = today && nowMin() >= toMin(SETTINGS.dayEnd);
+
+  $('#lateNote').hidden = !closed;
+  $('#start').disabled = closed;
+  $('#submit').disabled = closed;
+
+  if (closed) { $('#start').min = ''; return; }
+
+  $('#start').min = today ? fmtMin(nowMin()) : '';
+  if (today && (!$('#start').value || toMin($('#start').value) < nowMin())) {
+    $('#start').value = fmtMin(nextQuarter(nowMin(), SETTINGS.dayEnd));
+  }
+}
 
 /** Kafelki „1 h / 2 h / bez limitu" z cenami dla wybranego dnia. */
 function renderDurations() {
@@ -373,7 +415,15 @@ function paint() {
   $('#cuts').innerHTML = cuts.map(c => `<span>${esc(c)}</span>`).join('');
 }
 
-$('#date').onchange = () => { renderDurations(); renderKids(); paint(); };
+$('#date').onchange  = () => { syncTimeLimits(); renderDurations(); renderKids(); paint(); };
+$('#start').onchange = syncTimeLimits;
+$('#goTomorrow').onclick = () => {
+  $('#date').value = tomorrowISO();
+  $('#start').value = SETTINGS.dayStart;
+  syncTimeLimits(); renderDurations(); renderKids(); paint();
+  $('#start').focus();
+};
+syncTimeLimits();
 
 renderDurations();
 renderKids();
@@ -388,6 +438,9 @@ $('#form').addEventListener('submit', async e => {
   if (!date)                    return show('bad', 'Wybierz dzień wizyty.');
   if (date < todayISO())        return show('bad', 'Ten dzień już minął — wybierz dzisiejszą albo późniejszą datę.');
   if (!$('#start').value)       return show('bad', 'Podaj planowaną godzinę przyjścia.');
+  if (slotInPast(date, $('#start').value, todayISO(), nowMin()))
+    return show('bad', `<strong>Ta godzina już minęła.</strong> Jest ${fmtMin(nowMin())} — ` +
+      'wybierz późniejszą godzinę albo inny dzień.');
   if (!kids.length)             return show('bad', 'Dodaj przynajmniej jedno dziecko.');
   if (kids.some(k => !k.name.trim())) return show('bad', 'Podaj imię każdego dziecka.');
   if (kids.some(k => !k.dob))   return show('bad', 'Podaj datę urodzenia każdego dziecka — bez niej nie naliczymy zniżek.');

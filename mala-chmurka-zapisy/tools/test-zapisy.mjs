@@ -10,7 +10,8 @@
    Bez zależności i bez emulatora — sam Node.
    ========================================================================== */
 
-import { signupClosed, seatState, SIGNUP_CLOSED_TEXT } from '../assets/mc-common.js';
+import { signupClosed, seatState, SIGNUP_CLOSED_TEXT, slotInPast, nextQuarter, fmtMin }
+  from '../assets/mc-common.js';
 import { mergeChildren, childKey, childLabel, normChild, knownChildren }
   from '../assets/mc-dzieci.js';
 
@@ -48,6 +49,36 @@ ok('zajęcia kończące się dokładnie teraz są już zamknięte',
 ok('brak godziny zakończenia nie zamyka dzisiejszych zajęć',
   !signupClosed({ date: DZIS }, DZIS, TERAZ));
 ok('brak daty niczego nie zamyka', !signupClosed({}, DZIS, TERAZ));
+
+console.log('\n=== PRZETERMINOWANA GODZINA REZERWACJI ===');
+{
+  const TERAZ_21 = 21 * 60;   // 21:00
+
+  ok('dziś na 10:00, gdy jest 21:00 — przeterminowane',
+     slotInPast(DZIS, '10:00', DZIS, TERAZ_21));
+  ok('dziś na 22:00, gdy jest 21:00 — jeszcze można',
+     !slotInPast(DZIS, '22:00', DZIS, TERAZ_21));
+  ok('dokładnie bieżąca minuta nie jest przeterminowana',
+     !slotInPast(DZIS, '21:00', DZIS, TERAZ_21));
+  ok('minutę wcześniej już tak',
+     slotInPast(DZIS, '20:59', DZIS, TERAZ_21));
+  ok('jutro o 10:00 jest w porządku',
+     !slotInPast('2026-09-11', '10:00', DZIS, TERAZ_21));
+  ok('wczoraj o 22:00 jest przeterminowane',
+     slotInPast('2026-09-09', '22:00', DZIS, TERAZ_21));
+  ok('sam dzień bez godziny nie jest przeterminowany',
+     !slotInPast(DZIS, '', DZIS, TERAZ_21));
+  ok('brak danych niczego nie blokuje', !slotInPast('', '10:00', DZIS, TERAZ_21));
+}
+
+console.log('\n=== PODPOWIADANA GODZINA PRZYJŚCIA ===');
+eq('o 14:07 podpowiadamy', fmtMin(nextQuarter(14 * 60 + 7)), '14:15');
+eq('o 14:00 zostaje 14:00', fmtMin(nextQuarter(14 * 60)), '14:00');
+eq('o 14:01 przeskakuje na kwadrans', fmtMin(nextQuarter(14 * 60 + 1)), '14:15');
+eq('nie wychodzimy poza godzinę zamknięcia',
+   fmtMin(nextQuarter(21 * 60 + 40, '20:00')), '20:00');
+eq('tuż przed zamknięciem podpowiadamy zamknięcie',
+   fmtMin(nextQuarter(19 * 60 + 50, '20:00')), '20:00');
 
 console.log('\n=== STAN MIEJSC ===');
 const past = seatState({ date: '2026-09-01', end: '11:00', capacity: 10, booked: 0 }, DZIS, TERAZ);
