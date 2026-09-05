@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/mc-common.css">
+<!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
+<script src="assets/mc-boot.js"></script>
 <style>
   .admin-tabs{display:flex;gap:6px;flex-wrap:wrap;background:var(--cream-deep);padding:6px;
     border-radius:var(--radius);margin:16px 0 22px}
@@ -396,6 +398,9 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
 
 mountChrome({ crumb: 'Panel admina' });
 
+/* Sygnał dla bezpiecznika z mc-boot.js: moduł wystartował. */
+if (window.__mcBoot) window.__mcBoot.started = true;
+
 /* ====================================================== BRAMA DOSTĘPU ====
    Ukrycie panelu to tylko wygoda dla oka. Prawdziwą blokadę stawia Firestore
    (plik firestore.rules) — bez uprawnień żaden zapis nie przejdzie, nawet
@@ -420,7 +425,11 @@ const gateWatchdog = setTimeout(() => {
   $('#wdRetry').onclick = () => location.reload();
   $('#wdOut').onclick = () => A.signOut(auth).finally(() => location.reload());
 }, 12000);
-const gateSettled = () => { gateDone = true; clearTimeout(gateWatchdog); };
+const gateSettled = () => {
+  gateDone = true;
+  clearTimeout(gateWatchdog);
+  if (window.__mcBoot) window.__mcBoot.settled = true;
+};
 
 A.onAuthStateChanged(auth, async user => {
   if (!user) {

@@ -8,10 +8,23 @@
 import { FIREBASE_CONFIG, SDK, SETTINGS, ADMIN_EMAILS, REQUIRE_VERIFIED_EMAIL, appUrl }
   from './firebase-config.js';
 
+/* Pobranie SDK z www.gstatic.com z limitem czasu. Bez tego zablokowane albo
+   zawieszone żądanie (rozszerzenie przeglądarki, proxy, zdechłe DNS) sprawia,
+   że ten moduł nigdy nie kończy ewaluacji — a wtedy nie wykonuje się ani jedna
+   linijka strony, która go importuje. Lepiej głośno przerwać niż wisieć. */
+const SDK_TIMEOUT_MS = 15000;
+const loadSdk = file => Promise.race([
+  import(`${SDK}/${file}`),
+  new Promise((_, reject) => setTimeout(
+    () => reject(new Error(`Nie udało się pobrać ${file} z ${SDK} w ${SDK_TIMEOUT_MS / 1000} s. ` +
+      'Najczęściej blokuje to rozszerzenie przeglądarki albo filtr sieci.')),
+    SDK_TIMEOUT_MS))
+]);
+
 const [appMod, authMod, fsMod] = await Promise.all([
-  import(`${SDK}/firebase-app.js`),
-  import(`${SDK}/firebase-auth.js`),
-  import(`${SDK}/firebase-firestore.js`)
+  loadSdk('firebase-app.js'),
+  loadSdk('firebase-auth.js'),
+  loadSdk('firebase-firestore.js')
 ]);
 
 /* Strona główna inicjalizuje Firebase własnym skryptem (blok w index.html).
