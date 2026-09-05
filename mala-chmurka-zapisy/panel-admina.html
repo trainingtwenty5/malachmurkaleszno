@@ -73,6 +73,17 @@
   .pl-row.soon .pl-left{color:var(--warn)}
   .pl-row.over .pl-left{color:var(--bad)}
   .pl-row.waiting .pl-left{color:var(--muted)}
+  .pl-row.frozen .pl-left{color:var(--muted);font-size:.82rem;font-weight:600;white-space:normal}
+  .pl-row.frozen{background:var(--cream-deep);opacity:.8}
+  .pl-end{white-space:nowrap}
+  .pl-end input{width:92px;font:inherit;padding:.18em .35em;border:1px solid var(--line);
+    border-radius:8px;background:var(--white);color:var(--ink);font-variant-numeric:tabular-nums}
+  .pl-end input:disabled{background:transparent;border-color:transparent;color:var(--ink)}
+  .pl-edit{font-size:.75rem;padding:.18em .55em;border-radius:7px;border:1px solid var(--line);
+    background:var(--white);color:var(--brand-deep);font-family:var(--font-head);font-weight:600;
+    margin-left:4px}
+  .pl-edit:hover{background:var(--brand-pale)}
+  .pl-acts .pl-del{color:var(--bad);border-color:#F0C9C5}
   .pl-row.over{background:var(--bad-pale)}
   .pl-row.soon{background:var(--warn-pale)}
   .pl-src{font-size:.78rem;border-radius:999px;padding:.12em .65em;background:var(--cream-deep);
@@ -319,8 +330,13 @@
         <p class="hint" style="margin:-6px 0 12px">
           Czas leci w dół dla wszystkich, którzy są dziś w bawialni — z zajęć, z rezerwacji
           i wprowadzonych ręcznie przy drzwiach. Po upływie czasu wiersz robi się czerwony
-          i pokazuje, o ile jest po czasie. <strong>+15 min</strong> przedłuża pobyt,
-          <strong>Zakończ</strong> ustawia koniec na teraz.</p>
+          i przez kwadrans pokazuje, o ile jest po czasie. Potem <strong>zamarza</strong> —
+          przestaje odliczać, dostaje opis „po upływie czasu 15 min” i spada na dół tabeli.
+          Lista dotyczy dzisiejszego dnia; jutro zaczyna się od nowa.<br>
+          Każdą akcję potwierdzasz: <strong>+15 min</strong>, <strong>+ minuty</strong>
+          (dowolna liczba), <strong>Zakończ</strong>, <strong>Usuń</strong> oraz zmiana
+          godziny wyjścia przyciskiem <strong>Zmień</strong>. Zamrożony wiersz obsługuje się
+          tak samo — dziecko może przecież zostać dłużej.</p>
 
         <div class="table-wrap">
           <table class="tbl">
@@ -466,7 +482,7 @@
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren,
-         bookingEndMin, playtimeRows, fmtCountdown } from './assets/mc-common.js';
+         bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          watchRegistrations, updateRegistration, deleteRegistration,
@@ -1226,6 +1242,7 @@ async function removeBooking(id) {
    dodatkowego nie odpytujemy.
    ========================================================================== */
 let playTimer = null;
+let plEditing = null;      // id wiersza, w którym trwa zmiana godziny
 
 const nowMinFloat = () => {
   const d = new Date();
@@ -1258,12 +1275,16 @@ function playRows() {
 }
 
 function renderPlaytime() {
+  /* Nie podmieniamy tabeli, gdy ktoś właśnie zmienia godzinę — inaczej
+     sekundnik wyrwałby pole spod palców. */
+  if (plEditing) return;
+
   const all = allPlayRows();
   const playing = all.filter(r => r.state === 'playing');
 
   $('#plNow').textContent  = playing.reduce((n, r) => n + r.qty, 0);
   $('#plSoon').textContent = playing.filter(r => r.remaining <= 15).length;
-  $('#plOver').textContent = all.filter(r => r.state === 'over').length;
+  $('#plOver').textContent = all.filter(r => r.state === 'overtime' || r.frozen).length;
   const next = playing.slice().sort((a, b) => a.remaining - b.remaining)[0];
   $('#plNext').textContent = next ? fmtCountdown(next.remaining) : '—';
 
@@ -1278,62 +1299,181 @@ function renderPlaytime() {
   }
 
   $('#plRows').innerHTML = rows.map(r => {
-    const cls = r.state === 'over' ? 'over'
+    const cls = r.frozen ? 'frozen'
+              : r.state === 'overtime' ? 'over'
               : r.state === 'waiting' ? 'waiting'
               : r.remaining <= 15 ? 'soon' : 'playing';
-    const left = r.state === 'waiting' ? `za ${fmtCountdown(r.startMin - nowMinFloat())}`
-               : r.state === 'over'    ? `po czasie ${fmtCountdown(r.remaining)}`
-               : fmtCountdown(r.remaining);
-    const acts = r.source === 'classes'
-      ? '<span class="hint">zmień w „Zapisani”</span>'
-      : `<button data-plus="${r.id}">+15 min</button><button data-stop="${r.id}">Zakończ</button>`;
+
+    const left = r.frozen              ? 'po upływie czasu 15 min'
+               : r.state === 'waiting' ? `za ${fmtCountdown(r.startMin - nowMinFloat())}`
+               : r.state === 'overtime'? `po czasie ${fmtCountdown(r.shown)}`
+               : fmtCountdown(r.shown);
+
     return `<tr class="pl-row ${cls}">
       <td><strong>${esc(r.names.join(', ') || '—')}</strong>${
         r.qty > 1 ? `<br><span class="hint">${esc(plDzieci(r.qty))}</span>` : ''}</td>
       <td><span class="pl-src">${esc(r.sourceLabel)}</span>${
         r.title ? `<br><span class="hint">${esc(r.title)}</span>` : ''}</td>
       <td class="num">${esc(fmtMin(r.startMin))}</td>
-      <td class="num">${esc(fmtMin(r.endMin))}</td>
+      <td class="pl-end">
+        <input type="time" data-until="${r.id}" value="${esc(fmtMin(r.endMin))}" disabled>
+        <button class="pl-edit" data-edit="${r.id}" title="Zmień godzinę wyjścia">Zmień</button>
+      </td>
       <td class="pl-left">${esc(left)}</td>
       <td>${r.phone ? `<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : '—'}</td>
-      <td><div class="pl-acts">${acts}</div></td>
+      <td><div class="pl-acts">
+        <button data-plus="${r.id}">+15 min</button>
+        <button data-any="${r.id}">+ minuty</button>
+        <button data-stop="${r.id}">Zakończ</button>
+        <button class="pl-del" data-drop="${r.id}">Usuń</button>
+      </div></td>
     </tr>`;
   }).join('');
 
-  $$('#plRows [data-plus]').forEach(el => el.onclick = () => addTime(el.dataset.plus, 15));
+  $$('#plRows [data-plus]').forEach(el => el.onclick = () => addMinutes(el.dataset.plus, 15));
+  $$('#plRows [data-any]').forEach(el => el.onclick  = () => addAnyMinutes(el.dataset.any));
   $$('#plRows [data-stop]').forEach(el => el.onclick = () => endNow(el.dataset.stop));
+  $$('#plRows [data-drop]').forEach(el => el.onclick = () => removeRow(el.dataset.drop));
+  $$('#plRows [data-edit]').forEach(el => el.onclick = () => beginEdit(el.dataset.edit));
 
-  $('#plCount').textContent = `Pokazano ${rows.length} z ${all.length} pobytów.`;
+  const frozen = all.filter(r => r.frozen).length;
+  $('#plCount').textContent = `Pokazano ${rows.length} z ${all.length} pobytów.` +
+    (frozen ? ` Zamrożonych (ponad 15 min po czasie): ${frozen} — są na dole listy.` : '') +
+    ' Lista dotyczy dzisiejszego dnia i jutro zaczyna się od nowa.';
 }
 
-/** Czas pobytu w rankingu musi nadążać za zmianą godziny wyjścia. */
-async function reRank(b, stayUntil) {
-  if (!b.countedInRanking) return;
-  await applyBookingToRanking(b, -1);
-  await applyBookingToRanking({ ...b, stayUntil }, +1);
+/* --------------------------------------------------------------------------
+   Akcje na wierszu. Każda pyta o potwierdzenie — przy ladzie łatwo o kliknięcie
+   w biegu, a te operacje ruszają licznik na stronie i ranking.
+   -------------------------------------------------------------------------- */
+
+/** Wiersz może pochodzić z zapisu na zajęcia albo z rezerwacji. */
+function rawOf(id) {
+  const row = allPlayRows().find(r => r.id === id);
+  if (!row) return null;
+  const doc = row.source === 'classes'
+    ? REGS.find(x => x.id === id)
+    : BOOKINGS.find(x => x.id === id);
+  return doc ? { row, doc } : null;
 }
 
-async function addTime(id, minutes) {
-  const b = BOOKINGS.find(x => x.id === id);
-  if (!b) return;
-  try {
-    const hhmm = await extendBooking(b, minutes);
-    await reRank(b, hhmm);
-    await refreshPresence();
-    toast(`Przedłużono do ${hhmm}.`);
-  } catch (err) { toast('Nie udało się przedłużyć: ' + (err.message || '')); }
+const whoOf = row => row.names.join(', ') || 'to dziecko';
+
+/** Zapisuje nową godzinę wyjścia i pilnuje, żeby licznik i ranking się zgadzały. */
+async function saveEnd(id, hhmm) {
+  const found = rawOf(id);
+  if (!found) return;
+  const { row, doc } = found;
+
+  if (row.source === 'classes') {
+    if (doc.countedInRanking) await applyVisitToRanking(doc, -1).catch(() => {});
+    await updateRegistration(id, { stayUntil: hhmm });
+    if (doc.countedInRanking) await applyVisitToRanking({ ...doc, stayUntil: hhmm }, +1).catch(() => {});
+  } else {
+    await updateBooking(id, { stayUntil: hhmm });
+    await reRank(doc, hhmm);
+  }
+  await refreshPresence();
+}
+
+async function addMinutes(id, minutes) {
+  const found = rawOf(id);
+  if (!found) return;
+  const { row } = found;
+  const end = fmtMin(row.endMin + minutes);
+  if (!confirm(`Przedłużyć pobyt (${whoOf(row)}) o ${minutes} min — do ${end}?`)) return;
+  try { await saveEnd(id, end); toast(`Przedłużono do ${end}.`); }
+  catch (err) { toast('Nie udało się przedłużyć: ' + (err.message || '')); }
+}
+
+async function addAnyMinutes(id) {
+  const found = rawOf(id);
+  if (!found) return;
+  const { row } = found;
+  const raw = prompt(`O ile minut przedłużyć pobyt (${whoOf(row)})?`, '30');
+  if (raw === null) return;
+  const minutes = Math.round(Number(String(raw).replace(',', '.')));
+  if (!Number.isFinite(minutes) || minutes === 0) return toast('Podaj liczbę minut.');
+  await addMinutes(id, minutes);
 }
 
 async function endNow(id) {
-  const b = BOOKINGS.find(x => x.id === id);
-  if (!b) return;
+  const found = rawOf(id);
+  if (!found) return;
+  const { row } = found;
   const hhmm = fmtMin(Math.floor(nowMinFloat()));
+  if (!confirm(`Zakończyć pobyt (${whoOf(row)}) o ${hhmm}?`)) return;
+  try { await saveEnd(id, hhmm); toast(`Pobyt zakończony o ${hhmm}.`); }
+  catch (err) { toast('Nie udało się zakończyć: ' + (err.message || '')); }
+}
+
+/** „Usuń" znaczy co innego dla wejścia z ulicy, a co innego dla zapisu na zajęcia. */
+async function removeRow(id) {
+  const found = rawOf(id);
+  if (!found) return;
+  const { row, doc } = found;
+
+  if (row.source === 'classes') {
+    if (!confirm(`Zdjąć z listy bawialni: ${whoOf(row)}?\n\n` +
+                 'Zapis na zajęcia zostaje — odznaczamy tylko obecność, ' +
+                 'więc dziecko znika z licznika i z czasu zabawy.')) return;
+    try {
+      if (doc.countedInRanking) {
+        await applyVisitToRanking(doc, -1).catch(() => {});
+        await updateRegistration(id, { countedInRanking: false });
+      }
+      await updateRegistration(id, { attended: false, status: 'new' });
+      await refreshPresence();
+      toast('Zdjęto z listy bawialni.');
+    } catch (err) { toast('Nie udało się: ' + (err.message || '')); }
+    return;
+  }
+
+  if (!confirm(`Usunąć wpis na dobre: ${whoOf(row)}?\n\nTej operacji nie da się cofnąć.`)) return;
   try {
-    await updateBooking(id, { stayUntil: hhmm });
-    await reRank(b, hhmm);
+    if (doc.countedInRanking) await applyBookingToRanking(doc, -1).catch(() => {});
+    await deleteBooking(id);
     await refreshPresence();
-    toast(`Pobyt zakończony o ${hhmm}.`);
-  } catch (err) { toast('Nie udało się zakończyć: ' + (err.message || '')); }
+    toast('Wpis usunięty.');
+  } catch (err) { toast('Nie udało się usunąć: ' + (err.message || '')); }
+}
+
+/* ------------------------------------------------------- edycja godziny --
+   Dwa pytania: raz przed odblokowaniem pola, drugi raz przed zapisaniem.
+   Dzięki temu przypadkowe kliknięcie niczego nie zmienia.
+   ------------------------------------------------------------------------ */
+function beginEdit(id) {
+  const found = rawOf(id);
+  if (!found) return;
+  const { row } = found;
+  if (!confirm(`Zmienić godzinę wyjścia (${whoOf(row)})?\n\nTeraz: ${fmtMin(row.endMin)}`)) return;
+
+  const input = document.querySelector(`#plRows [data-until="${id}"]`);
+  if (!input) return;
+  plEditing = id;                       // wstrzymuje sekundnik na czas edycji
+  const before = input.value;
+  input.disabled = false;
+  input.focus();
+
+  const finish = async () => {
+    input.onchange = input.onblur = null;
+    const hhmm = input.value;
+    if (!hhmm || hhmm === before) { cancel(); return; }
+    if (!confirm(`Zapisać godzinę wyjścia ${hhmm} dla: ${whoOf(row)}?`)) { cancel(); return; }
+    plEditing = null;
+    try { await saveEnd(id, hhmm); toast(`Godzina wyjścia: ${hhmm}.`); }
+    catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
+    renderPlaytime();
+  };
+  const cancel = () => {
+    input.value = before;
+    input.disabled = true;
+    plEditing = null;
+    renderPlaytime();
+  };
+
+  input.onchange = finish;
+  input.onblur = () => setTimeout(() => { if (plEditing === id) cancel(); }, 150);
 }
 
 $('#plQ').oninput = renderPlaytime;
