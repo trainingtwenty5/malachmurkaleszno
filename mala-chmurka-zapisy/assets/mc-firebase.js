@@ -67,21 +67,40 @@ export const isAdminEmail = email => ADMIN_EMAILS.map(norm).includes(norm(email)
  * Zwraca: { ok, reason, email, uid, viaClaim, needsVerification }
  *   reason: 'ok' | 'anon' | 'not-listed' | 'unverified'
  */
-export async function adminStatus(user, { forceRefresh = false } = {}) {
+/**
+ * Czeka na obietnicę najwyżej `ms` milisekund. Po tym czasie oddaje `fallback`
+ * zamiast wisieć w nieskończoność.
+ *
+ * Po co: odświeżenie tokenu (`getIdTokenResult(true)`) chodzi po sieci do
+ * securetoken.googleapis.com. Gdy to połączenie utknie — słaby zasięg, blokada
+ * w rozszerzeniu przeglądarki, firmowy filtr — obietnica nigdy się nie
+ * rozstrzyga. `try/catch` tego nie łapie, bo nie ma żadnego błędu. Efekt:
+ * panel admina stoi w nieskończoność na „Sprawdzam uprawnienia…".
+ */
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    Promise.resolve(promise).catch(() => fallback),
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
+
+export async function adminStatus(user, { forceRefresh = false, timeoutMs = 6000 } = {}) {
   if (!user) return { ok: false, reason: 'anon', email: '', uid: '', viaClaim: false, needsVerification: false };
 
   const email = norm(user.email);
   const base  = { ok: false, reason: 'not-listed', email, uid: user.uid, viaClaim: false, needsVerification: false };
 
-  /* 1) custom claim admin:true — nadany z Admin SDK, ważniejszy niż lista */
-  try {
-    const token = await user.getIdTokenResult(forceRefresh);
-    if (token && token.claims && token.claims.admin === true) {
-      return { ...base, ok: true, reason: 'ok', viaClaim: true };
-    }
-  } catch (e) {
-    console.warn('adminStatus (token):', e.message);
+  /* 1) custom claim admin:true — nadany z Admin SDK, ważniejszy niż lista.
+        Świeży token pobieramy z limitem czasu, a gdy nie zdąży — sięgamy po
+        ten z pamięci (nie wymaga sieci). Sprawdzenie po liście adresów niżej
+        działa nawet całkiem bez połączenia, więc odpowiedź zawsze padnie. */
+  const token = await withTimeout(user.getIdTokenResult(forceRefresh), timeoutMs, null)
+             ?? await withTimeout(user.getIdTokenResult(false), 2000, null);
+
+  if (token && token.claims && token.claims.admin === true) {
+    return { ...base, ok: true, reason: 'ok', viaClaim: true };
   }
+  if (!token) console.warn('adminStatus: nie udało się odczytać tokenu — sprawdzam po liście adresów.');
 
   /* 2) lista adresów z firebase-config.js (ta sama co w firestore.rules) */
   if (!isAdminEmail(email)) return base;

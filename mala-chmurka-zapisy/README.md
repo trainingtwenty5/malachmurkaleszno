@@ -39,6 +39,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 29 testów: zamykanie terminów i pamięć dzieci — sam Node. |
 | `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
+| `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
 
@@ -228,6 +229,7 @@ node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
 node tools/test-zapisy.mjs  # 29 testów: zamykanie terminów, pamięć dzieci
 node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
+node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 ```
 
 ### Czego panel *nie* chroni
