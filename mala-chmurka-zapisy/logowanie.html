@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Logowanie — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .auth-wrap{max-width:440px;margin-inline:auto}
+  .auth-head{text-align:center;margin-bottom:22px}
+  .auth-head h1{margin-bottom:.25em}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--cream-deep);
+    padding:5px;border-radius:999px;margin-bottom:20px}
+  .tabs button{padding:.62em 1em;border-radius:999px;font-family:var(--font-head);
+    font-weight:600;font-size:.95rem;color:var(--navy-deep);transition:background-color .2s var(--ease)}
+  .tabs button.is-on{background:var(--white);box-shadow:var(--shadow-sm)}
+  .oauth{width:100%;min-height:46px;display:flex;align-items:center;justify-content:center;gap:10px;
+    font-family:var(--font-head);font-weight:600;background:var(--white);
+    border:1px solid var(--line);border-radius:999px;color:var(--ink)}
+  .oauth:hover{background:var(--cream-deep)}
+  .oauth svg{width:18px;height:18px}
+  .sep{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.82rem;margin:18px 0}
+  .sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
+  .pw{position:relative}
+  .pw .control{padding-right:44px}
+  .pw .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;
+    display:grid;place-items:center;border-radius:8px;color:var(--muted)}
+  .pw .eye:hover{background:var(--cream-deep);color:var(--ink)}
+  .field-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .field-head button{font-size:.83rem;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+  .legal{font-size:.8rem;color:var(--muted);text-align:center;margin-top:14px}
+  .who{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .who .av{width:44px;height:44px;border-radius:50%;background:var(--brand-pale);color:var(--brand-deep);
+    display:grid;place-items:center;font-family:var(--font-head);font-weight:700;font-size:1.05rem}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container auth-wrap">
+
+    <div class="auth-head">
+      <h1>Twoje konto</h1>
+      <p class="lead">Zaloguj się, żeby szybciej zapisywać dziecko na zajęcia
+        i mieć swoje rezerwacje w jednym miejscu.</p>
+    </div>
+
+    <!-- ---------- widok dla zalogowanych ---------- -->
+    <section class="card" id="loggedIn" hidden>
+      <div class="who">
+        <div class="av" id="avatar">?</div>
+        <div>
+          <strong id="whoName">—</strong><br>
+          <span class="hint" id="whoMail">—</span>
+        </div>
+      </div>
+      <div id="adminBox" hidden style="margin-top:16px">
+        <div class="alert alert-info">Masz uprawnienia administratora.</div>
+        <a class="btn btn-navy btn-block" href="admin.html">Zarządzanie zajęciami</a>
+        <a class="btn btn-outline btn-block" href="panel-admina.html" style="margin-top:8px">Pełny panel admina</a>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <a class="btn btn-primary" style="flex:1" href="zapisz-sie-na-zajecia.html">Zapisz się na zajęcia</a>
+        <a class="btn btn-outline" style="flex:1" href="kalendarz-zajec.html">Grafik zajęć</a>
+      </div>
+      <button class="btn btn-soft btn-block" id="logout" style="margin-top:10px">Wyloguj się</button>
+    </section>
+
+    <!-- ---------- formularz logowania / rejestracji ---------- -->
+    <section class="card" id="authCard" hidden>
+      <div class="tabs" role="tablist">
+        <button id="tabLogin"  class="is-on" role="tab" aria-selected="true">Logowanie</button>
+        <button id="tabRegister" role="tab" aria-selected="false">Nowe konto</button>
+      </div>
+
+      <div id="msg"></div>
+
+      <button class="oauth" id="google" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/>
+          <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/>
+          <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1z"/>
+          <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/>
+        </svg>
+        Kontynuuj przez Google
+      </button>
+
+      <div class="sep">lub e-mailem</div>
+
+      <form id="form" novalidate>
+        <div class="row2" id="nameRow" hidden>
+          <div class="field">
+            <label for="first">Imię</label>
+            <input class="control" id="first" autocomplete="given-name" placeholder="Wpisz imię">
+          </div>
+          <div class="field">
+            <label for="last">Nazwisko</label>
+            <input class="control" id="last" autocomplete="family-name" placeholder="Wpisz nazwisko">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email">Adres e-mail</label>
+          <input class="control" id="email" type="email" autocomplete="email" placeholder="np. anna@example.com" required>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="password">Hasło</label>
+            <button type="button" id="forgot">Nie pamiętasz hasła?</button>
+          </div>
+          <div class="pw">
+            <input class="control" id="password" type="password" autocomplete="current-password"
+                   placeholder="Wpisz hasło" minlength="6" required>
+            <button class="eye" type="button" id="eye" aria-label="Pokaż hasło">
+              <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4S1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="1.8"/>
+              </svg>
+            </button>
+          </div>
+          <span class="hint" id="pwHint" hidden>Minimum 6 znaków.</span>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit" id="submit">Zaloguj się</button>
+      </form>
+
+      <p class="legal">Kontynuując, akceptujesz regulamin i politykę prywatności
+        <strong>Małej Chmurki</strong>.</p>
+    </section>
+
+    <p class="hint" style="text-align:center;margin-top:18px">
+      Nie chcesz zakładać konta? <a href="zapisz-sie-na-zajecia.html">Zapisz się bez konta →</a>
+    </p>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, toast, $, esc } from './assets/mc-common.js';
+import { auth, A, isAdmin } from './assets/mc-firebase.js';
+
+mountChrome({ crumb: 'Logowanie' });
+
+const nextUrl = new URLSearchParams(location.search).get('next');
+let mode = 'login';
+
+const msg = $('#msg');
+const show = (kind, text) => { msg.innerHTML = `<div class="alert alert-${kind}">${esc(text)}</div>`; };
+const clear = () => { msg.innerHTML = ''; };
+
+/* ---------- przełącznik logowanie / rejestracja ---------- */
+function setMode(m) {
+  mode = m;
+  const reg = m === 'register';
+  $('#tabLogin').classList.toggle('is-on', !reg);
+  $('#tabRegister').classList.toggle('is-on', reg);
+  $('#tabLogin').setAttribute('aria-selected', String(!reg));
+  $('#tabRegister').setAttribute('aria-selected', String(reg));
+  $('#nameRow').hidden = !reg;
+  $('#pwHint').hidden = !reg;
+  $('#submit').textContent = reg ? 'Załóż konto' : 'Zaloguj się';
+  $('#password').setAttribute('autocomplete', reg ? 'new-password' : 'current-password');
+  clear();
+}
+$('#tabLogin').onclick = () => setMode('login');
+$('#tabRegister').onclick = () => setMode('register');
+
+/* ---------- pokaż/ukryj hasło ---------- */
+$('#eye').onclick = () => {
+  const p = $('#password');
+  p.type = p.type === 'password' ? 'text' : 'password';
+};
+
+/* ---------- komunikaty Firebase po polsku ---------- */
+function human(err) {
+  const c = (err && err.code) || '';
+  if (c.includes('invalid-credential') || c.includes('wrong-password') || c.includes('user-not-found'))
+    return 'Nieprawidłowy e-mail lub hasło.';
+  if (c.includes('email-already-in-use'))  return 'Konto z tym adresem już istnieje — przełącz się na logowanie.';
+  if (c.includes('invalid-email'))         return 'To nie wygląda na poprawny adres e-mail.';
+  if (c.includes('weak-password'))         return 'Hasło musi mieć co najmniej 6 znaków.';
+  if (c.includes('too-many-requests'))     return 'Zbyt wiele prób. Spróbuj ponownie za chwilę.';
+  if (c.includes('popup-closed'))          return 'Okno logowania Google zostało zamknięte.';
+  if (c.includes('operation-not-allowed')) return 'Ta metoda logowania nie jest włączona w Firebase.';
+  if (c.includes('network'))               return 'Brak połączenia z siecią.';
+  return (err && err.message) || 'Coś poszło nie tak. Spróbuj ponownie.';
+}
+
+/* ---------- wysyłka formularza ---------- */
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  clear();
+  const email = $('#email').value.trim();
+  const pass  = $('#password').value;
+  if (!email || !pass) return show('bad', 'Uzupełnij e-mail i hasło.');
+  $('#submit').disabled = true;
+  try {
+    if (mode === 'register') {
+      const cred = await A.createUserWithEmailAndPassword(auth, email, pass);
+      const name = `${$('#first').value.trim()} ${$('#last').value.trim()}`.trim();
+      if (name) await A.updateProfile(cred.user, { displayName: name });
+      toast('Konto założone. Miło Cię widzieć!');
+    } else {
+      await A.signInWithEmailAndPassword(auth, email, pass);
+      toast('Zalogowano.');
+    }
+    if (nextUrl) location.href = nextUrl;
+  } catch (err) {
+    show('bad', human(err));
+  } finally {
+    $('#submit').disabled = false;
+  }
+});
+
+/* ---------- Google ---------- */
+$('#google').onclick = async () => {
+  clear();
+  try {
+    await A.signInWithPopup(auth, new A.GoogleAuthProvider());
+    toast('Zalogowano przez Google.');
+    if (nextUrl) location.href = nextUrl;
+  } catch (err) { show('bad', human(err)); }
+};
+
+/* ---------- reset hasła ---------- */
+$('#forgot').onclick = async () => {
+  const email = $('#email').value.trim();
+  if (!email) return show('warn', 'Wpisz najpierw swój adres e-mail, a wyślemy link do zmiany hasła.');
+  try {
+    await A.sendPasswordResetEmail(auth, email);
+    show('ok', 'Link do ustawienia nowego hasła poleciał na Twoją skrzynkę.');
+  } catch (err) { show('bad', human(err)); }
+};
+
+/* ---------- stan zalogowania ---------- */
+A.onAuthStateChanged(auth, async user => {
+  $('#authCard').hidden = !!user;
+  $('#loggedIn').hidden = !user;
+  if (!user) return;
+  const name = user.displayName || user.email.split('@')[0];
+  $('#whoName').textContent = name;
+  $('#whoMail').textContent = user.email || '';
+  $('#avatar').textContent = name.trim().charAt(0).toUpperCase() || '?';
+  $('#adminBox').hidden = !(await isAdmin(user));
+});
+
+$('#logout').onclick = async () => { await A.signOut(auth); toast('Wylogowano.'); };
+
+setMode('login');
+</script>
+</body>
+</html>

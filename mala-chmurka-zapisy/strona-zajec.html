@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Zajęcia — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .ev-grid{display:grid;grid-template-columns:320px 1fr 330px;gap:32px;align-items:start}
+  .hero-img{position:relative;border-radius:var(--radius);overflow:hidden;aspect-ratio:4/3;background:var(--sky-pale)}
+  .hero-img img{width:100%;height:100%;object-fit:cover}
+  .hero-badge{position:absolute;top:12px;left:12px;background:var(--brand-deep);color:#fff;
+    border-radius:999px;font-family:var(--font-head);font-weight:700;font-size:.82rem;padding:6px 14px}
+  .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+  .thumbs button{aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--sky-pale);padding:0}
+  .thumbs img{width:100%;height:100%;object-fit:cover}
+  .thumbs button.is-on{outline:3px solid var(--brand-deep);outline-offset:1px}
+  .meta{display:flex;align-items:center;gap:11px;padding:5px 0;color:var(--ink)}
+  .meta svg{flex:none;color:var(--muted)}
+  .meta .muted{color:var(--muted)}
+  .rule{border:0;border-top:1px solid var(--line);margin:14px 0}
+  .ev-time{font-family:var(--font-head);font-size:clamp(1.4rem,3vw,1.9rem);font-weight:700;color:var(--brand-deep);margin:2px 0 6px}
+  .ev-age{font-weight:600;color:var(--navy-soft)}
+  .buy{position:sticky;top:112px}
+  .price{font-family:var(--font-head);font-size:1.9rem;font-weight:700;color:var(--brand-deep);text-align:right}
+  .qty{display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:10px 0 4px}
+  .qty button{width:38px;height:38px;border-radius:50%;border:1px solid var(--navy);background:#fff;
+    color:var(--navy-deep);font-size:19px;display:grid;place-items:center}
+  .qty button:hover{background:var(--sky-pale)}
+  .qty output{min-width:26px;text-align:center;font-family:var(--font-head);font-weight:700;font-size:1.05rem}
+  .seats{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    border-top:1px solid var(--line);margin-top:12px;padding-top:12px;font-size:.93rem;color:var(--muted)}
+  .other{display:flex;flex-direction:column;gap:8px}
+  .other a{display:flex;justify-content:space-between;gap:12px;background:var(--cream);
+    border:1px solid var(--line);border-radius:12px;padding:9px 13px;font-size:.92rem;color:var(--ink)}
+  .other a:hover{background:var(--sky-pale);text-decoration:none}
+  section.desc h2{font-size:1.05rem;color:var(--brand-deep);margin:26px 0 6px}
+  @media(max-width:1040px){ .ev-grid{grid-template-columns:1fr} .buy{position:static} }
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container">
+    <div class="loading" id="loading"><span class="spin"></span> Wczytuję zajęcia…</div>
+    <div id="err"></div>
+    <div class="ev-grid" id="wrap" hidden>
+
+      <!-- galeria -->
+      <div>
+        <div class="hero-img">
+          <img id="hero" alt="">
+          <span class="hero-badge" id="badge"></span>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+
+      <!-- opis -->
+      <main>
+        <div class="meta">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+          <span id="mDate">—</span>
+        </div>
+        <div class="meta">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span id="mPlace">—</span>
+        </div>
+        <hr class="rule">
+
+        <h1 id="title">—</h1>
+        <div class="ev-age" id="age">—</div>
+        <div class="ev-time" id="time">—</div>
+        <div class="meta" id="arriveWrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span id="arrive"></span>
+        </div>
+        <hr class="rule">
+
+        <section class="desc">
+          <h2>Opis zajęć</h2>
+          <div id="desc"></div>
+          <h2>O miejscu</h2>
+          <div id="org"></div>
+          <div id="noteWrap" hidden><h2>Ważne</h2><div id="note"></div></div>
+        </section>
+      </main>
+
+      <!-- karta zakupu -->
+      <aside class="card buy">
+        <h3 style="margin-bottom:12px">Zapisz dziecko</h3>
+        <div id="payList" style="font-size:.92rem;color:var(--muted);margin-bottom:10px"></div>
+        <div class="price" id="price">—</div>
+        <div class="qty">
+          <button type="button" id="minus" aria-label="Mniej">−</button>
+          <output id="qty">1</output>
+          <button type="button" id="plus" aria-label="Więcej">+</button>
+        </div>
+        <div class="seats"><span>Wolne miejsca</span><strong id="seats">—</strong></div>
+        <div class="seats" id="cancelWrap"><span>Bezpłatna rezygnacja</span><strong id="cancel">—</strong></div>
+        <button class="btn btn-primary btn-block" id="buy" style="margin-top:16px">Kup teraz</button>
+        <p class="hint" style="text-align:center;margin:10px 0 0">
+          Płatność przelewem lub na miejscu — szczegóły dostaniesz po zapisie.</p>
+
+        <div id="otherWrap" hidden style="margin-top:18px">
+          <h3 style="font-size:.98rem">Inne terminy</h3>
+          <div class="other" id="other"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, $, esc, longDate, shortDate, money, params, URLS, SETTINGS } from './assets/mc-common.js';
+import { getEvent, otherDatesOf } from './assets/mc-data.js';
+
+const id = params().get('id');
+mountChrome({ current: 'Grafik zajęć', crumb: 'Szczegóły zajęć', backTo: SETTINGS.homeUrl });
+
+const PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><rect width='400' height='300' fill='#DCEAF4'/>
+   <text x='50%' y='52%' fill='#6B7885' font-family='sans-serif' font-size='17' text-anchor='middle'>Mała Chmurka</text></svg>`);
+
+const paras = t => String(t || '').split(/\n{2,}|\n/).filter(Boolean)
+  .map(p => `<p>${esc(p)}</p>`).join('') || '<p class="hint">—</p>';
+
+let ev = null, n = 1;
+
+function paintQty() {
+  $('#qty').textContent = n;
+  $('#price').textContent = money((Number(ev.price) || 0) * n);
+}
+
+async function init() {
+  if (!id) { fail('Brak identyfikatora zajęć. Wróć do grafiku i kliknij w wybrany termin.'); return; }
+  try {
+    ev = await getEvent(id);
+  } catch (e) { return fail('Nie udało się wczytać zajęć: ' + e.message); }
+  if (!ev) return fail('Nie znaleźliśmy takich zajęć. Mogły zostać odwołane.');
+
+  document.title = `${ev.title} — Mała Chmurka Leszno`;
+  $('#title').textContent   = ev.title;
+  $('#badge').textContent   = ev.badge || 'zajęcia';
+  $('#mDate').textContent   = longDate(ev.date);
+  $('#mPlace').innerHTML    = `${esc(ev.location || SETTINGS.address)} <span class="muted">${esc(SETTINGS.city)}</span>`;
+  $('#age').textContent     = `Wiek: ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat`;
+  $('#time').textContent    = `${ev.start} – ${ev.end}`;
+  $('#desc').innerHTML      = paras(ev.description || ev.shortDesc);
+  $('#org').innerHTML       = paras(ev.organizerDesc ||
+    'Mała Chmurka to kameralna, naturalna bawialnia i kawiarnia specialty w Lesznie. 120 m² miękkiej strefy zabawy dla dzieci 0–6 lat, cztery domki tematyczne i kawa dla dorosłych.');
+  if (ev.note) { $('#noteWrap').hidden = false; $('#note').innerHTML = paras(ev.note); }
+
+  if (ev.arriveMinutes) $('#arrive').innerHTML = `Przyjdź <strong>${ev.arriveMinutes} minut</strong> przed zajęciami`;
+  else $('#arriveWrap').hidden = true;
+
+  const free = Math.max(0, (Number(ev.capacity) || 0) - (Number(ev.booked) || 0));
+  $('#seats').textContent = `${free} z ${ev.capacity || 0}`;
+  $('#cancel').textContent = ev.cancelHours ? `do ${ev.cancelHours} godz. przed` : 'skontaktuj się z nami';
+  $('#payList').textContent = (ev.paymentMethods || SETTINGS.paymentMethods).join(' · ');
+
+  const imgs = (ev.images || []).filter(Boolean);
+  $('#hero').src = imgs[0] || PLACEHOLDER;
+  $('#hero').alt = ev.title;
+  if (imgs.length > 1) {
+    $('#thumbs').innerHTML = imgs.slice(0, 8)
+      .map((s, i) => `<button type="button" class="${i === 0 ? 'is-on' : ''}" data-src="${esc(s)}"><img src="${esc(s)}" alt=""></button>`).join('');
+    $('#thumbs').onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      $('#hero').src = b.dataset.src;
+      [...$('#thumbs').children].forEach(c => c.classList.toggle('is-on', c === b));
+    };
+  }
+
+  paintQty();
+  $('#plus').onclick  = () => { if (n < Math.max(1, free)) { n++; paintQty(); } };
+  $('#minus').onclick = () => { if (n > 1) { n--; paintQty(); } };
+
+  if (free === 0) {
+    $('#buy').disabled = true;
+    $('#buy').textContent = 'Brak wolnych miejsc';
+  }
+  /* „Kup teraz" → formularz zapisu z już wypełnionymi danymi z kafelka */
+  $('#buy').onclick = () => {
+    location.href = `${URLS.signup}?event=${encodeURIComponent(ev.id)}&qty=${n}`;
+  };
+
+  try {
+    const others = (await otherDatesOf(ev.title)).filter(o => o.id !== ev.id).slice(0, 6);
+    if (others.length) {
+      $('#otherWrap').hidden = false;
+      $('#other').innerHTML = others.map(o => {
+        const f = Math.max(0, (Number(o.capacity) || 0) - (Number(o.booked) || 0));
+        return `<a href="${URLS.event}?id=${encodeURIComponent(o.id)}">
+          <span>${shortDate(o.date)} · ${esc(o.start)}</span>
+          <span class="hint">${f ? f + ' wolnych' : 'brak miejsc'}</span></a>`;
+      }).join('');
+    }
+  } catch (e) { /* lista dodatkowa — brak jej nie blokuje strony */ }
+
+  $('#loading').hidden = true;
+  $('#wrap').hidden = false;
+}
+
+function fail(text) {
+  $('#loading').hidden = true;
+  $('#err').innerHTML = `<div class="alert alert-warn">${esc(text)}</div>
+    <a class="btn btn-outline btn-auto" href="${URLS.calendar}">← Wróć do grafiku zajęć</a>`;
+}
+
+init();
+</script>
+</body>
+</html>

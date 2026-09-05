@@ -251,6 +251,7 @@
         <li><a href="#cennik">Cennik</a></li>
         <li><a href="#galeria">Galeria</a></li>
         <li><a href="#materialy">Oferty</a></li>
+        <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>
@@ -283,6 +284,8 @@
          href="https://www.google.com/maps/search/?api=1&amp;query=Ma%C5%82a%20Chmurka%20-%20naturalna%20bawialnia%2C%20Armii%20Krajowej%2015%2C%2064-100%20Leszno"
          target="_blank" rel="noopener">Odwiedź nas</a>
       <a class="btn btn-ghost" href="#strefy">Zobacz strefy zabawy</a>
+      <a class="btn btn-ghost" href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a>
+      <a class="btn btn-primary" href="/mala-chmurka-zapisy/zapisz-sie-na-zajecia.html">Zapisz się</a>
     </div>
   </div>
 
@@ -752,6 +755,8 @@
         <li><a href="#cennik">Cennik</a></li>
         <li><a href="#galeria">Galeria</a></li>
         <li><a href="#materialy">Oferty</a></li>
+        <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
+        <li><a href="/mala-chmurka-zapisy/zapisz-sie-na-zajecia.html">Zapisz się na zajęcia</a></li>
       </ul>
     </nav>
 
@@ -910,6 +915,10 @@
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
 </script>
-     
+
+<!-- Licznik dzieci w bawialni + licznik odwiedzin (system zapisów).
+     Skrypt sam wstawia się nad sekcję „120 m² / 0–6 lat / 7 dni / 4 domki". -->
+<script type="module" src="/mala-chmurka-zapisy/assets/mc-licznik.js"></script>
+
 </body>
 </html>

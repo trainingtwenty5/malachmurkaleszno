@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Dziękujemy za zapis — Mała Chmurka Leszno</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3D5A78">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mc-common.css">
+<style>
+  .thanks{max-width:660px;margin-inline:auto}
+  .tick{width:74px;height:74px;border-radius:50%;background:var(--ok-pale);color:var(--ok);
+    display:grid;place-items:center;margin:0 auto 18px}
+  .tick svg{width:38px;height:38px}
+  .center{text-align:center}
+  .sumrow{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:.96rem}
+  .sumrow:last-child{border-bottom:0}
+  .sumrow span:first-child{color:var(--muted)}
+  .sumrow strong{text-align:right}
+  .iban{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    background:var(--brand-pale);border:1px dashed var(--brand-deep);border-radius:14px;padding:14px 16px;margin:12px 0}
+  .iban code{font-family:var(--font-head);font-weight:700;font-size:1.02rem;color:var(--navy-deep);
+    letter-spacing:.04em;white-space:nowrap}
+  .pay-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+  .pay-grid .card-tight{background:var(--cream)}
+  .contact-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+  .contact-row a{flex:1 1 200px}
+  @media(max-width:640px){ .pay-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="container thanks">
+
+    <div class="center">
+      <div class="tick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      </div>
+      <h1>Dziękujemy za zapis!</h1>
+      <p class="lead" id="intro">Miejsce dla Twojego dziecka jest zarezerwowane.
+        Do zobaczenia w Małej Chmurce.</p>
+    </div>
+
+    <!-- podsumowanie rezerwacji -->
+    <section class="card" id="sumCard" hidden style="margin-top:24px">
+      <h2 style="font-size:1.1rem">Twoja rezerwacja</h2>
+      <div id="summary"></div>
+    </section>
+
+    <!-- płatność -->
+    <section class="card" style="margin-top:20px">
+      <h2 style="font-size:1.1rem">Jak opłacić zajęcia</h2>
+      <div class="pay-grid">
+        <div class="card-tight card">
+          <h3>Przelewem</h3>
+          <p class="hint" style="margin-bottom:6px">Numer konta:</p>
+          <div class="iban">
+            <code id="iban">XXX XXXX XXX XXXX</code>
+            <button class="btn btn-soft btn-sm btn-auto" id="copy" type="button">Kopiuj</button>
+          </div>
+          <p class="hint" style="margin:0">
+            <strong>Odbiorca:</strong> <span id="bankName"></span><br>
+            <strong>Tytuł przelewu:</strong> <span id="transferTitle">imię i nazwisko dziecka + data zajęć</span>
+          </p>
+        </div>
+        <div class="card-tight card">
+          <h3>Na miejscu</h3>
+          <p style="margin:0">Możesz też zapłacić <strong>gotówką lub kartą w bawialni</strong>,
+            tuż przed zajęciami. Wystarczy przyjść kilka minut wcześniej.</p>
+        </div>
+      </div>
+      <div class="alert alert-info" style="margin:16px 0 0">
+        Rezerwacja jest ważna od razu — płatność potwierdzamy przy wejściu.
+      </div>
+    </section>
+
+    <!-- kontakt -->
+    <section class="card" style="margin-top:20px">
+      <h2 style="font-size:1.1rem">Masz pytania?</h2>
+      <p style="margin-bottom:4px">Jeśli cokolwiek jest niejasne — chcesz zmienić termin, dopisać rodzeństwo
+        albo zapytać o zniżkę — <strong>napisz albo zadzwoń</strong>. Odpowiadamy szybko.</p>
+      <div class="contact-row">
+        <a class="btn btn-navy" id="telBtn" href="#">Zadzwoń</a>
+        <a class="btn btn-outline" id="mailBtn" href="#">Napisz e-mail</a>
+      </div>
+      <p class="hint" style="margin:14px 0 0" id="addr"></p>
+    </section>
+
+    <div class="contact-row" style="margin-top:24px">
+      <a class="btn btn-primary" href="kalendarz-zajec.html">Zobacz inne terminy</a>
+      <a class="btn btn-soft" id="homeBtn" href="/">Wróć na stronę główną</a>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { mountChrome, toast, $, esc, longDate, money, SETTINGS } from './assets/mc-common.js';
+
+mountChrome({ crumb: 'Potwierdzenie zapisu' });
+
+$('#iban').textContent      = SETTINGS.bankAccount;
+$('#bankName').textContent  = SETTINGS.bankName;
+$('#telBtn').href           = `tel:${SETTINGS.phoneHref}`;
+$('#telBtn').textContent    = `Zadzwoń: ${SETTINGS.phone}`;
+$('#mailBtn').href          = `mailto:${SETTINGS.email}`;
+$('#mailBtn').textContent   = SETTINGS.email;
+$('#homeBtn').href          = SETTINGS.homeUrl;
+$('#addr').innerHTML        = `${esc(SETTINGS.address)}, ${esc(SETTINGS.city)} · lokal na 1. piętrze (dojście schodami).`;
+
+$('#copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(SETTINGS.bankAccount); toast('Numer konta skopiowany.'); }
+  catch { toast('Skopiuj numer ręcznie: ' + SETTINGS.bankAccount); }
+};
+
+/* dane ostatniego zapisu przekazane z formularza */
+let reg = null;
+try { reg = JSON.parse(sessionStorage.getItem('mc_last_registration') || 'null'); } catch {}
+
+if (reg) {
+  $('#sumCard').hidden = false;
+  $('#intro').innerHTML =
+    `Zapisaliśmy <strong>${esc(reg.child || 'Twoje dziecko')}</strong> na
+     <strong>${esc(reg.eventTitle)}</strong>. Do zobaczenia w Małej Chmurce!`;
+
+  const rows = [
+    ['Zajęcia',        esc(reg.eventTitle)],
+    ['Termin',         `${esc(longDate(reg.eventDate))}, ${esc(reg.eventStart)}–${esc(reg.eventEnd)}`],
+    ['Dziecko',        esc(reg.child || '—')],
+    ['Rodzic',         esc(reg.parent || '—')],
+    ['Kontakt',        `${esc(reg.email)}<br>${esc(reg.phone)}`],
+    ['Liczba miejsc',  String(reg.qty)],
+    ['Forma płatności',esc(reg.paymentMethod)],
+    ['Do zapłaty',     `<strong>${money(reg.total)}</strong>`],
+    ['Numer rezerwacji', `<code>${esc(String(reg.id).slice(0, 8).toUpperCase())}</code>`]
+  ];
+  $('#summary').innerHTML = rows
+    .map(([k, v]) => `<div class="sumrow"><span>${k}</span><strong>${v}</strong></div>`).join('');
+
+  $('#transferTitle').textContent =
+    `${reg.child || 'zajęcia'} — ${reg.eventDate}`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+rules_version = '2';
+
+/* ==========================================================================
+   Mała Chmurka — reguły bezpieczeństwa Firestore
+   --------------------------------------------------------------------------
+   TO JEST JEDYNE PRAWDZIWE ZABEZPIECZENIE PANELU.
+   Ukrycie panelu w HTML/JavaScript niczego nie chroni — każdy może otworzyć
+   konsolę przeglądarki i wywołać zapis „na piechotę". Dopiero te reguły
+   sprawiają, że taki zapis zostanie odrzucony przez serwery Google.
+
+   ZASADA DLA ZAJĘĆ (kolekcja `events`):
+       READ    → wszyscy (grafik ma być publiczny)
+       CREATE  → tylko administrator
+       UPDATE  → tylko administrator
+       DELETE  → tylko administrator
+
+   KTO JEST ADMINISTRATOREM — dwie drogi, wystarczy jedna:
+     1. custom claim `admin: true` w tokenie (rozwiązanie preferowane,
+        nadawane jednorazowo skryptem `tools/set-admin-claim.mjs`);
+     2. adres e-mail z listy `adminEmails()` + POTWIERDZONY adres
+        (`email_verified`) — działa bez żadnego backendu.
+
+   Lista adresów jest zduplikowana w `assets/firebase-config.js` (tam służy
+   tylko do pokazania/ukrycia panelu). ZMIENIASZ TU → ZMIEŃ TAKŻE TAM.
+
+   PUBLIKACJA: Firebase Console → Firestore Database → zakładka „Rules”
+   → wklej całą zawartość tego pliku → „Publish”.
+   Albo z terminala:  firebase deploy --only firestore:rules
+   ========================================================================== */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ------------------------------------------------------------------
+       KTO JEST ADMINEM
+       ------------------------------------------------------------------ */
+    function adminEmails() {
+      return [
+        'velorwr16@gmail.com',
+        'malachmurka.leszno@gmail.com'
+      ];
+    }
+
+    function isSignedIn() { return request.auth != null; }
+
+    /* Zawartość tokenu użytkownika. Dla niezalogowanego zwraca pustą mapę —
+       dzięki temu reguły niżej nigdy nie sięgają do nieistniejącego
+       request.auth.token (to dawałoby „evaluation error" w logach). */
+    function claims() { return request.auth == null ? {} : request.auth.token; }
+
+    /* Custom claim admin:true — najmocniejsza droga, nie da się jej podrobić
+       z przeglądarki (claim wystawia Admin SDK po stronie Google). */
+    function hasAdminClaim() {
+      return claims().get('admin', false) == true;
+    }
+
+    /* Lista adresów. `email_verified` jest konieczne: bez tego ktokolwiek
+       mógłby założyć konto na nieużywany jeszcze adres z listy i wejść do
+       panelu. Logowanie przez Google ustawia email_verified automatycznie. */
+    function isAdminEmail() {
+      return claims().get('email', '').lower() in adminEmails()
+        && claims().get('email_verified', false) == true;
+    }
+
+    function isAdmin() { return hasAdminClaim() || isAdminEmail(); }
+
+    /* ------------------------------------------------------------------
+       Wyjątek dla publicznego formularza zapisu.
+       Klient (niezalogowany rodzic) musi móc „zająć miejsce”, czyli podbić
+       licznik `booked` o kilka miejsc. To JEDYNE pole, którego dotyka —
+       nazwy zajęć, ceny, opisu ani daty zmienić nie może.
+
+       Jeżeli wolisz absolutnie zerowy dostęp do zapisu dla klientów, zmień
+       ciało tej funkcji na `return false;`. Wtedy formularz zapisu nadal
+       utworzy zgłoszenie, ale liczba wolnych miejsc przestanie zmniejszać
+       się sama — będziesz ją prowadzić ręcznie w panelu.
+       ------------------------------------------------------------------ */
+    function seatReservationEnabled() { return true; }
+
+    function onlySeatCounterChanged() {
+      return resource != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['booked'])
+        && request.resource.data.booked is int
+        && request.resource.data.booked > resource.data.booked
+        && request.resource.data.booked <= resource.data.booked + 10
+        && request.resource.data.booked <= resource.data.get('capacity', 0)
+        && resource.data.get('active', true) == true;
+    }
+
+    /* ================================================================
+       ZAJĘCIA  —  read: wszyscy | create/update/delete: tylko admin
+       ================================================================ */
+    match /events/{id} {
+      allow read:   if true;
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      allow update: if isAdmin()
+                    || (seatReservationEnabled() && onlySeatCounterChanged());
+    }
+
+    /* ================================================================
+       ZAPISY NA ZAJĘCIA
+       Formularz może UTWORZYĆ zgłoszenie, ale nie może go odczytać ani
+       zmienić — dane osobowe dzieci widzi wyłącznie administrator
+       (oraz zalogowany rodzic: swoje własne zgłoszenia).
+       ================================================================ */
+    match /registrations/{id} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.get('uid', '') == request.auth.uid);
+
+      allow create: if
+            request.resource.data.eventId          is string
+        &&  request.resource.data.email            is string
+        &&  request.resource.data.phone            is string
+        &&  request.resource.data.childFirstName   is string
+        &&  request.resource.data.qty              is int
+        &&  request.resource.data.qty > 0 && request.resource.data.qty <= 10
+        &&  request.resource.data.paid             == false
+        &&  request.resource.data.attended         == false
+        &&  request.resource.data.email.size() < 200
+        &&  request.resource.data.phone.size() < 40
+        &&  request.resource.data.childFirstName.size() < 100
+        &&  request.resource.data.keys().size() < 40;
+
+      allow update, delete: if isAdmin();
+    }
+
+    /* ================================================================
+       RANKING ODWIEDZIN — wyłącznie administrator
+       ================================================================ */
+    match /guests/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    /* ================================================================
+       LICZNIKI NA STRONIE GŁÓWNEJ
+       ================================================================ */
+
+    /* settings/stats — licznik „odwiedziło nas już…”. Formularz zapisu może
+       go podbić, ale wyłącznie o 1 i wyłącznie w tym jednym polu. */
+    match /settings/stats {
+      allow read:   if true;
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      allow update: if isAdmin()
+        || ( resource != null
+             && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['visitsCount', 'updatedAt'])
+             && request.resource.data.visitsCount is int
+             && request.resource.data.visitsCount == resource.data.visitsCount + 1 );
+    }
+
+    /* pozostałe dokumenty settings (m.in. settings/presence) — czyta każdy,
+       zapisuje tylko administrator */
+    match /settings/{doc} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    /* ================================================================
+       KARTOTEKA ADMINISTRATORÓW
+       Nie decyduje już o uprawnieniach (robi to lista wyżej + custom claim),
+       została jako notatnik: kto i od kiedy ma dostęp. Nikt nie może się tu
+       sam dopisać — zapis wyłącznie z konsoli Firebase.
+       ================================================================ */
+    match /admins/{uid} {
+      allow read:  if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow write: if false;
+    }
+
+    /* ================================================================
+       Wszystko, czego nie wymieniono wyżej — zamknięte.
+       ================================================================ */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

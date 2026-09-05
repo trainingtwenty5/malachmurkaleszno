@@ -1,0 +1,7 @@
+# Klucze serwisowe Firebase (Admin SDK) — NIGDY nie trafiają do repozytorium
+# ani na serwer strony. Dają pełny dostęp do bazy.
+*serviceaccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+.firebase/
+node_modules/

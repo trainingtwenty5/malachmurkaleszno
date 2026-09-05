@@ -1,0 +1,23 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": { "port": 8080 },
+    "ui": { "enabled": false }
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "README.md"],
+    "cleanUrls": true,
+    "rewrites": [
+      { "source": "/zapisz-sie-na-zaj%C4%99cia.html", "destination": "/zapisz-sie-na-zajecia.html" },
+      { "source": "/kalendarz-zajec",  "destination": "/kalendarz-zajec.html" },
+      { "source": "/grafik-zajec",     "destination": "/kalendarz-zajec.html" },
+      { "source": "/zapisz-sie",       "destination": "/zapisz-sie-na-zajecia.html" },
+      { "source": "/panel",            "destination": "/panel-admina.html" },
+      { "source": "/admin",            "destination": "/admin.html" }
+    ]
+  }
+}
