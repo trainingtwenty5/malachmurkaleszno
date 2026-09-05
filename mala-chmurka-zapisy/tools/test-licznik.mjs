@@ -78,6 +78,21 @@ eq('bez limitu tuż przed zamknięciem daje minimum godzinę',
   bookingEndMin({ start: '19:30', duration: 'open' }, '20:00'), at(20, 30));
 
 /* ====================================================== OBA ŹRÓDŁA ====== */
+console.log('\n=== GODZINA WYJŚCIA USTAWIONA RĘCZNIE ===');
+eq('ręczna godzina wyjścia wygrywa z czasem pobytu',
+  bookingEndMin({ start: '10:00', duration: '2h', stayUntil: '13:30' }), at(13, 30));
+eq('skrócony pobyt gaśnie wcześniej',
+  computeLivePresence({ bookings: [bkg({ qty: 2, start: '10:00', duration: '2h', stayUntil: '11:00' })],
+    dateISO: DZIS, atMin: at(11, 30) }).count, 0);
+eq('przedłużony pobyt liczy się dłużej',
+  computeLivePresence({ bookings: [bkg({ qty: 2, start: '10:00', duration: '1h', stayUntil: '14:00' })],
+    dateISO: DZIS, atMin: at(13) }).count, 2);
+eq('godzina wyjścia podnosi też porę wygaszenia licznika',
+  computeLivePresence({ bookings: [bkg({ qty: 1, start: '10:00', duration: '1h', stayUntil: '15:00' })],
+    dateISO: DZIS, atMin: at(11) }).untilMin, at(15));
+ok('nieopłacona, ale zaakceptowana rezerwacja dalej liczy się w liczniku',
+  computeLivePresence({ bookings: [bkg({ qty: 3, paid: false })], dateISO: DZIS, atMin: at(11) }).count === 3);
+
 console.log('\n=== OBA ŹRÓDŁA RAZEM ===');
 
 const mix = computeLivePresence({

@@ -198,6 +198,20 @@ await t('Klient NIE podepnie rezerwacji pod cudze konto -> NIE', async () =>
   assertFails(addDoc(collection(user('klient', 'k\example.com'), 'bookings'), { ...BOOKING, uid: 'ktos-inny' })));
 await t('Zalogowany podpina rezerwacje pod swoje konto -> TAK', async () =>
   assertSucceeds(addDoc(collection(user('klient', 'k\example.com'), 'bookings'), { ...BOOKING, uid: 'klient' })));
+await t('Klient NIE zglosi sie sam jako oplacony -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, paid: true })));
+await t('Klient NIE wpisze sie sam do rankingu -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, countedInRanking: true })));
+await t('Rezerwacja z paid:false i countedInRanking:false -> TAK', async () =>
+  assertSucceeds(addDoc(collection(anon(), 'bookings'),
+    { ...BOOKING, paid: false, countedInRanking: false, stayUntil: '' })));
+await t('Admin oznacza oplate i godzine wyjscia -> TAK', async () => {
+  const db = user('a1', ADMIN, true);
+  await assertSucceeds(updateDoc(doc(db, 'bookings/b-mine'),
+    { paid: true, stayUntil: '13:30', countedInRanking: true }));
+});
+await t('Klient NIE oznaczy swojej rezerwacji jako oplaconej -> NIE', async () =>
+  assertFails(updateDoc(doc(user('klient', 'k@example.com'), 'bookings/b-mine'), { paid: true })));
 await t('Rezerwacja na 11 dzieci -> NIE', async () =>
   assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, qty: 11 })));
 await t('Rezerwacja z bzdurnym czasem pobytu -> NIE', async () =>

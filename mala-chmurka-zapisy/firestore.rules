@@ -140,6 +140,12 @@ service cloud.firestore {
       allow create: if
             request.resource.data.status          == 'pending'
         &&  request.resource.data.adminNote       == ''
+        /* o rozliczeniu i rankingu decyduje wyłącznie administrator —
+           klient nie zgłosi się sam jako opłacony ani policzony.
+           `get()` z wartością domyślną: starsza, zapamiętana wersja strony
+           mogła jeszcze tych pól nie wysyłać, a ma dalej działać. */
+        &&  request.resource.data.get('paid', false) == false
+        &&  request.resource.data.get('countedInRanking', false) == false
         &&  request.resource.data.date            is string
         &&  request.resource.data.date.size() == 10
         &&  request.resource.data.duration        in ['1h', '2h', 'open']

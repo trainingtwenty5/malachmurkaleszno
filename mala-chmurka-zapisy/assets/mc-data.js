@@ -31,7 +31,7 @@
    ========================================================================== */
 
 import { db, F, PATHS, SETTINGS } from './mc-firebase.js';
-import { toMin, isoDate, normPhone } from './mc-common.js';
+import { toMin, isoDate, normPhone, bookingEndMin } from './mc-common.js';
 
 const col = name => F.collection(db, name);
 const ref = (name, id) => F.doc(db, name, id);
@@ -315,6 +315,35 @@ export async function applyVisitToRanking(reg, delta) {
   });
 }
 
+/**
+ * Zamienia rezerwację bawialni na „wizytę" w kształcie, który rozumie ranking.
+ * Dzięki temu ranking liczy wszystkie odwiedziny tak samo — bez znaczenia,
+ * czy dziecko przyszło na zajęcia, czy po prostu do bawialni.
+ */
+export function visitFromBooking(b, dayEnd = SETTINGS.dayEnd) {
+  const names = (b.children || []).map(c => String(c.name || '').trim()).filter(Boolean);
+  const endMin = bookingEndMin(b, dayEnd);
+  const pad = n => String(n).padStart(2, '0');
+  return {
+    phone:           b.phone || '',
+    phoneKey:        b.phoneKey || normPhone(b.phone),
+    email:           b.email || '',
+    parentFirstName: b.parentFirstName || '',
+    parentLastName:  b.parentLastName || '',
+    childFirstName:  names.join(', '),      // ranking trzyma jedno pole na dzieci
+    childLastName:   '',
+    qty:             Number(b.qty) || 1,
+    eventDate:       b.date || '',
+    eventStart:      b.start || '',
+    eventEnd:        `${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}`,
+    stayUntil:       b.stayUntil || ''
+  };
+}
+
+/** Dopisuje / cofa wizytę w bawialni w rankingu. delta = +1 albo -1. */
+export const applyBookingToRanking = (b, delta) =>
+  applyVisitToRanking(visitFromBooking(b), delta);
+
 export async function listGuests() {
   const snap = await F.getDocs(F.query(col(PATHS.guests), F.orderBy('visits', 'desc')));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -500,6 +529,11 @@ export async function createBooking(data) {
     note:            (data.note || '').trim(),
     status:          BOOKING_STATUS.pending,
     adminNote:       '',
+    /* Rozliczenie i ranking prowadzi administrator — klient nie może tego
+       ustawić przy zakładaniu rezerwacji (pilnują tego też reguły). */
+    paid:            false,
+    countedInRanking: false,
+    stayUntil:       data.stayUntil || '',
     uid:             data.uid || null,
     createdAt:       F.serverTimestamp()
   };
@@ -540,6 +574,10 @@ export const setBookingStatus = (id, status, adminNote = '') =>
   });
 
 export const deleteBooking = id => F.deleteDoc(ref(PATHS.bookings, id));
+
+/** Dowolna zmiana w rezerwacji — wyłącznie administrator (opłata, godzina wyjścia). */
+export const updateBooking = (id, patch) =>
+  F.updateDoc(ref(PATHS.bookings, id), { ...patch, updatedAt: F.serverTimestamp() });
 
 /** Odhacza, że rezerwacja została już policzona w liczniku odwiedzin. */
 export const markBookingCounted = (id, counted) =>
