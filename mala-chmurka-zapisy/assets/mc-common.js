@@ -461,6 +461,142 @@ export function askText({
   });
 }
 
+/* ==========================================================================
+   POWIĘKSZANIE ZDJĘĆ
+   Kliknięcie w zdjęcie na stronie zajęć otwiera je na całym ekranie:
+   krzyżyk zamyka, strzałki przewijają galerię, Escape wychodzi.
+   ========================================================================== */
+
+/**
+ * Następny indeks w galerii — z zawijaniem, żeby strzałka za ostatnim
+ * zdjęciem wracała na początek zamiast blokować się na końcu.
+ * @param {number} i    obecny indeks
+ * @param {number} len  ile jest zdjęć
+ * @param {number} dir  +1 w prawo, −1 w lewo
+ */
+export function stepIndex(i, len, dir = 1) {
+  const n = Math.max(1, Math.floor(Number(len) || 0));
+  const cur = Math.floor(Number(i) || 0);
+  const krok = Math.floor(Number(dir) || 0);
+  return (((cur + krok) % n) + n) % n;
+}
+
+const LB_ICON_ZOOM = 'M10 2a8 8 0 1 0 4.9 14.32l4.39 4.39 1.41-1.41-4.39-4.39A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12z';
+
+/**
+ * Pokazuje zdjęcie na całym ekranie.
+ *
+ * @param {object} o
+ * @param {string[]} o.images  adresy zdjęć w kolejności galerii
+ * @param {number} [o.index]   od którego zacząć
+ * @param {string} [o.alt]     opis zdjęcia (dla czytników ekranu)
+ * @returns {Promise<number>}  indeks zdjęcia oglądanego w chwili zamknięcia —
+ *                             dzięki temu strona może pokazać to samo zdjęcie
+ *                             w dużym kadrze po wyjściu z podglądu
+ */
+export function openLightbox({ images = [], index = 0, alt = '' } = {}) {
+  const lista = (images || []).filter(Boolean);
+  if (!lista.length) return Promise.resolve(0);
+
+  let i = stepIndex(index, lista.length, 0);
+  const wiele = lista.length > 1;
+
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'lbox';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Powiększone zdjęcie');
+    box.innerHTML = `
+      <button class="lbox-close" type="button" aria-label="Zamknij podgląd" title="Zamknij (Esc)">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      ${wiele ? `
+      <button class="lbox-nav lbox-prev" type="button" aria-label="Poprzednie zdjęcie" title="Poprzednie (←)">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <button class="lbox-nav lbox-next" type="button" aria-label="Następne zdjęcie" title="Następne (→)">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>` : ''}
+      <div class="lbox-stage"><img class="lbox-img" alt="${esc(alt)}"></div>
+      ${wiele ? `<div class="lbox-count" aria-live="polite"></div>` : ''}`;
+
+    document.body.appendChild(box);
+
+    const img   = box.querySelector('.lbox-img');
+    const count = box.querySelector('.lbox-count');
+
+    const pokaz = () => {
+      img.src = lista[i];
+      if (count) count.textContent = `${i + 1} z ${lista.length}`;
+    };
+    const krok = dir => { i = stepIndex(i, lista.length, dir); pokaz(); };
+
+    pokaz();
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    /* Strona pod spodem nie ma się przewijać, gdy podgląd jest na wierzchu. */
+    const scrollWas = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const wrocDo = document.activeElement;
+
+    const done = () => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = scrollWas;
+      if (wrocDo && wrocDo.focus) wrocDo.focus();
+      resolve(i);
+    };
+
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); done(); }
+      if (!wiele) return;
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); krok(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); krok(1); }
+    };
+
+    box.querySelector('.lbox-close').onclick = done;
+    if (wiele) {
+      box.querySelector('.lbox-prev').onclick = () => krok(-1);
+      box.querySelector('.lbox-next').onclick = () => krok(1);
+    }
+    /* kliknięcie obok zdjęcia zamyka; w samo zdjęcie — nie */
+    box.addEventListener('click', e => {
+      if (e.target === box || e.target.classList.contains('lbox-stage')) done();
+    });
+    document.addEventListener('keydown', onKey);
+
+    /* Przesunięcie palcem — na telefonie wygodniejsze niż trafianie w strzałki. */
+    let startX = null, startY = null;
+    box.addEventListener('touchstart', e => {
+      const t = e.changedTouches[0];
+      startX = t.clientX; startY = t.clientY;
+    }, { passive: true });
+    box.addEventListener('touchend', e => {
+      if (startX === null) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX, dy = t.clientY - startY;
+      startX = null;
+      /* tylko wyraźny ruch w bok, żeby przewijanie w pionie niczego nie zmieniało */
+      if (wiele && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) krok(dx < 0 ? 1 : -1);
+    }, { passive: true });
+
+    box.querySelector('.lbox-close').focus();
+  });
+}
+
+/** Ikona lupy — podpowiedź, że zdjęcie da się powiększyć. */
+export const zoomIcon = (size = 18) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
+     <path fill="currentColor" d="${LB_ICON_ZOOM}"/></svg>`;
+
 /* ------------------------------------------------------------ POWIADOMIENIA */
 let toastTimer;
 export function toast(msg, ms = 2600) {
@@ -567,6 +703,14 @@ export function plWizyty(n) {
 }
 
 /** Odmiana: 1 dziecko / 2 dzieci */
+/** Odmiana: 1 zdjęcie / 2 zdjęcia / 5 zdjęć */
+export function plZdjecia(n) {
+  n = Number(n) || 0;
+  if (n === 1) return '1 zdjęcie';
+  const l2 = n % 100, l1 = n % 10;
+  if (l1 >= 2 && l1 <= 4 && !(l2 >= 12 && l2 <= 14)) return `${n} zdjęcia`;
+  return `${n} zdjęć`;
+}
 export function plDzieci(n) {
   n = Number(n) || 0;
   return n === 1 ? '1 dziecko' : `${n} dzieci`;

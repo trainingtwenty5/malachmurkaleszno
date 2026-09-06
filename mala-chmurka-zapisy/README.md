@@ -42,7 +42,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
-| `tools/test-galeria.mjs` | 66 testów galerii zdjęć zajęć — sam Node. |
+| `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -259,7 +259,7 @@ node tools/test-licznik.mjs # 33 testy: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
-node tools/test-galeria.mjs # 66 testów: zdjęcia zajęć, kolejność, plan zapisu
+node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
 ```
 
 ### Czego panel *nie* chroni
@@ -328,6 +328,16 @@ W oknie edycji zajęć (w `admin.html` i w zakładce 1 panelu) jest galeria:
 * zmiany zapisują się razem z resztą formularza, po kliknięciu **Zapisz** —
   „Anuluj" naprawdę anuluje, a przy wychodzeniu bez zapisu galeria pojawia się
   na liście niezapisanych zmian.
+
+### Co z tym robi klient
+
+Na stronie zajęć zdjęcie można kliknąć — otwiera się na całym ekranie:
+krzyżyk (albo Escape, albo kliknięcie obok zdjęcia) zamyka, strzałki na
+ekranie i klawiszach `←` `→` przewijają galerię w kółko, a na telefonie
+działa też przesunięcie palcem w bok. W rogu dużego kadru jest podpowiedź
+„Zobacz N zdjęć", żeby nie trzeba było zgadywać, że da się kliknąć.
+Po zamknięciu podglądu w dużym kadrze zostaje to zdjęcie, które klient
+właśnie oglądał.
 
 **Usunięcie zajęć kasuje ich zdjęcia**, a pytanie przed usunięciem mówi wprost,
 ile ich zniknie. Duplikat zajęć i powielenie na kolejne tygodnie **kopiują całą

@@ -14,6 +14,18 @@
   .ev-grid{display:grid;grid-template-columns:320px 1fr 330px;gap:32px;align-items:start}
   .hero-img{position:relative;border-radius:var(--radius);overflow:hidden;aspect-ratio:4/3;background:var(--sky-pale)}
   .hero-img img{width:100%;height:100%;object-fit:cover}
+  /* Przezroczysty przycisk na całym zdjęciu: klikać można gdziekolwiek, a
+     osoby chodzące po stronie klawiaturą dostają normalny cel do zatrzymania. */
+  .hero-zoom{position:absolute;inset:0;cursor:zoom-in;display:block}
+  .hero-zoom span{
+    position:absolute;right:10px;bottom:10px;display:inline-flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.93);color:var(--navy-deep);
+    font-family:var(--font-head);font-weight:600;font-size:.78rem;
+    border-radius:999px;padding:.32em .8em;box-shadow:var(--shadow-sm);
+    transition:background-color .18s var(--ease);
+  }
+  .hero-zoom:hover span{background:#fff}
+  .thumbs button{cursor:zoom-in}
   .hero-badge{position:absolute;top:12px;left:12px;background:var(--brand-deep);color:#fff;
     border-radius:999px;font-family:var(--font-head);font-weight:700;font-size:.82rem;padding:6px 14px}
   .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
@@ -55,6 +67,8 @@
       <div>
         <div class="hero-img">
           <img id="hero" alt="">
+          <button type="button" class="hero-zoom" id="heroZoom" hidden
+                  aria-label="Powiększ zdjęcie"><span></span></button>
           <span class="hero-badge" id="badge"></span>
         </div>
         <div class="thumbs" id="thumbs"></div>
@@ -105,7 +119,7 @@
         </div>
         <div class="seats"><span>Wolne miejsca</span><strong id="seats">—</strong></div>
         <div class="seats" id="cancelWrap"><span>Bezpłatna rezygnacja</span><strong id="cancel">—</strong></div>
-        <button class="btn btn-primary btn-block" id="buy" style="margin-top:16px">Kup teraz</button>
+        <button class="btn btn-primary btn-block" id="buy" style="margin-top:16px">Zapisz się</button>
         <p class="hint" style="text-align:center;margin:10px 0 0">
           Płatność przelewem lub na miejscu — szczegóły dostaniesz po zapisie.</p>
 
@@ -120,7 +134,8 @@
 
 <script type="module">
 import { mountChrome, $, esc, longDate, shortDate, money, params, URLS, SETTINGS,
-         seatState, SIGNUP_CLOSED_TEXT, gallerySources } from './assets/mc-common.js';
+         seatState, SIGNUP_CLOSED_TEXT, gallerySources, openLightbox, zoomIcon, plZdjecia }
+  from './assets/mc-common.js';
 import { getEvent, otherDatesOf, listEventImages } from './assets/mc-data.js';
 
 const id = params().get('id');
@@ -176,18 +191,42 @@ async function init() {
     console.warn('listEventImages:', e.message);
     return [];
   });
-  const imgs = gallerySources(wgrane, ev.images);
-  $('#hero').src = imgs[0] || PLACEHOLDER;
+  const imgs = gallerySources(wgrane, ev.images).slice(0, 8);
   $('#hero').alt = ev.title;
+
+  /* Który kadr jest teraz duży. Podgląd na cały ekran oddaje ten sam numer,
+     więc po zamknięciu zostaje na wierzchu zdjęcie, które klient oglądał. */
+  let szkic = 0;
+  const pokazSzkic = () => {
+    $('#hero').src = imgs[szkic] || PLACEHOLDER;
+    [...$('#thumbs').children].forEach((c, i) => c.classList.toggle('is-on', i === szkic));
+  };
+
+  const powieksz = async (od = szkic) => {
+    if (!imgs.length) return;
+    szkic = await openLightbox({ images: imgs, index: od, alt: ev.title });
+    pokazSzkic();
+  };
+
+  if (imgs.length) {
+    $('#heroZoom').hidden = false;
+    $('#heroZoom').querySelector('span').innerHTML =
+      `${zoomIcon(15)}${imgs.length > 1 ? `Zobacz ${plZdjecia(imgs.length)}` : 'Powiększ'}`;
+    $('#heroZoom').onclick = () => powieksz();
+  }
+
   if (imgs.length > 1) {
-    $('#thumbs').innerHTML = imgs.slice(0, 8)
-      .map((s, i) => `<button type="button" class="${i === 0 ? 'is-on' : ''}" data-src="${esc(s)}"><img src="${esc(s)}" alt=""></button>`).join('');
+    $('#thumbs').innerHTML = imgs
+      .map((src, i) => `<button type="button" class="${i === 0 ? 'is-on' : ''}"
+        aria-label="Zdjęcie ${i + 1} z ${imgs.length}"><img src="${esc(src)}" alt=""></button>`).join('');
+    /* Kliknięcie w miniaturę od razu otwiera duży podgląd — na telefonie to
+       jedyny sensowny odruch, a strzałki w podglądzie prowadzą przez resztę. */
     $('#thumbs').onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
-      $('#hero').src = b.dataset.src;
-      [...$('#thumbs').children].forEach(c => c.classList.toggle('is-on', c === b));
+      powieksz([...$('#thumbs').children].indexOf(b));
     };
   }
+  pokazSzkic();
 
   paintQty();
   $('#plus').onclick  = () => { if (n < Math.max(1, free)) { n++; paintQty(); } };
@@ -200,7 +239,7 @@ async function init() {
     $('#buy').disabled = true;
     $('#buy').textContent = 'Brak wolnych miejsc';
   }
-  /* „Kup teraz" → formularz zapisu z już wypełnionymi danymi z kafelka */
+  /* „Zapisz się" → formularz zapisu z już wypełnionymi danymi z kafelka */
   $('#buy').onclick = () => {
     location.href = `${URLS.signup}?event=${encodeURIComponent(ev.id)}&qty=${n}`;
   };
