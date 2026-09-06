@@ -8,13 +8,15 @@
      • czy plan zapisu (co utworzyć, co skasować, co przenumerować) zgadza się
        z tym, co administrator poukładał na ekranie,
      • czy strona zajęć pokazuje właściwy zestaw zdjęć (nowe albo stare adresy).
+     • czy strzałki w powiększonym zdjęciu zawijają się na końcach galerii.
 
    URUCHOMIENIE:   node tools/test-galeria.mjs   (z katalogu mala-chmurka-zapisy)
    Bez zależności i bez emulatora — sam Node.
    ========================================================================== */
 
 import { IMG, imageFileError, fitSize, dataUrlBytes, humanBytes, moveItem,
-         galleryPlan, gallerySignature, gallerySources } from '../assets/mc-common.js';
+         galleryPlan, gallerySignature, gallerySources, stepIndex, plZdjecia }
+  from '../assets/mc-common.js';
 
 let pass = 0, fail = 0;
 function ok(name, cond, dump = '') {
@@ -205,6 +207,38 @@ same('brak obu list też jest bezpieczny', gallerySources(null, null), []);
 same('zdjęcie bez pola order ląduje na początku, nie znika',
      gallerySources([{ id: 'x', src: 'x.jpg' }, { id: 'y', src: 'y.jpg', order: 1 }], []),
      ['x.jpg', 'y.jpg']);
+
+/* ================================== POWIĘKSZONE ZDJĘCIE (podgląd) ======== */
+console.log('\n=== PRZEWIJANIE PODGLĄDU ===');
+
+eq('strzałka w prawo przechodzi dalej', stepIndex(0, 5, 1), 1);
+eq('strzałka w lewo cofa',              stepIndex(3, 5, -1), 2);
+eq('za ostatnim zdjęciem wracamy na początek', stepIndex(4, 5, 1), 0);
+eq('przed pierwszym zdjęciem skaczemy na koniec', stepIndex(0, 5, -1), 4);
+eq('jedno zdjęcie: strzałka nie ma dokąd pójść', stepIndex(0, 1, 1), 0);
+eq('jedno zdjęcie, w lewo — to samo',            stepIndex(0, 1, -1), 0);
+eq('zero zdjęć nie wywraca funkcji',             stepIndex(0, 0, 1), 0);
+eq('krok zerowy zostawia to samo zdjęcie',       stepIndex(2, 5, 0), 2);
+eq('indeks spoza zakresu wraca do środka',       stepIndex(9, 4, 0), 1);
+eq('ujemny indeks też',                          stepIndex(-1, 4, 0), 3);
+eq('brak indeksu traktujemy jak pierwsze zdjęcie', stepIndex(undefined, 3, 1), 1);
+
+{
+  /* Osiem kroków w prawo po pięciu zdjęciach ma wrócić tam, gdzie zaczęliśmy
+     po pełnym okrążeniu — czyli 8 mod 5 = 3 do przodu. */
+  let i = 0;
+  for (let k = 0; k < 8; k++) i = stepIndex(i, 5, 1);
+  eq('osiem kroków w prawo po pięciu zdjęciach', i, 3);
+}
+
+console.log('\n=== ODMIANA „ZDJĘCIA" ===');
+eq('jedno',        plZdjecia(1), '1 zdjęcie');
+eq('dwa',          plZdjecia(2), '2 zdjęcia');
+eq('cztery',       plZdjecia(4), '4 zdjęcia');
+eq('pięć',         plZdjecia(5), '5 zdjęć');
+eq('dwanaście — wyjątek od reguły', plZdjecia(12), '12 zdjęć');
+eq('dwadzieścia dwa', plZdjecia(22), '22 zdjęcia');
+eq('zero',         plZdjecia(0), '0 zdjęć');
 
 /* ======================================================================== */
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================`);
