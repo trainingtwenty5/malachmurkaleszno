@@ -47,10 +47,18 @@
   .status b{font-weight:700}
   .admin-note{display:block;margin-top:4px;font-size:.88rem;opacity:.85}
   .kids-line{font-size:.88rem;color:var(--muted);margin-top:6px}
-  /* Numer rezerwacji — ten sam, po którym obsługa znajdzie zgłoszenie. */
-  .ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
-    letter-spacing:.06em;background:var(--cream-deep);color:var(--navy-deep);
-    border-radius:6px;padding:.1em .45em}
+  /* Numer rezerwacji — ten sam, po którym obsługa znajdzie zgłoszenie.
+     Duży i wyśrodkowany, bo to jedyna rzecz z tej karty, którą klient
+     przepisuje albo czyta przez telefon. */
+  .order-ref{margin:14px 0 4px;padding:12px 10px;border-radius:14px;text-align:center;
+    background:var(--brand-pale);border:1px dashed rgba(62,124,137,.35)}
+  .order-ref-k{display:block;font-family:var(--font-head);font-size:.74rem;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--brand-deep);opacity:.8}
+  .order-ref-v{display:block;margin-top:3px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:clamp(1.6rem,7vw,2.2rem);font-weight:700;letter-spacing:.12em;
+    color:var(--navy-deep);line-height:1.1;
+    -webkit-user-select:all;user-select:all}
   .countdown{display:inline-flex;align-items:center;gap:8px;margin-top:10px;border-radius:999px;
     padding:.32em .95em;font-family:var(--font-head);font-weight:700;font-size:.92rem;
     font-variant-numeric:tabular-nums}
@@ -174,6 +182,17 @@ function tickCountdowns() {
 }
 setInterval(tickCountdowns, 1000);
 
+/**
+ * Numer rezerwacji jako osobny, wyśrodkowany blok na górze karty.
+ * To pierwsza rzecz, o którą prosi obsługa przez telefon, więc ma być widoczny
+ * od razu po wejściu — a nie schowany drobnym drukiem obok daty.
+ */
+const refBlock = id => `
+  <div class="order-ref">
+    <span class="order-ref-k">Numer rezerwacji</span>
+    <span class="order-ref-v">${esc(orderRef(id))}</span>
+  </div>`;
+
 /* ------------------------------------------------------------------ ikony */
 const ICON = {
   pending:  '<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/>',
@@ -201,11 +220,11 @@ function renderBookings(list) {
         <div class="order-head">
           <div>
             <h3>Wstęp do bawialni</h3>
-            <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}
-              · nr <code class="ref">${esc(orderRef(b.id))}</code></div>
+            <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}</div>
           </div>
           <div class="order-price">${esc(money(b.total))}</div>
         </div>
+        ${refBlock(b.id)}
         <div class="order-meta">
           <span>${esc(b.durationLabel || b.duration || '')}</span>
           <span>${esc(plDzieci(b.qty || 1))}</span>
@@ -241,11 +260,11 @@ function renderClasses(list) {
           <div>
             <h3>${esc(r.eventTitle || 'Zajęcia')}</h3>
             <div class="order-when">${esc(longDate(r.eventDate))}${
-              r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}
-              · nr <code class="ref">${esc(orderRef(r.id))}</code></div>
+              r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}</div>
           </div>
           <div class="order-price">${esc(money(r.total))}</div>
         </div>
+        ${refBlock(r.id)}
         <div class="order-meta">
           <span>${esc(plDzieci(r.qty || 1))}</span>
           <span>${esc(r.paymentMethod || '')}</span>
