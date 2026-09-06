@@ -254,6 +254,7 @@ export function updateNavAuth(user) {
 export function askSaveOrDiscard({
   title = 'Masz niezapisane zmiany',
   text = 'Co zrobić z wprowadzonymi zmianami?',
+  changes = [],
   saveLabel = 'Zapisz zmiany',
   discardLabel = 'Anuluj i zamknij',
   stayLabel = 'Wróć do edycji'
@@ -265,6 +266,11 @@ export function askSaveOrDiscard({
       <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askTitle">
         <h2 id="askTitle">${esc(title)}</h2>
         <p>${esc(text)}</p>
+        ${changes.length ? `<div class="ask-changes">
+            <strong>Zmienione pola</strong>
+            <ul>${changes.slice(0, 8).map(c => `<li>${esc(c)}</li>`).join('')}
+              ${changes.length > 8 ? `<li>i jeszcze ${changes.length - 8}…</li>` : ''}</ul>
+          </div>` : ''}
         <div class="ask-acts">
           <button class="btn btn-primary btn-block" data-a="save">${esc(saveLabel)}</button>
           <button class="btn btn-danger btn-block" data-a="discard">${esc(discardLabel)}</button>
@@ -287,6 +293,60 @@ export function askSaveOrDiscard({
     box.addEventListener('click', e => { if (e.target === box) done('stay'); });
     document.addEventListener('keydown', onKey);
     box.querySelector('[data-a="save"]').focus();
+  });
+}
+
+/**
+ * Okienko z jednym polem daty — zamiast systemowego prompt(), w którym trzeba
+ * było wklepać „RRRR-MM-DD" z palca.
+ * @returns {Promise<string|null>} data w formacie ISO albo null (anulowano)
+ */
+export function askDate({
+  title = 'Wybierz datę',
+  text = '',
+  value = '',
+  min = '',
+  confirmLabel = 'Potwierdź',
+  cancelLabel = 'Anuluj'
+} = {}) {
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'ask-back';
+    box.innerHTML = `
+      <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askDateTitle">
+        <h2 id="askDateTitle">${esc(title)}</h2>
+        ${text ? `<p>${esc(text)}</p>` : ''}
+        <div class="field">
+          <label for="askDateInput">Data</label>
+          <input class="control" id="askDateInput" type="date"
+                 value="${esc(value)}" ${min ? `min="${esc(min)}"` : ''}>
+        </div>
+        <div class="ask-acts">
+          <button class="btn btn-primary btn-block" data-a="ok">${esc(confirmLabel)}</button>
+          <button class="btn btn-soft btn-block" data-a="no">${esc(cancelLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    const input = box.querySelector('#askDateInput');
+    const done = answer => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const accept = () => done(input.value || null);
+    const onKey = e => {
+      if (e.key === 'Escape') done(null);
+      if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); accept(); }
+    };
+
+    box.querySelector('[data-a="ok"]').onclick = accept;
+    box.querySelector('[data-a="no"]').onclick = () => done(null);
+    box.addEventListener('click', e => { if (e.target === box) done(null); });
+    document.addEventListener('keydown', onKey);
+    input.focus();
   });
 }
 
