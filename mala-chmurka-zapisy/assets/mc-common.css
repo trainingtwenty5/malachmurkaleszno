@@ -68,6 +68,11 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .nav a:hover,.nav a.is-current{background:var(--sky-pale);color:var(--navy-deep);text-decoration:none}
 .nav .nav-cta{background:var(--wood);color:#fff;margin-left:8px;padding-inline:1.3em}
 .nav .nav-cta:hover{background:var(--wood-dark);color:#fff}
+.nav-auth{display:flex;gap:14px;align-items:center}
+.nav-auth a{white-space:nowrap}
+@media (max-width:860px){
+  .nav-auth{flex-direction:column;gap:0;align-items:stretch;width:100%}
+}
 .nav-toggle{display:none;width:46px;height:40px;padding:9px 8px;flex-direction:column;justify-content:space-between}
 .nav-toggle span{display:block;height:3px;width:100%;background:var(--navy-deep);border-radius:3px;
   transition:transform .3s var(--ease),opacity .25s var(--ease)}
@@ -264,6 +269,10 @@ legend{font-family:var(--font-head);font-weight:600;font-size:.92rem;padding:0 6
 .agenda-head{display:flex;align-items:baseline;gap:8px;padding:12px 16px 6px;background:var(--cream-deep)}
 .agenda-head .d{font-family:var(--font-head);font-weight:700;color:var(--navy-deep)}
 .agenda-head .n{color:var(--muted);font-size:.87rem}
+/* „Dziś" ma być widoczne także na telefonie — tak samo jak w siatce na desktopie. */
+.agenda-day.is-today .agenda-head{background:var(--brand-pale)}
+.agenda-day.is-today .agenda-head .d{color:var(--brand-deep)}
+.agenda-day.is-today .agenda-head .n{color:var(--brand-deep);font-weight:700}
 .agenda-list{padding:8px 12px 14px;display:flex;flex-direction:column;gap:8px}
 .agenda-item{
   display:flex;gap:12px;align-items:stretch;text-align:left;width:100%;

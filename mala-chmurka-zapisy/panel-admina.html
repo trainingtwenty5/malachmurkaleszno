@@ -756,9 +756,50 @@ $('#swatches').onclick = e => {
   $$('#swatches button').forEach(x => x.classList.toggle('is-on', x === b));
 };
 
-function closeModal() { modal.classList.remove('is-open'); editingId = null; }
-$('#evClose').onclick = closeModal;
-$('#evCancel').onclick = closeModal;
+/* ==========================================================================
+   OCHRONA WPISANYCH ZMIAN
+   Formularz zajęć ma kilkanaście pól. Przypadkowe kliknięcie w tło, Escape
+   albo krzyżyk kasowały wszystko bez słowa. Porównujemy więc stan formularza
+   z tym, co było przy otwarciu, i pytamy tylko wtedy, gdy naprawdę jest co
+   stracić — dając wybór: zapisz albo porzuć.
+   ========================================================================== */
+let evSnapshot = null;
+
+/** Odcisk wszystkich pól formularza — do porównania „czy coś się zmieniło". */
+function evFormPrint() {
+  return JSON.stringify([...document.querySelectorAll('#evForm input, #evForm select, #evForm textarea')]
+    .map(el => (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value));
+}
+const evRemember = () => { evSnapshot = evFormPrint(); };
+const evDirty = () => evSnapshot !== null && evFormPrint() !== evSnapshot;
+
+/**
+ * Czy wolno teraz zamknąć okno.
+ * @returns {boolean} false = zostajemy w formularzu (albo trwa zapis)
+ */
+function evMayClose() {
+  if (!evDirty()) return true;
+  if (confirm('Masz niezapisane zmiany w tych zajęciach.\n\n' +
+              'OK — zapisz je teraz\n' +
+              'Anuluj — nie zapisuj')) {
+    /* zapis sam zamknie okno po udanym wysłaniu */
+    const f = document.getElementById('evForm');
+    if (f.requestSubmit) f.requestSubmit(); else document.getElementById('evSave').click();
+    return false;
+  }
+  return confirm('Porzucić wpisane zmiany?\n\nOK — porzuć i zamknij\nAnuluj — wróć do formularza');
+}
+
+function closeModal(force) {
+  if (!force && !evMayClose()) return;
+  modal.classList.remove('is-open');
+  editingId = null;
+  evSnapshot = null;
+}
+/* Uwaga: bez opakowania w strzalke przegladarka przekazuje tu obiekt zdarzenia,
+   ktory trafilby na miejsce parametru `force` i zamykal okno bez pytania. */
+$('#evClose').onclick  = () => closeModal();
+$('#evCancel').onclick = () => closeModal();
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
 
@@ -797,6 +838,7 @@ async function openEvent(id, preset) {
   fillForm(id ? (EVENTS.find(e => e.id === id) || await getEvent(id) || EMPTY_EVENT)
               : { ...EMPTY_EVENT, ...preset });
   modal.classList.add('is-open');
+  evRemember();
   setTimeout(() => $('#fTitle').focus(), 60);
 }
 
@@ -837,7 +879,7 @@ $('#evForm').addEventListener('submit', async e => {
     const rep = Number($('#fRepeat').value) || 0;
     if (rep > 0) { await repeatWeekly(id, rep); toast(`Zapisano i powielono na ${rep} kolejnych tygodni.`); }
     else toast('Zapisano zajęcia.');
-    closeModal();
+    closeModal(true);
   } catch (err) { toast('Błąd zapisu: ' + err.message); }
   finally { $('#evSave').disabled = false; }
 });
@@ -846,14 +888,14 @@ $('#evDuplicate').onclick = async () => {
   if (!editingId) return;
   const d = prompt('Na jaką datę skopiować te zajęcia? (RRRR-MM-DD)', $('#fDate').value);
   if (!d) return;
-  try { await duplicateEvent(editingId, d); toast('Skopiowano zajęcia na ' + d); closeModal(); }
+  try { await duplicateEvent(editingId, d); toast('Skopiowano zajęcia na ' + d); closeModal(true); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
 
 $('#evDelete').onclick = async () => {
   if (!editingId) return;
   if (!confirm('Na pewno usunąć te zajęcia? Zapisy pozostaną w bazie.')) return;
-  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeModal(); }
+  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeModal(true); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
 
