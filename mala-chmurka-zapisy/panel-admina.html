@@ -496,7 +496,7 @@
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
-         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard,
+         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
@@ -769,13 +769,45 @@ $('#swatches').onclick = e => {
 let evSnapshot = null;
 let evAsking = false;          // żeby dwa kliknięcia nie otworzyły dwóch okienek
 
-/** Odcisk wszystkich pól formularza — do porównania „czy coś się zmieniło". */
-function evFormPrint() {
-  return JSON.stringify([...document.querySelectorAll('#evForm input, #evForm select, #evForm textarea')]
-    .map(el => (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value));
+/** Stan formularza jako mapa: identyfikator pola → wartość. */
+function evFormMap() {
+  const out = {};
+  document.querySelectorAll('#evForm input, #evForm select, #evForm textarea').forEach((el, i) => {
+    const key = el.id || `${el.name || el.type}-${i}`;
+    out[key] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+  });
+  return out;
 }
-const evRemember = () => { evSnapshot = evFormPrint(); };
-const evDirty = () => evSnapshot !== null && evFormPrint() !== evSnapshot;
+
+/** Ludzka nazwa pola — z etykiety, a gdy jej nie ma, z podpowiedzi albo z id. */
+function evFieldLabel(el) {
+  if (!el) return '';
+  if (el.id) {
+    const lab = document.querySelector(`#evForm label[for="${el.id}"]`);
+    if (lab) return lab.textContent.replace('*', '').trim();
+  }
+  const wrap = el.closest('label');
+  if (wrap) return wrap.textContent.replace('*', '').trim();
+  return el.placeholder || el.name || el.id || 'pole';
+}
+
+/** Lista nazw pól, które różnią się od stanu z chwili otwarcia. */
+function evChangedFields() {
+  if (!evSnapshot) return [];
+  const teraz = evFormMap();
+  const nazwy = [];
+  Object.keys(teraz).forEach(key => {
+    if (teraz[key] === evSnapshot[key]) return;
+    const el = document.getElementById(key) ||
+               document.querySelector(`#evForm [name="${key}"]`);
+    const name = evFieldLabel(el);
+    if (name && !nazwy.includes(name)) nazwy.push(name);
+  });
+  return nazwy;
+}
+
+const evRemember = () => { evSnapshot = evFormMap(); };
+const evDirty = () => evSnapshot !== null && evChangedFields().length > 0;
 
 function shutModal() {
   modal.classList.remove('is-open');
@@ -787,8 +819,14 @@ async function closeModal(force) {
   if (force || !evDirty()) return shutModal();
   if (evAsking) return;
   evAsking = true;
+  const zmiany = evChangedFields();
   const answer = await askSaveOrDiscard({
-    text: 'Zmieniłeś dane tych zajęć, ale ich jeszcze nie zapisano.'
+    title: 'Masz niezapisane zmiany',
+    text: zmiany.length === 1
+      ? 'Zmieniłeś jedno pole i nie zostało jeszcze zapisane. Co z nim zrobić?'
+      : `Zmieniłeś ${zmiany.length} pola w tych zajęciach i nie zostały jeszcze zapisane. Co z nimi zrobić?`,
+    changes: zmiany,
+    stayLabel: 'Wróć do edycji'
   });
   evAsking = false;
   if (answer === 'save')    { $('#evForm').requestSubmit(); return; }
@@ -885,7 +923,13 @@ $('#evForm').addEventListener('submit', async e => {
 
 $('#evDuplicate').onclick = async () => {
   if (!editingId) return;
-  const d = prompt('Na jaką datę skopiować te zajęcia? (RRRR-MM-DD)', $('#fDate').value);
+  const d = await askDate({
+    title: 'Skopiuj zajęcia',
+    text: 'Na jaki dzień skopiować te zajęcia? Kopia startuje z pustą listą zapisanych.',
+    value: $('#fDate').value || todayISO(),
+    min: todayISO(),
+    confirmLabel: 'Skopiuj'
+  });
   if (!d) return;
   try { await duplicateEvent(editingId, d); toast('Skopiowano zajęcia na ' + d); closeModal(true); }
   catch (e) { toast('Błąd: ' + e.message); }

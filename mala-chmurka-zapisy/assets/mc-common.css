@@ -316,7 +316,9 @@ table.tbl tbody tr:hover{background:var(--cream)}
 .modal-foot .spacer{margin-right:auto}
 
 /* ------------------------------------------------------------------ TOAST */
-.ask-back{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;
+/* Wyzej niz .modal (200) i niz toast (300) - to okienko zawsze jest na wierzchu,
+   bo pyta o los tego, co jest pod nim. */
+.ask-back{position:fixed;inset:0;z-index:400;display:grid;place-items:center;padding:20px;
   background:rgba(44,53,64,.5);opacity:0;transition:opacity .16s var(--ease)}
 .ask-back.is-on{opacity:1}
 .ask{width:100%;max-width:400px;background:var(--white);border-radius:var(--radius-lg);
@@ -325,6 +327,11 @@ table.tbl tbody tr:hover{background:var(--cream)}
 .ask-back.is-on .ask{transform:none}
 .ask h2{font-size:1.15rem;margin:0 0 6px}
 .ask p{margin:0 0 18px;color:var(--muted);font-size:.94rem;line-height:1.55}
+.ask-changes{background:var(--warn-pale);border-radius:12px;padding:11px 14px;margin:0 0 18px}
+.ask-changes strong{display:block;font-family:var(--font-head);font-size:.76rem;color:var(--warn);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.ask-changes ul{margin:0;padding-left:18px;color:var(--ink);font-size:.9rem;line-height:1.5}
+.ask .field{margin-bottom:18px;text-align:left}
 .ask-acts{display:flex;flex-direction:column;gap:8px}
 .ask-acts .btn{margin:0}
 @media (prefers-reduced-motion:reduce){
