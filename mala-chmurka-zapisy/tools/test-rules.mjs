@@ -47,6 +47,10 @@ const BOOKING = {
   email: 'anna@example.com', phone: '726431978', phoneKey: '726431978',
   note: '', status: 'pending', adminNote: '', uid: null
 };
+const IMAGE = {
+  eventId: 'ev1', kind: 'data', src: 'data:image/jpeg;base64,AAAA',
+  name: 'warsztaty.jpg', width: 1400, height: 1050, bytes: 3, order: 0
+};
 const REG = {
   eventId: 'ev1', eventTitle: 'Logosensoryka', eventDate: '2026-09-10',
   email: 'rodzic@example.com', phone: '726431978', childFirstName: 'Zosia',
@@ -67,6 +71,8 @@ async function seed() {
     await setDoc(doc(db, 'bookings/b-guest'), { ...BOOKING, uid: null });
     await setDoc(doc(db, 'bookings/b-mine'),  { ...BOOKING, uid: 'klient' });
     await setDoc(doc(db, 'bookings/b-other'), { ...BOOKING, uid: 'ktos-inny' });
+    await setDoc(doc(db, 'eventImages/img1'), IMAGE);
+    await setDoc(doc(db, 'eventImages/img2'), { ...IMAGE, order: 1, name: 'domki.jpg' });
     await setDoc(doc(db, 'sekrety/x'), { a: 1 });
   });
 }
@@ -123,6 +129,54 @@ await t('Custom claim admin:true (dowolny adres, niepotwierdzony) → TAK', asyn
   await assertSucceeds(setDoc(doc(db, 'events/nowe'), EVENT));
   await assertSucceeds(deleteDoc(doc(db, 'events/ev1')));
 });
+
+console.log('\n=== ZDJĘCIA ZAJĘĆ (eventImages) ===');
+
+await t('READ galerii: anonim → TAK (strona zajęć musi ją pokazać)', async () => {
+  await assertSucceeds(getDoc(doc(anon(), 'eventImages/img1')));
+  await assertSucceeds(getDocs(query(collection(anon(), 'eventImages'),
+    where('eventId', '==', 'ev1'))));
+});
+
+await t('CREATE zdjęcia: anonim → NIE', async () =>
+  assertFails(setDoc(doc(anon(), 'eventImages/obce'), IMAGE)));
+await t('UPDATE zdjęcia: anonim → NIE', async () =>
+  assertFails(updateDoc(doc(anon(), 'eventImages/img1'), { order: 5 })));
+await t('DELETE zdjęcia: anonim → NIE', async () =>
+  assertFails(deleteDoc(doc(anon(), 'eventImages/img1'))));
+
+await t('CREATE zdjęcia: zalogowany klient (spoza listy) → NIE', async () =>
+  assertFails(setDoc(doc(user('klient', 'ktos@example.com'), 'eventImages/obce'), IMAGE)));
+await t('DELETE zdjęcia: zalogowany klient → NIE', async () =>
+  assertFails(deleteDoc(doc(user('klient', 'ktos@example.com'), 'eventImages/img1'))));
+await t('Podszywanie się pod admina przy wgrywaniu → NIE', async () =>
+  assertFails(setDoc(doc(user('x', 'velorwr16@gmail.com.evil.pl', true), 'eventImages/obce'), IMAGE)));
+await t('Admin z NIEPOTWIERDZONYM adresem nie wgra zdjęcia → NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, false), 'eventImages/obce'), IMAGE)));
+
+await t('CREATE/UPDATE/DELETE zdjęcia: administrator → TAK', async () => {
+  const db = user('a1', ADMIN, true);
+  await assertSucceeds(setDoc(doc(db, 'eventImages/nowe'), IMAGE));
+  await assertSucceeds(updateDoc(doc(db, 'eventImages/img1'), { order: 2 }));
+  await assertSucceeds(deleteDoc(doc(db, 'eventImages/img2')));
+});
+await t('Custom claim admin:true też wgrywa zdjęcia → TAK', async () =>
+  assertSucceeds(setDoc(doc(claimed('c1'), 'eventImages/nowe'), IMAGE)));
+
+await t('Zdjęcie cięższe niż dokument Firestore → NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'eventImages/grube'),
+    { ...IMAGE, src: 'data:image/jpeg;base64,' + 'A'.repeat(950000) })));
+await t('Puste źródło zdjęcia → NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'eventImages/puste'), { ...IMAGE, src: '' })));
+await t('Nieznany rodzaj zdjęcia → NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'eventImages/dziwne'),
+    { ...IMAGE, kind: 'script' })));
+await t('Kolejność musi być liczbą → NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'eventImages/zle'),
+    { ...IMAGE, order: 'pierwsze' })));
+await t('Zdjęcie bez przypisanych zajęć → NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'eventImages/sierota'),
+    { ...IMAGE, eventId: '' })));
 
 console.log('\n=== WYJĄTEK: rezerwacja miejsca przez formularz ===');
 

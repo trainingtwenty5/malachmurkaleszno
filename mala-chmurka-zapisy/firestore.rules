@@ -8,8 +8,8 @@ rules_version = '2';
    konsolę przeglądarki i wywołać zapis „na piechotę". Dopiero te reguły
    sprawiają, że taki zapis zostanie odrzucony przez serwery Google.
 
-   ZASADA DLA ZAJĘĆ (kolekcja `events`):
-       READ    → wszyscy (grafik ma być publiczny)
+   ZASADA DLA ZAJĘĆ (kolekcja `events`) I ICH ZDJĘĆ (`eventImages`):
+       READ    → wszyscy (grafik i galeria mają być publiczne)
        CREATE  → tylko administrator
        UPDATE  → tylko administrator
        DELETE  → tylko administrator
@@ -95,6 +95,35 @@ service cloud.firestore {
       allow delete: if isAdmin();
       allow update: if isAdmin()
                     || (seatReservationEnabled() && onlySeatCounterChanged());
+    }
+
+    /* ================================================================
+       ZDJĘCIA ZAJĘĆ
+       Galeria jest publiczna (strona zajęć musi ją pokazać gościom), ale
+       wgrać, przestawić i skasować zdjęcie może wyłącznie administrator.
+
+       Limit rozmiaru jest tu drugą linią obrony: przeglądarka i tak zmniejsza
+       zdjęcia przed wysłaniem, ale nikt nie może obejść tego konsolą i wepchnąć
+       do bazy pliku, który rozsadzi dokument (Firestore daje 1 MiB na dokument).
+       ================================================================ */
+    function validEventImage() {
+      return request.resource.data.eventId is string
+        &&   request.resource.data.eventId.size() > 0
+        &&   request.resource.data.eventId.size() < 200
+        &&   request.resource.data.kind in ['data', 'url']
+        &&   request.resource.data.src is string
+        &&   request.resource.data.src.size() > 0
+        &&   request.resource.data.src.size() < 900000
+        &&   request.resource.data.order is number
+        &&   request.resource.data.get('name', '').size() < 300
+        &&   request.resource.data.keys().size() < 15;
+    }
+
+    match /eventImages/{id} {
+      allow read:   if true;
+      allow create: if isAdmin() && validEventImage();
+      allow update: if isAdmin() && validEventImage();
+      allow delete: if isAdmin();
     }
 
     /* ================================================================

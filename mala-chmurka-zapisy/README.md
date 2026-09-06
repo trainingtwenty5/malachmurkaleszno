@@ -34,14 +34,15 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | **`assets/mc-dzieci.js`** | **Pamięć dzieci — podpowiedzi przy kolejnym zapisie.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 58 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 80 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 77 testów: terminy, godziny otwarcia, numer rezerwacji — sam Node. |
-| `tools/test-licznik.mjs` | 28 testów licznika dzieci w bawialni — sam Node. |
+| `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
+| `tools/test-galeria.mjs` | 66 testów galerii zdjęć zajęć — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -142,11 +143,11 @@ w formularzu zapisu.
 
 ## Bezpieczeństwo — jak to działa
 
-### Zasada dla zajęć (kolekcja `events`)
+### Zasada dla zajęć (kolekcja `events`) i ich zdjęć (`eventImages`)
 
 | Operacja | Kto |
 |---|---|
-| READ | wszyscy (grafik ma być publiczny) |
+| READ | wszyscy (grafik i galeria mają być publiczne) |
 | CREATE | tylko administrator |
 | UPDATE | tylko administrator |
 | DELETE | tylko administrator |
@@ -229,7 +230,7 @@ Do tego `mc-firebase.js` ma 15-sekundowy limit na pobranie SDK, żeby zablokowan
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **58 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **80 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -254,10 +255,11 @@ zależności, sam Node:
 node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
 node tools/test-zapisy.mjs  # 77 testów: terminy, godziny otwarcia, numer rezerwacji
-node tools/test-licznik.mjs # 28 testów: licznik dzieci w bawialni
+node tools/test-licznik.mjs # 33 testy: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
+node tools/test-galeria.mjs # 66 testów: zdjęcia zajęć, kolejność, plan zapisu
 ```
 
 ### Czego panel *nie* chroni
@@ -284,6 +286,7 @@ nadal będą wpadać, ale liczbę wolnych miejsc trzeba prowadzić ręcznie w pa
 | Kolekcja | READ | WRITE |
 |---|---|---|
 | `events` | wszyscy | admin (+ wyjątek `booked` wyżej) |
+| `eventImages` (zdjęcia zajęć) | wszyscy | admin; reguła pilnuje też rozmiaru zdjęcia |
 | `registrations` | admin; zalogowany rodzic tylko swoje | CREATE: formularz (z walidacją pól); UPDATE/DELETE: admin |
 | `bookings` (rezerwacje) | admin; zalogowany klient tylko swoje | CREATE: formularz, zawsze jako `pending`, nieopłacona i niepoliczona; UPDATE/DELETE: admin |
 | `guests` (ranking) | admin | admin |
@@ -309,6 +312,63 @@ kto i od kiedy ma dostęp.
   podsumowania, **+ Nowe zajęcia**, **Edytuj**, **Duplikuj**, **Usuń**,
   „Powiel na kolejne tygodnie”.
 * **Wyloguj** natychmiast zwija panel i wraca do ekranu logowania.
+
+---
+
+## Zdjęcia zajęć
+
+W oknie edycji zajęć (w `admin.html` i w zakładce 1 panelu) jest galeria:
+
+* **przeciągnij pliki** na jasne pole albo kliknij i wybierz je z dysku;
+  działa też **Ctrl+V** — wklejenie zdjęcia prosto ze schowka,
+* **kolejność** zmieniasz przeciągając kafelek albo strzałkami `←` `→`
+  (na telefonie strzałki są jedyną drogą — przeciąganie tam nie działa),
+* **pierwsze zdjęcie jest okładką** — to ono trafia na duży kadr strony zajęć,
+* **Usuń** kasuje pojedyncze zdjęcie (z pytaniem, którego zdjęcia dotyczy),
+* zmiany zapisują się razem z resztą formularza, po kliknięciu **Zapisz** —
+  „Anuluj" naprawdę anuluje, a przy wychodzeniu bez zapisu galeria pojawia się
+  na liście niezapisanych zmian.
+
+**Usunięcie zajęć kasuje ich zdjęcia**, a pytanie przed usunięciem mówi wprost,
+ile ich zniknie. Duplikat zajęć i powielenie na kolejne tygodnie **kopiują całą
+galerię** — kopia nie zostaje bez zdjęć.
+
+### Gdzie leżą zdjęcia i dlaczego akurat tam
+
+W Firestore, w kolekcji `eventImages` — jeden dokument to jedno zdjęcie
+(pole `src` z zawartością pliku jako `data:` URL).
+
+Naturalnym miejscem na pliki jest Firebase Storage, ale wymaga on planu Blaze
+(karta płatnicza), a ta strona stoi na GitHub Pages i nie ma żadnego backendu.
+Firestore w darmowym planie wystarcza pod jednym warunkiem: dokument nie może
+przekroczyć **1 MiB**. Dlatego przeglądarka, **zanim** cokolwiek wyśle:
+
+1. zmniejsza zdjęcie do 1400 px dłuższego boku,
+2. przelicza je na JPEG, schodząc z jakością (0,82 → 0,45), aż zmieści się
+   w budżecie ok. 320 kB,
+3. gdy to nie wystarcza — zmniejsza je jeszcze raz i próbuje ponownie.
+
+Zwykłe zdjęcie z telefonu (4–8 MB) schodzi w ten sposób do ok. 150–300 kB
+i wygląda dobrze na całej szerokości strony zajęć. Limit to **12 zdjęć**
+na jedne zajęcia. Te same granice powtarza `firestore.rules` — żeby nikt nie
+obszedł ich konsolą przeglądarki.
+
+Gdyby kiedyś doszedł płatny plan: wystarczy zmienić `readImageFile()`
+w `assets/mc-galeria.js` tak, żeby wrzucała plik do Storage i zwracała
+`{ kind: 'url', src: link }`. Kolejność, kasowanie i zapis zadziałają bez zmian.
+
+### Stare adresy URL
+
+Zajęcia sprzed galerii mają adresy w polu `events.images[]`. Nic nie ginie:
+strona zajęć pokazuje je nadal, a przy pierwszym otwarciu i zapisie takich
+zajęć w panelu adresy przenoszą się do `eventImages`. Adres można też dodać
+ręcznie — przycisk **Wklej adres URL** pod galerią (nic się wtedy nie wgrywa,
+zapisujemy sam adres).
+
+> **Zanim galeria zadziała, opublikuj reguły z `firestore.rules`** (Firebase
+> Console → Firestore Database → Rules → Publish). Bez tego wgranie zdjęcia
+> kończy się komunikatem „Missing or insufficient permissions", a strona zajęć
+> po cichu wraca do starych adresów z `images[]`.
 
 ---
 
@@ -563,6 +623,9 @@ events/{id}          zajęcia w kalendarzu: title, color, date, start, end, capa
                      booked, price, ageMin, ageMax, badge, shortDesc, description,
                      organizerDesc, note, location, images[], paymentMethods[],
                      arriveMinutes, cancelHours, active
+
+eventImages/{id}     jedno zdjęcie zajęć: eventId, kind ('data'|'url'), src,
+                     name, width, height, bytes, order, createdAt
 
 registrations/{id}   zapis: eventId + kopia danych zajęć, dane rodzica i dziecka,
                      qty, unitPrice, total, paymentMethod, paid, attended,

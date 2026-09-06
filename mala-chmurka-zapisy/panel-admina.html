@@ -471,8 +471,8 @@
       </div>
 
       <div class="field">
-        <label for="fImages">Zdjęcia — adresy URL, każdy w nowej linii</label>
-        <textarea class="control" id="fImages" rows="3" placeholder="/img/warsztaty.jpg&#10;/img/domki.jpg"></textarea>
+        <span class="lbl">Zdjęcia zajęć</span>
+        <div id="galHost"></div>
       </div>
 
       <fieldset>
@@ -504,10 +504,12 @@
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
-         orderRef, matchesRef,
+         askConfirm, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
+import { mountGallery } from './assets/mc-galeria.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
+         countEventImages,
          watchRegistrations, updateRegistration, deleteRegistration,
          applyVisitToRanking, listGuests, computePresence, pushPresence,
          setPresenceManual, clearPresenceManual, watchPresence, watchStats,
@@ -811,6 +813,7 @@ function evChangedFields() {
   if (!evSnapshot) return [];
   const teraz = evFormMap();
   const nazwy = [];
+  if (gal.isDirty()) nazwy.push('Zdjęcia zajęć');
   Object.keys(teraz).forEach(key => {
     if (teraz[key] === evSnapshot[key]) return;
     const el = document.getElementById(key) ||
@@ -855,6 +858,10 @@ $('#evCancel').onclick = () => closeModal();
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
 
+/* Galeria zdjęć zajęć. Tak jak reszta pól czeka z zapisem na „Zapisz",
+   więc bierze udział w pytaniu o niezapisane zmiany. */
+const gal = mountGallery($('#galHost'));
+
 function fillForm(ev) {
   $('#fTitle').value = ev.title || '';
   $('#fDate').value  = ev.date || '';
@@ -872,7 +879,6 @@ function fillForm(ev) {
   $('#fOrg').value   = ev.organizerDesc || '';
   $('#fNote').value  = ev.note || '';
   $('#fLoc').value   = ev.location || `${SETTINGS.address}, ${SETTINGS.city}`;
-  $('#fImages').value= (ev.images || []).join('\n');
   $('#fArrive').value= ev.arriveMinutes ?? 10;
   $('#fCancel').value= ev.cancelHours ?? 24;
   $('#fRepeat').value= 0;
@@ -887,8 +893,10 @@ async function openEvent(id, preset) {
   $('#evModalTitle').textContent = id ? 'Edytuj zajęcia' : 'Nowe zajęcia';
   $('#evDelete').hidden = !id;
   $('#evDuplicate').hidden = !id;
-  fillForm(id ? (EVENTS.find(e => e.id === id) || await getEvent(id) || EMPTY_EVENT)
-              : { ...EMPTY_EVENT, ...preset });
+  const ev = id ? (EVENTS.find(e => e.id === id) || await getEvent(id) || EMPTY_EVENT)
+                : { ...EMPTY_EVENT, ...preset };
+  fillForm(ev);
+  await gal.load(id, ev);
   modal.classList.add('is-open');
   evRemember();
   setTimeout(() => $('#fTitle').focus(), 60);
@@ -913,7 +921,6 @@ $('#evForm').addEventListener('submit', async e => {
     organizerDesc: $('#fOrg').value.trim(),
     note:     $('#fNote').value.trim(),
     location: $('#fLoc').value.trim(),
-    images:   $('#fImages').value.split('\n').map(s => s.trim()).filter(Boolean),
     paymentMethods: $$('.pay').filter(c => c.checked).map(c => c.value),
     arriveMinutes: Number($('#fArrive').value) || 0,
     cancelHours:   Number($('#fCancel').value) || 0,
@@ -928,6 +935,8 @@ $('#evForm').addEventListener('submit', async e => {
     /* Termin mógł się zmienić — przepisujemy go do zapisów i przeliczamy
        licznik zajętych miejsc, żeby kafelek pokazywał faktyczną liczbę dzieci. */
     await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
+    /* Zdjęcia PRZED powielaniem — kopie na kolejne tygodnie mają je przejąć. */
+    await gal.commit(id);
     const rep = Number($('#fRepeat').value) || 0;
     if (rep > 0) { await repeatWeekly(id, rep); toast(`Zapisano i powielono na ${rep} kolejnych tygodni.`); }
     else toast('Zapisano zajęcia.');
@@ -952,8 +961,19 @@ $('#evDuplicate').onclick = async () => {
 
 $('#evDelete').onclick = async () => {
   if (!editingId) return;
-  if (!confirm('Na pewno usunąć te zajęcia? Zapisy pozostaną w bazie.')) return;
-  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeModal(true); }
+  const ile = await countEventImages(editingId).catch(() => 0);
+  const ok = await askConfirm({
+    title: 'Usunąć te zajęcia?',
+    text: 'Tej operacji nie da się cofnąć. Zapisy klientów pozostaną w bazie.',
+    details: [
+      $('#fTitle').value.trim() || 'zajęcia bez nazwy',
+      /* galeria znika razem z zajęciami — lepiej powiedzieć to wprost */
+      ile ? `${ile} ${ile === 1 ? 'zdjęcie zostanie usunięte' : 'zdjęć zostanie usuniętych'}` : 'brak zdjęć'
+    ],
+    confirmLabel: 'Tak, usuń zajęcia'
+  });
+  if (!ok) return;
+  try { await deleteEvent(editingId); toast('Zajęcia usunięte razem ze zdjęciami.'); closeModal(true); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
 

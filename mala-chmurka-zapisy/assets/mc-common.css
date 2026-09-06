@@ -388,3 +388,77 @@ table.tbl tbody tr:hover{background:var(--cream)}
   .btn.btn-auto{width:auto}
   .modal-foot .btn{width:100%}
 }
+
+/* ==========================================================================
+   GALERIA ZDJĘĆ ZAJĘĆ (panel administratora)
+   ========================================================================== */
+.gal{display:block}
+
+/* pole na upuszczanie plików */
+.gal-drop{
+  display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  padding:22px 16px;border:2px dashed rgba(62,124,137,.45);border-radius:var(--radius);
+  background:var(--brand-pale);color:var(--brand-deep);cursor:pointer;
+  transition:background .18s var(--ease),border-color .18s var(--ease);
+}
+.gal-drop:hover{background:var(--sky-pale);border-color:var(--brand-deep)}
+.gal-drop b{font-family:var(--font-head);font-size:1rem;color:var(--navy-deep)}
+.gal-drop span{font-size:.84rem;color:var(--muted);line-height:1.45}
+/* podświetlenie na czas trzymania plików nad galerią */
+.gal.is-over .gal-drop{background:var(--ok-pale);border-color:var(--ok);border-style:solid}
+
+.gal-msg:not(:empty){margin-top:10px}
+.gal-msg .alert{margin:0}
+
+/* siatka miniatur */
+.gal-grid{list-style:none;margin:12px 0 0;padding:0;
+  display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+.gal-item{
+  position:relative;background:var(--white);border:1px solid var(--line);
+  border-radius:14px;padding:8px;cursor:grab;
+  box-shadow:var(--shadow-sm);transition:box-shadow .16s var(--ease),transform .16s var(--ease);
+}
+.gal-item:hover{box-shadow:var(--shadow)}
+.gal-item.is-dragging{opacity:.45;cursor:grabbing}
+/* miejsce, w które spadnie przeciągane zdjęcie */
+.gal-item.is-target{border-color:var(--brand-deep);transform:translateY(-3px);
+  box-shadow:0 0 0 3px rgba(147,199,207,.45)}
+.gal-item.is-new{border-color:rgba(47,143,91,.45)}
+
+.gal-thumb{aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:var(--cream-deep)}
+.gal-thumb img{width:100%;height:100%;object-fit:cover;pointer-events:none}
+
+.gal-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;min-height:19px}
+.gal-tag{font-family:var(--font-head);font-size:.66rem;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;padding:.15em .5em;border-radius:999px;
+  background:var(--cream-deep);color:var(--muted)}
+.gal-tag-cover{background:var(--wood);color:#fff}
+.gal-tag-new{background:var(--ok-pale);color:var(--ok)}
+
+.gal-name{margin-top:4px;font-size:.78rem;font-weight:600;color:var(--navy-deep);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gal-size{font-size:.72rem;color:var(--muted);min-height:1em}
+
+.gal-acts{display:flex;gap:4px;margin-top:7px}
+.gal-acts button{
+  flex:none;width:30px;height:30px;border-radius:9px;font-size:.9rem;line-height:1;
+  background:var(--brand-pale);color:var(--brand-deep);
+}
+.gal-acts button:hover:not(:disabled){background:var(--sky-pale)}
+.gal-acts button:disabled{opacity:.35;cursor:not-allowed}
+.gal-acts .gal-del{flex:1;width:auto;font-size:.76rem;font-weight:600;
+  background:var(--bad-pale);color:var(--bad)}
+.gal-acts .gal-del:hover{background:#f7d8d5}
+
+.gal-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin-top:10px}
+.gal-count{font-size:.82rem;color:var(--muted)}
+
+/* na telefonie zdjęcia układamy w dwóch kolumnach — miniatura zostaje czytelna */
+@media (max-width:520px){
+  .gal-grid{grid-template-columns:repeat(2,1fr)}
+  .gal-drop{padding:18px 12px}
+  /* palcem trafia się gorzej niż myszką — przyciski dostają więcej wysokości */
+  .gal-acts button{width:36px;height:38px}
+  .gal-acts .gal-del{width:auto}
+}

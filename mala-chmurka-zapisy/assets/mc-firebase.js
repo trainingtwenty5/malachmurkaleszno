@@ -45,6 +45,7 @@ export { SETTINGS, ADMIN_EMAILS, appUrl };
 /* ---------- Ścieżki w bazie (jedno miejsce prawdy) ---------- */
 export const PATHS = {
   events:        'events',          // pojedyncze zajęcia w kalendarzu
+  eventImages:   'eventImages',     // zdjęcia zajęć (1 dokument = 1 zdjęcie)
   registrations: 'registrations',   // zapisy klientów na zajęcia
   bookings:      'bookings',        // rezerwacje samego wstępu do bawialni
   guests:        'guests',          // ranking: 1 dokument = 1 dziecko

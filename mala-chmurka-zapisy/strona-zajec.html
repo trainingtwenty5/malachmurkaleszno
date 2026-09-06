@@ -120,8 +120,8 @@
 
 <script type="module">
 import { mountChrome, $, esc, longDate, shortDate, money, params, URLS, SETTINGS,
-         seatState, SIGNUP_CLOSED_TEXT } from './assets/mc-common.js';
-import { getEvent, otherDatesOf } from './assets/mc-data.js';
+         seatState, SIGNUP_CLOSED_TEXT, gallerySources } from './assets/mc-common.js';
+import { getEvent, otherDatesOf, listEventImages } from './assets/mc-data.js';
 
 const id = params().get('id');
 /* Bez `backTo` — przycisk cofa tam, skąd użytkownik przyszedł (grafik,
@@ -170,7 +170,13 @@ async function init() {
   $('#cancel').textContent = ev.cancelHours ? `do ${ev.cancelHours} godz. przed` : 'skontaktuj się z nami';
   $('#payList').textContent = (ev.paymentMethods || SETTINGS.paymentMethods).join(' · ');
 
-  const imgs = (ev.images || []).filter(Boolean);
+  /* Zdjęcia wgrane w panelu (kolekcja eventImages) mają pierwszeństwo; gdy
+     zajęcia jeszcze ich nie mają, zostają stare adresy z pola images[]. */
+  const wgrane = await listEventImages(ev.id).catch(e => {
+    console.warn('listEventImages:', e.message);
+    return [];
+  });
+  const imgs = gallerySources(wgrane, ev.images);
   $('#hero').src = imgs[0] || PLACEHOLDER;
   $('#hero').alt = ev.title;
   if (imgs.length > 1) {
