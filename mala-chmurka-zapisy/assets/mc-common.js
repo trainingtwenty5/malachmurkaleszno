@@ -353,6 +353,114 @@ export function askDate({
   });
 }
 
+/**
+ * Zwykłe „na pewno?" — jedno pytanie, dwie odpowiedzi. Zastępuje systemowe
+ * confirm(), które na telefonie wygląda jak ostrzeżenie o wirusie i nie
+ * potrafi pokazać, czego dokładnie dotyczy.
+ * @returns {Promise<boolean>} true = potwierdzono
+ */
+export function askConfirm({
+  title = 'Na pewno?',
+  text = '',
+  details = [],
+  confirmLabel = 'Tak',
+  cancelLabel = 'Anuluj',
+  danger = true
+} = {}) {
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'ask-back';
+    box.innerHTML = `
+      <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askConfirmTitle">
+        <h2 id="askConfirmTitle">${esc(title)}</h2>
+        ${text ? `<p>${esc(text)}</p>` : ''}
+        ${details.length ? `<div class="ask-changes">
+            <strong>Czego to dotyczy</strong>
+            <ul>${details.slice(0, 8).map(d => `<li>${esc(d)}</li>`).join('')}
+              ${details.length > 8 ? `<li>i jeszcze ${details.length - 8}…</li>` : ''}</ul>
+          </div>` : ''}
+        <div class="ask-acts">
+          <button class="btn ${danger ? 'btn-danger' : 'btn-primary'} btn-block" data-a="yes">${esc(confirmLabel)}</button>
+          <button class="btn btn-soft btn-block" data-a="no">${esc(cancelLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    const done = answer => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const onKey = e => { if (e.key === 'Escape') done(false); };
+
+    box.querySelector('[data-a="yes"]').onclick = () => done(true);
+    box.querySelector('[data-a="no"]').onclick  = () => done(false);
+    /* kliknięcie w tło = rezygnacja; nic się nie dzieje przez przypadek */
+    box.addEventListener('click', e => { if (e.target === box) done(false); });
+    document.addEventListener('keydown', onKey);
+    box.querySelector('[data-a="no"]').focus();
+  });
+}
+
+/**
+ * Okienko z jednym polem tekstowym — zamiast systemowego prompt().
+ * @returns {Promise<string|null>} wpisany tekst albo null (anulowano)
+ */
+export function askText({
+  title = 'Wpisz wartość',
+  text = '',
+  label = 'Wartość',
+  value = '',
+  placeholder = '',
+  hint = '',
+  confirmLabel = 'Dodaj',
+  cancelLabel = 'Anuluj'
+} = {}) {
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'ask-back';
+    box.innerHTML = `
+      <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askTextTitle">
+        <h2 id="askTextTitle">${esc(title)}</h2>
+        ${text ? `<p>${esc(text)}</p>` : ''}
+        <div class="field">
+          <label for="askTextInput">${esc(label)}</label>
+          <input class="control" id="askTextInput" type="text"
+                 value="${esc(value)}" placeholder="${esc(placeholder)}">
+          ${hint ? `<span class="hint">${esc(hint)}</span>` : ''}
+        </div>
+        <div class="ask-acts">
+          <button class="btn btn-primary btn-block" data-a="ok">${esc(confirmLabel)}</button>
+          <button class="btn btn-soft btn-block" data-a="no">${esc(cancelLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    const input = box.querySelector('#askTextInput');
+    const done = answer => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const accept = () => done(input.value.trim() || null);
+    const onKey = e => {
+      if (e.key === 'Escape') done(null);
+      if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); accept(); }
+    };
+
+    box.querySelector('[data-a="ok"]').onclick = accept;
+    box.querySelector('[data-a="no"]').onclick = () => done(null);
+    box.addEventListener('click', e => { if (e.target === box) done(null); });
+    document.addEventListener('keydown', onKey);
+    input.focus();
+    input.select();
+  });
+}
+
 /* ------------------------------------------------------------ POWIADOMIENIA */
 let toastTimer;
 export function toast(msg, ms = 2600) {
@@ -794,4 +902,142 @@ export function fmtCountdown(minutes) {
   const pad = n => String(n).padStart(2, '0');
   const body = h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
   return (Number(minutes) < 0 ? '−' : '') + body;
+}
+
+
+/* ==========================================================================
+   GALERIA ZDJĘĆ ZAJĘĆ
+   --------------------------------------------------------------------------
+   Zdjęcia trzymamy w Firestore (kolekcja `eventImages`), a nie w Firebase
+   Storage — Storage wymaga płatnego planu, a ten projekt nie ma backendu.
+   Konsekwencja: jeden dokument to jedno zdjęcie, a limit dokumentu w
+   Firestore wynosi 1 MiB. Dlatego przeglądarka PRZED wysłaniem zmniejsza
+   każde zdjęcie i przelicza je na JPEG, aż zmieści się w budżecie niżej.
+
+   Poniższe funkcje są czyste (bez DOM i bez sieci), żeby dało się je
+   przetestować zwykłym `node` — patrz tools/test-galeria.mjs.
+   ========================================================================== */
+
+export const IMG = {
+  /** Ile zdjęć na jedne zajęcia. Strona zajęć i tak pokazuje osiem miniatur. */
+  maxCount: 12,
+  /** Największy plik, jaki w ogóle bierzemy do obróbki (przed zmniejszeniem). */
+  maxSourceBytes: 25 * 1024 * 1024,
+  /** Dłuższy bok po zmniejszeniu — w zupełności wystarcza na galerię. */
+  maxSide: 1400,
+  /** Do tylu bajtów celujemy po kompresji. */
+  targetBytes: 320 * 1024,
+  /** Twardy limit zapisanego tekstu — dokument Firestore ma 1 MiB na wszystko. */
+  maxStoredChars: 900000,
+  /** Formaty, które przeglądarki potrafią odczytać z pliku. */
+  types: ['image/jpeg', 'image/pjpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/bmp']
+};
+
+/** '412 kB' / '2,1 MB' — rozmiar po ludzku. */
+export function humanBytes(n) {
+  const b = Number(n) || 0;
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${Math.round(b / 1024)} kB`;
+  return `${(b / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+}
+
+/**
+ * Czy ten plik nadaje się na zdjęcie zajęć.
+ * @param {File|object} file        plik z okna wyboru albo z upuszczenia
+ * @param {number} [current]        ile zdjęć już jest w galerii
+ * @returns {string|null} komunikat po polsku albo null, gdy wszystko gra
+ */
+export function imageFileError(file, current = 0) {
+  if (!file) return 'Nie udało się odczytać pliku.';
+  const type = String(file.type || '').toLowerCase();
+  const name = file.name || 'plik';
+
+  if (!type.startsWith('image/'))
+    return `„${name}" to nie jest zdjęcie — wybierz plik JPG, PNG lub WEBP.`;
+  if (!IMG.types.includes(type))
+    return `Format „${type.replace('image/', '')}" (${name}) nie otwiera się w przeglądarce. `
+         + 'Zapisz zdjęcie jako JPG albo PNG.';
+  if ((Number(file.size) || 0) > IMG.maxSourceBytes)
+    return `„${name}" waży ${humanBytes(file.size)} — za dużo. Maksimum to ${humanBytes(IMG.maxSourceBytes)}.`;
+  if (current >= IMG.maxCount)
+    return `Do jednych zajęć można dodać najwyżej ${IMG.maxCount} zdjęć. Usuń któreś, żeby zrobić miejsce.`;
+  return null;
+}
+
+/** Wymiary po wpisaniu w kwadrat maxSide, z zachowaniem proporcji. */
+export function fitSize(w, h, maxSide = IMG.maxSide) {
+  const W = Math.max(1, Math.round(Number(w) || 0));
+  const H = Math.max(1, Math.round(Number(h) || 0));
+  const long = Math.max(W, H);
+  if (long <= maxSide) return { w: W, h: H };
+  const k = maxSide / long;
+  return { w: Math.max(1, Math.round(W * k)), h: Math.max(1, Math.round(H * k)) };
+}
+
+/** Ile bajtów naprawdę waży obrazek zapisany jako data URL (base64). */
+export function dataUrlBytes(src) {
+  const s = String(src || '');
+  const i = s.indexOf(',');
+  if (!s.startsWith('data:') || i < 0) return 0;
+  const body = s.slice(i + 1);
+  const pad = (body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0);
+  return Math.max(0, Math.floor(body.length * 3 / 4) - pad);
+}
+
+/** Przenosi element listy na inne miejsce. Zwraca NOWĄ tablicę. */
+export function moveItem(list, from, to) {
+  const out = [...(list || [])];
+  if (from < 0 || from >= out.length) return out;
+  const target = Math.min(Math.max(to, 0), out.length - 1);
+  const [item] = out.splice(from, 1);
+  out.splice(target, 0, item);
+  return out;
+}
+
+/**
+ * Co trzeba zrobić w bazie, żeby zapisana galeria wyglądała jak ta na ekranie.
+ *
+ * @param {Array} before  zdjęcia wczytane z bazy, w zapisanej kolejności
+ * @param {Array} after   zdjęcia widoczne teraz w panelu (mogą być nowe)
+ * @returns {{create:Array, remove:string[], reorder:Array<{id:string,order:number}>}}
+ */
+export function galleryPlan(before, after) {
+  const was  = (before || []).map(x => (typeof x === 'string' ? x : x.id));
+  const list = after || [];
+
+  const create  = [];
+  const reorder = [];
+  const kept    = [];
+
+  list.forEach((item, i) => {
+    if (item.isNew) { create.push({ ...item, order: i }); return; }
+    kept.push(item.id);
+    if (was.indexOf(item.id) !== i) reorder.push({ id: item.id, order: i });
+  });
+
+  const remove = was.filter(id => !kept.includes(id));
+  return { create, remove, reorder };
+}
+
+/**
+ * Odcisk galerii — zmienia się przy dodaniu, usunięciu i przestawieniu zdjęcia.
+ * Dzięki temu okno edycji wie, że jest co zapisywać, tak samo jak przy
+ * zwykłych polach formularza.
+ */
+export function gallerySignature(items) {
+  return (items || []).map(i => (typeof i === 'string' ? i : i.id)).join('|');
+}
+
+/**
+ * Adresy zdjęć do pokazania klientowi: najpierw wgrane w panelu, a gdy zajęcia
+ * jeszcze ich nie mają — stare adresy URL wpisywane ręcznie (zgodność wstecz).
+ */
+export function gallerySources(stored, legacy) {
+  const wgrane = (stored || [])
+    .slice()
+    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+    .map(i => i.src)
+    .filter(Boolean);
+  if (wgrane.length) return wgrane;
+  return (legacy || []).filter(Boolean);
 }

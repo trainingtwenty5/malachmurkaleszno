@@ -286,8 +286,8 @@
       </div>
 
       <div class="field">
-        <label for="fImages">Zdjęcia — adresy URL, każdy w nowej linii</label>
-        <textarea class="control" id="fImages" rows="3" placeholder="/img/warsztaty.jpg&#10;/img/domki.jpg"></textarea>
+        <span class="lbl">Zdjęcia zajęć</span>
+        <div id="galHost"></div>
       </div>
 
       <fieldset>
@@ -317,10 +317,11 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, isoDate,
-         addDays, PALETTE, askSaveOrDiscard, askDate } from './assets/mc-common.js';
+         addDays, PALETTE, askSaveOrDiscard, askDate, askConfirm } from './assets/mc-common.js';
 import { auth, A, adminStatus, isAdminEmail, authError, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
-         EMPTY_EVENT, todayISO, refreshEvent } from './assets/mc-data.js';
+         EMPTY_EVENT, todayISO, refreshEvent, countEventImages } from './assets/mc-data.js';
+import { mountGallery } from './assets/mc-galeria.js';
 
 mountChrome({ crumb: 'Administrator' });
 
@@ -578,6 +579,10 @@ const openM  = () => modal.classList.add('is-open');
 let evSnapshot = null;
 let evAsking = false;          // żeby dwa kliknięcia nie otworzyły dwóch okienek
 
+/* Galeria zdjęć. Zmiany w niej czekają na „Zapisz" tak samo jak reszta
+   formularza — dlatego bierze udział w pytaniu o niezapisane zmiany. */
+const gal = mountGallery($('#galHost'));
+
 /** Stan formularza jako mapa: identyfikator pola → wartość. */
 function evFormMap() {
   const out = {};
@@ -605,6 +610,7 @@ function evChangedFields() {
   if (!evSnapshot) return [];
   const teraz = evFormMap();
   const nazwy = [];
+  if (gal.isDirty()) nazwy.push('Zdjęcia zajęć');
   Object.keys(teraz).forEach(key => {
     if (teraz[key] === evSnapshot[key]) return;
     const el = document.getElementById(key) ||
@@ -662,7 +668,6 @@ function fill(ev) {
   $('#fOrg').value    = ev.organizerDesc || '';
   $('#fNote').value   = ev.note || '';
   $('#fLoc').value    = ev.location || EMPTY_EVENT.location;
-  $('#fImages').value = (ev.images || []).join('\n');
   $('#fArrive').value = ev.arriveMinutes ?? 10;
   $('#fCancel').value = ev.cancelHours ?? 24;
   $('#fRepeat').value = 0;
@@ -677,7 +682,9 @@ async function openModal(id) {
   $('#evModalTitle').textContent = id ? 'Edytuj zajęcia' : 'Nowe zajęcia';
   $('#evDelete').hidden = !id;
   $('#evDuplicate').hidden = !id;
-  fill(id ? (await getEvent(id)) || EMPTY_EVENT : { ...EMPTY_EVENT, date: todayISO() });
+  const ev = id ? (await getEvent(id)) || EMPTY_EVENT : { ...EMPTY_EVENT, date: todayISO() };
+  fill(ev);
+  await gal.load(id, ev);
   openM();
   evRemember();
   $('#fTitle').focus();
@@ -701,7 +708,6 @@ function readForm() {
     organizerDesc: $('#fOrg').value.trim(),
     note:          $('#fNote').value.trim(),
     location:      $('#fLoc').value.trim(),
-    images:        $('#fImages').value.split('\n').map(s => s.trim()).filter(Boolean),
     paymentMethods: $$('.pay').filter(c => c.checked).map(c => c.value),
     arriveMinutes: Number($('#fArrive').value) || 0,
     cancelHours:   Number($('#fCancel').value) || 0,
@@ -723,6 +729,8 @@ $('#evForm').addEventListener('submit', async e => {
     /* Termin mógł się zmienić — przepisujemy go do zapisów i przeliczamy
        licznik zajętych miejsc, żeby kafelek pokazywał faktyczną liczbę dzieci. */
     await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
+    /* Zdjęcia PRZED powielaniem — kopie na kolejne tygodnie mają je przejąć. */
+    await gal.commit(id);
     const weeks = Number($('#fRepeat').value) || 0;
     if (weeks > 0) await repeatWeekly(id, weeks);
     toast(editingId ? 'Zajęcia zapisane.' : `Zajęcia dodane${weeks ? ` (+${weeks} kolejnych tygodni)` : ''}.`);
@@ -736,10 +744,27 @@ $('#evForm').addEventListener('submit', async e => {
 
 $('#evDelete').onclick = async () => {
   if (!editingId) return;
-  if (!confirm('Na pewno usunąć te zajęcia? Tej operacji nie da się cofnąć.')) return;
-  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeM(true); }
+  if (!await confirmDelete(editingId, $('#fTitle').value.trim())) return;
+  try { await deleteEvent(editingId); toast('Zajęcia usunięte razem ze zdjęciami.'); closeM(true); }
   catch (err) { badge('bad', authError(err)); }
 };
+
+/**
+ * Pytanie przed usunięciem zajęć. Mówi wprost, ile zdjęć zniknie razem z nimi —
+ * bo galeria kasuje się automatycznie i nie ma jak jej odzyskać.
+ */
+async function confirmDelete(id, title) {
+  const ile = await countEventImages(id).catch(() => 0);
+  return askConfirm({
+    title: 'Usunąć te zajęcia?',
+    text: 'Tej operacji nie da się cofnąć. Zapisy klientów zostają w bazie.',
+    details: [
+      title || 'zajęcia bez nazwy',
+      ile ? `${ile} ${ile === 1 ? 'zdjęcie zostanie usunięte' : 'zdjęć zostanie usuniętych'}` : 'brak zdjęć'
+    ],
+    confirmLabel: 'Tak, usuń zajęcia'
+  });
+}
 
 $('#evDuplicate').onclick = async () => {
   if (!editingId) return;
@@ -771,8 +796,8 @@ async function quickDuplicate(id) {
 
 async function remove(id) {
   const src = EVENTS.find(e => e.id === id);
-  if (!confirm(`Usunąć „${src ? src.title : 'te zajęcia'}”? Tej operacji nie da się cofnąć.`)) return;
-  try { await deleteEvent(id); toast('Zajęcia usunięte.'); }
+  if (!await confirmDelete(id, src ? src.title : '')) return;
+  try { await deleteEvent(id); toast('Zajęcia usunięte razem ze zdjęciami.'); }
   catch (err) { toast(authError(err)); }
 }
 

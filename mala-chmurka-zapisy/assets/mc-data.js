@@ -9,6 +9,15 @@
      capacity, booked, price, ageMin, ageMax, gender,
      shortDesc, description, organizerDesc, location, badge,
      images[], paymentMethods[], arriveMinutes, cancelHours, note, active
+     (images[] to stare adresy URL wpisywane ręcznie — nowe zdjęcia mieszkają
+      w osobnej kolekcji eventImages, patrz niżej)
+
+   eventImages/{id}         jedno zdjęcie zajęć
+     eventId, kind 'data'|'url', src, name, width, height, bytes, order,
+     createdAt
+     Zdjęcie wgrane z dysku siedzi w polu `src` jako data URL — Firebase
+     Storage wymaga płatnego planu, a ten projekt nie ma backendu. Limit
+     dokumentu (1 MiB) pilnuje przeglądarka: zmniejsza zdjęcie przed wysłaniem.
 
    registrations/{id}       zapis dziecka na zajęcia
      eventId, eventTitle, eventDate, eventStart, eventEnd,
@@ -100,14 +109,21 @@ export async function saveEvent(id, data) {
   return r.id;
 }
 
-export const deleteEvent = id => F.deleteDoc(ref(PATHS.events, id));
+/** Usuwa zajęcia RAZEM ze zdjęciami — inaczej zostałyby w bazie na zawsze. */
+export async function deleteEvent(id) {
+  await deleteEventImages(id).catch(e => console.warn('deleteEventImages:', e.message));
+  return F.deleteDoc(ref(PATHS.events, id));
+}
 
 /** Kopiuje zajęcia na inną datę (licznik zapisanych startuje od zera). */
 export async function duplicateEvent(id, newDate) {
   const src = await getEvent(id);
   if (!src) throw new Error('Nie znaleziono zajęć do skopiowania.');
   const { id: _drop, createdAt, updatedAt, ...rest } = src;
-  return saveEvent(null, { ...rest, date: newDate || src.date, booked: 0 });
+  const kopia = await saveEvent(null, { ...rest, date: newDate || src.date, booked: 0 });
+  /* kopia bez zdjęć wyglądałaby jak pomyłka — przenosimy całą galerię */
+  await copyEventImages(id, kopia).catch(e => console.warn('copyEventImages:', e.message));
+  return kopia;
 }
 
 /** Kopiuje zajęcia na kolejne tygodnie: [{date}] */
@@ -119,9 +135,94 @@ export async function repeatWeekly(id, weeks) {
   for (let i = 1; i <= weeks; i++) {
     const d = new Date(base); d.setDate(d.getDate() + 7 * i);
     const { id: _drop, createdAt, updatedAt, ...rest } = src;
-    made.push(await saveEvent(null, { ...rest, date: isoDate(d), booked: 0 }));
+    const kopia = await saveEvent(null, { ...rest, date: isoDate(d), booked: 0 });
+    await copyEventImages(id, kopia).catch(e => console.warn('copyEventImages:', e.message));
+    made.push(kopia);
   }
   return made;
+}
+
+/* ==========================================================================
+   ZDJĘCIA ZAJĘĆ
+   --------------------------------------------------------------------------
+   Jedno zdjęcie = jeden dokument w `eventImages`. Kolejność trzyma pole
+   `order`, a sortujemy po stronie przeglądarki — dzięki temu zapytanie ma
+   tylko jeden warunek (`eventId`) i nie wymaga zakładania indeksu złożonego
+   w konsoli Firebase.
+   ========================================================================== */
+
+/** Wszystkie zdjęcia zajęć, w zapisanej kolejności. */
+export async function listEventImages(eventId) {
+  if (!eventId) return [];
+  const q = F.query(col(PATHS.eventImages), F.where('eventId', '==', eventId));
+  const snap = await F.getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+}
+
+/** Ile zdjęć mają te zajęcia — do pytania „usunąć razem ze zdjęciami?". */
+export async function countEventImages(eventId) {
+  return (await listEventImages(eventId)).length;
+}
+
+/**
+ * Zapisuje w bazie to, co administrator poukładał na ekranie.
+ * @param {string} eventId
+ * @param {{create:Array, remove:string[], reorder:Array}} plan  z galleryPlan()
+ * @param {(done:number, all:number)=>void} [onProgress]
+ */
+export async function applyGallery(eventId, plan, onProgress) {
+  const { create = [], remove = [], reorder = [] } = plan || {};
+  const all = create.length + remove.length + reorder.length;
+  let done = 0;
+  const step = () => { done++; if (onProgress) onProgress(done, all); };
+
+  /* Najpierw kasujemy — zwalnia miejsce i porządkuje numerację. */
+  for (const id of remove) { await F.deleteDoc(ref(PATHS.eventImages, id)); step(); }
+
+  for (const item of create) {
+    await F.addDoc(col(PATHS.eventImages), {
+      eventId,
+      kind:   item.kind || 'data',
+      src:    item.src,
+      name:   item.name || '',
+      width:  Number(item.width)  || 0,
+      height: Number(item.height) || 0,
+      bytes:  Number(item.bytes)  || 0,
+      order:  Number(item.order)  || 0,
+      createdAt: F.serverTimestamp()
+    });
+    step();
+  }
+
+  for (const { id, order } of reorder) {
+    await F.updateDoc(ref(PATHS.eventImages, id), { order });
+    step();
+  }
+  return { created: create.length, removed: remove.length, reordered: reorder.length };
+}
+
+/** Kasuje wszystkie zdjęcia zajęć (wywoływane przy usuwaniu zajęć). */
+export async function deleteEventImages(eventId) {
+  const imgs = await listEventImages(eventId);
+  for (const img of imgs) await F.deleteDoc(ref(PATHS.eventImages, img.id));
+  return imgs.length;
+}
+
+/** Przepisuje galerię na inne zajęcia — przy duplikacie i powtórkach co tydzień. */
+export async function copyEventImages(fromId, toId) {
+  const imgs = await listEventImages(fromId);
+  for (const img of imgs) {
+    const { id: _drop, createdAt, eventId: _ev, ...rest } = img;
+    await F.addDoc(col(PATHS.eventImages), { ...rest, eventId: toId, createdAt: F.serverTimestamp() });
+  }
+  return imgs.length;
+}
+
+/** Czyści stare adresy URL po ich przeniesieniu do `eventImages`. */
+export function clearLegacyImages(eventId) {
+  return F.updateDoc(ref(PATHS.events, eventId), { images: [] });
 }
 
 /* ==========================================================================
