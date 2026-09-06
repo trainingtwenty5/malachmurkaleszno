@@ -124,7 +124,9 @@ import { mountChrome, $, esc, longDate, shortDate, money, params, URLS, SETTINGS
 import { getEvent, otherDatesOf } from './assets/mc-data.js';
 
 const id = params().get('id');
-mountChrome({ current: 'Grafik zajęć', crumb: 'Szczegóły zajęć', backTo: SETTINGS.homeUrl });
+/* Bez `backTo` — przycisk cofa tam, skąd użytkownik przyszedł (grafik,
+   najbliższe zajęcia, formularz zapisu), a nie sztywno na stronę główną. */
+mountChrome({ current: 'Grafik zajęć', crumb: 'Szczegóły zajęć' });
 
 const PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
   `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><rect width='400' height='300' fill='#DCEAF4'/>

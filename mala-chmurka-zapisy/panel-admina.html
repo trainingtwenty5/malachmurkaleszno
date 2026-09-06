@@ -496,7 +496,7 @@
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
-         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren,
+         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
@@ -758,12 +758,16 @@ $('#swatches').onclick = e => {
 
 /* ==========================================================================
    OCHRONA WPISANYCH ZMIAN
-   Formularz zajęć ma kilkanaście pól. Przypadkowe kliknięcie w tło, Escape
-   albo krzyżyk kasowały wszystko bez słowa. Porównujemy więc stan formularza
-   z tym, co było przy otwarciu, i pytamy tylko wtedy, gdy naprawdę jest co
-   stracić — dając wybór: zapisz albo porzuć.
+   Formularz zajęć ma kilkanaście pól, a przypadkowe kliknięcie w tło kasowało
+   wszystko bez słowa. Porównujemy stan formularza z migawką zrobioną przy
+   otwarciu i pytamy TYLKO wtedy, gdy naprawdę jest co stracić — własnym
+   okienkiem, w którym każdy przycisk robi dokładnie to, co obiecuje:
+     Zapisz zmiany     → zapisuje i zamyka
+     Anuluj i zamknij  → zamyka bez zapisu
+     Wróć do edycji    → nic nie robi
    ========================================================================== */
 let evSnapshot = null;
+let evAsking = false;          // żeby dwa kliknięcia nie otworzyły dwóch okienek
 
 /** Odcisk wszystkich pól formularza — do porównania „czy coś się zmieniło". */
 function evFormPrint() {
@@ -773,28 +777,23 @@ function evFormPrint() {
 const evRemember = () => { evSnapshot = evFormPrint(); };
 const evDirty = () => evSnapshot !== null && evFormPrint() !== evSnapshot;
 
-/**
- * Czy wolno teraz zamknąć okno.
- * @returns {boolean} false = zostajemy w formularzu (albo trwa zapis)
- */
-function evMayClose() {
-  if (!evDirty()) return true;
-  if (confirm('Masz niezapisane zmiany w tych zajęciach.\n\n' +
-              'OK — zapisz je teraz\n' +
-              'Anuluj — nie zapisuj')) {
-    /* zapis sam zamknie okno po udanym wysłaniu */
-    const f = document.getElementById('evForm');
-    if (f.requestSubmit) f.requestSubmit(); else document.getElementById('evSave').click();
-    return false;
-  }
-  return confirm('Porzucić wpisane zmiany?\n\nOK — porzuć i zamknij\nAnuluj — wróć do formularza');
-}
-
-function closeModal(force) {
-  if (!force && !evMayClose()) return;
+function shutModal() {
   modal.classList.remove('is-open');
   editingId = null;
   evSnapshot = null;
+}
+
+async function closeModal(force) {
+  if (force || !evDirty()) return shutModal();
+  if (evAsking) return;
+  evAsking = true;
+  const answer = await askSaveOrDiscard({
+    text: 'Zmieniłeś dane tych zajęć, ale ich jeszcze nie zapisano.'
+  });
+  evAsking = false;
+  if (answer === 'save')    { $('#evForm').requestSubmit(); return; }
+  if (answer === 'discard') shutModal();
+  /* 'stay' — zostajemy w formularzu */
 }
 /* Uwaga: bez opakowania w strzalke przegladarka przekazuje tu obiekt zdarzenia,
    ktory trafilby na miejsce parametru `force` i zamykal okno bez pytania. */
