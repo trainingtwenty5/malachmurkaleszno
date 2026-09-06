@@ -264,6 +264,11 @@ legend{font-family:var(--font-head);font-weight:600;font-size:.92rem;padding:0 6
 
 /* --- agenda mobilna --- */
 .cal-agenda{display:none}
+/* Widok dnia: siatka godzinowa nie ma sensu dla jednego dnia, więc pokazujemy
+   listę — i to na KAŻDEJ szerokości, nie tylko na telefonie. Bez tego na
+   komputerze zostawał pusty ekran, mimo że zajęcia tego dnia były. */
+.cal.is-day .cal-scroll{display:none}
+.cal.is-day .cal-agenda{display:block}
 .agenda-day{border-bottom:1px solid var(--line)}
 .agenda-day:last-child{border-bottom:0}
 .agenda-head{display:flex;align-items:baseline;gap:8px;padding:12px 16px 6px;background:var(--cream-deep)}

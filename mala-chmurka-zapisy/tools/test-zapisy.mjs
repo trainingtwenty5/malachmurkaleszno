@@ -11,7 +11,8 @@
    ========================================================================== */
 
 import { signupClosed, seatState, SIGNUP_CLOSED_TEXT, slotInPast, nextQuarter, fmtMin,
-         openingFor, withinOpening, closingMinFor, bookingEndMin } from '../assets/mc-common.js';
+         openingFor, withinOpening, closingMinFor, bookingEndMin, orderRef, matchesRef }
+  from '../assets/mc-common.js';
 import { mergeChildren, childKey, childLabel, normChild, knownChildren }
   from '../assets/mc-dzieci.js';
 
@@ -49,6 +50,25 @@ ok('zajęcia kończące się dokładnie teraz są już zamknięte',
 ok('brak godziny zakończenia nie zamyka dzisiejszych zajęć',
   !signupClosed({ date: DZIS }, DZIS, TERAZ));
 ok('brak daty niczego nie zamyka', !signupClosed({}, DZIS, TERAZ));
+
+console.log('\n=== NUMER REZERWACJI ===');
+{
+  const ID = 'LMGPyJ84cRBKwTNwhFRj';
+
+  eq('numer to osiem pierwszych znaków, wielkimi literami', orderRef(ID), 'LMGPYJ84');
+  eq('krótszy identyfikator nie wywala funkcji', orderRef('abc'), 'ABC');
+  eq('brak identyfikatora daje pusty numer', orderRef(null), '');
+
+  ok('szukanie pełnego numeru trafia',        matchesRef(ID, 'LMGPYJ84'));
+  ok('wielkość liter nie ma znaczenia',       matchesRef(ID, 'lmgpyj84'));
+  ok('fragment numeru też trafia',            matchesRef(ID, 'gpyj'));
+  ok('krzyżyk z przodu jest pomijany',        matchesRef(ID, '#LMGP'));
+  ok('spacje wokół nie przeszkadzają',        matchesRef(ID, '  lmgp  '));
+  ok('obcy ciąg nie trafia',                 !matchesRef(ID, 'ZZZZ'));
+  ok('puste zapytanie nie łapie wszystkiego', !matchesRef(ID, ''));
+  ok('dalsza część identyfikatora nie liczy się do numeru',
+     !matchesRef(ID, 'cRBKwTNw'));
+}
 
 console.log('\n=== GODZINY OTWARCIA ===');
 {

@@ -48,6 +48,10 @@
   .day-add{width:100%;margin-top:8px;font-size:.86rem;padding:.55em 1em;border:1px dashed var(--brand-deep);
     border-radius:12px;color:var(--brand-deep);background:var(--brand-pale);font-family:var(--font-head);font-weight:600}
   .rank-pos{font-family:var(--font-head);font-weight:700;color:var(--wood-dark);width:38px}
+  /* Numer rezerwacji — ten sam, który klient widzi na potwierdzeniu. */
+  .ref{display:inline-block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.78rem;letter-spacing:.06em;background:var(--cream-deep);color:var(--navy-deep);
+    border-radius:6px;padding:.15em .5em;white-space:nowrap}
 
   /* ---- zakładka 5: rezerwacje bawialni ---- */
   .tab-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
@@ -170,7 +174,7 @@
       <section class="panel" id="tab-regs">
         <div class="stat-cards" id="regStats"></div>
         <div class="bar">
-          <input class="control grow" id="q" placeholder="Szukaj: imię, nazwisko, telefon, e-mail, godzina (np. 09:30)…">
+          <input class="control grow" id="q" placeholder="Szukaj: numer rezerwacji, imię, nazwisko, telefon, e-mail, godzina…">
           <input class="control mini" id="fFrom" type="date" aria-label="Od">
           <input class="control mini" id="fTo" type="date" aria-label="Do">
           <select class="control mini" id="fStatus" aria-label="Filtr">
@@ -184,7 +188,7 @@
         <div class="table-wrap">
           <table class="tbl">
             <thead><tr>
-              <th>Termin</th><th>Zajęcia</th><th>Dzieci / rodzic</th><th>Kontakt</th>
+              <th>Nr</th><th>Termin</th><th>Zajęcia</th><th>Dzieci / rodzic</th><th>Kontakt</th>
               <th>Do godz.</th><th>Przyszedł</th><th>Opłacone</th><th></th>
             </tr></thead>
             <tbody id="regRows"></tbody>
@@ -500,6 +504,7 @@
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
+         orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
@@ -955,6 +960,8 @@ $('#evDelete').onclick = async () => {
 /* ======================================================== 2. ZAPISANI ==== */
 function matches(r, q) {
   if (!q) return true;
+  /* numer rezerwacji szukamy osobno, bo klient podaje go z krzyżykiem albo bez */
+  if (matchesRef(r.id, q)) return true;
   const hay = [...kidsOf(r), r.note, r.childFirstName, r.childLastName, r.parentFirstName, r.parentLastName,
                r.phone, r.phoneKey, r.email, r.eventStart, r.eventEnd, r.eventTitle, r.eventDate]
               .join(' ').toLowerCase();
@@ -985,6 +992,7 @@ function renderRegs() {
   const list = filtered();
   $('#regRows').innerHTML = list.length ? list.map(r => `
     <tr class="reg-row" data-id="${esc(r.id)}">
+      <td><code class="ref" title="Numer rezerwacji — podaj go klientowi">${esc(orderRef(r.id))}</code></td>
       <td class="num"><strong>${esc(shortDate(r.eventDate || todayISO()))}</strong><br>
         <span class="hint">${esc(r.eventStart || '')}–${esc(r.eventEnd || '')}</span></td>
       <td>${esc(r.eventTitle || '')}<br><span class="hint">${r.qty || 1} × ${money(r.unitPrice)}</span></td>
@@ -1000,7 +1008,7 @@ function renderRegs() {
             style="width:22px;height:22px;accent-color:var(--ok)"></td>
       <td><button class="btn btn-danger btn-sm del" type="button" title="Usuń zapis">Usuń</button></td>
     </tr>`).join('')
-    : `<tr><td colspan="8"><div class="empty">Brak zapisów spełniających kryteria.</div></td></tr>`;
+    : `<tr><td colspan="9"><div class="empty">Brak zapisów spełniających kryteria.</div></td></tr>`;
 
   $('#regCount').textContent = `Pokazano ${list.length} z ${REGS.length} zapisów.`;
 }
@@ -1221,6 +1229,7 @@ function renderBookings() {
       return `
         <div class="bk-card ${st}">
           <b>${esc(b.start || '—')} · ${esc(b.durationLabel || b.duration || '')}</b>
+          <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code></div>
           <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
             · ${esc(plDzieci(b.qty || 1))} · ${esc(money(b.total))}</div>
           ${kids ? `<div class="bk-line">${kids}</div>` : ''}

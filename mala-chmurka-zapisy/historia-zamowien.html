@@ -47,6 +47,10 @@
   .status b{font-weight:700}
   .admin-note{display:block;margin-top:4px;font-size:.88rem;opacity:.85}
   .kids-line{font-size:.88rem;color:var(--muted);margin-top:6px}
+  /* Numer rezerwacji — ten sam, po którym obsługa znajdzie zgłoszenie. */
+  .ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
+    letter-spacing:.06em;background:var(--cream-deep);color:var(--navy-deep);
+    border-radius:6px;padding:.1em .45em}
   .countdown{display:inline-flex;align-items:center;gap:8px;margin-top:10px;border-radius:999px;
     padding:.32em .95em;font-family:var(--font-head);font-weight:700;font-size:.92rem;
     font-variant-numeric:tabular-nums}
@@ -112,13 +116,13 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, plDzieci, URLS, SETTINGS,
-         countdownFor, bookingEndMin, toMin, isoDate } from './assets/mc-common.js';
+         countdownFor, bookingEndMin, toMin, isoDate, orderRef } from './assets/mc-common.js';
 import { auth, A } from './assets/mc-firebase.js';
 import { watchMyBookings, watchMyRegistrations, registrationStatusText,
          BOOKING_STATUS_TEXT } from './assets/mc-data.js';
 import { authError } from './assets/mc-firebase.js';
 
-mountChrome({ current: 'Moje zamówienia', crumb: 'Historia zamówień' });
+mountChrome({ current: 'Historia zamówień', crumb: 'Historia zamówień' });
 
 $('#goLogin').href = `${URLS.login}?next=${encodeURIComponent(location.pathname)}`;
 $('#logout').onclick = async () => { await A.signOut(auth); toast('Wylogowano.'); };
@@ -197,7 +201,8 @@ function renderBookings(list) {
         <div class="order-head">
           <div>
             <h3>Wstęp do bawialni</h3>
-            <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}</div>
+            <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}
+              · nr <code class="ref">${esc(orderRef(b.id))}</code></div>
           </div>
           <div class="order-price">${esc(money(b.total))}</div>
         </div>
@@ -236,7 +241,8 @@ function renderClasses(list) {
           <div>
             <h3>${esc(r.eventTitle || 'Zajęcia')}</h3>
             <div class="order-when">${esc(longDate(r.eventDate))}${
-              r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}</div>
+              r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}
+              · nr <code class="ref">${esc(orderRef(r.id))}</code></div>
           </div>
           <div class="order-price">${esc(money(r.total))}</div>
         </div>
