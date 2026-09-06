@@ -299,7 +299,7 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, isoDate,
-         addDays, PALETTE } from './assets/mc-common.js';
+         addDays, PALETTE, askSaveOrDiscard } from './assets/mc-common.js';
 import { auth, A, adminStatus, isAdminEmail, authError, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          EMPTY_EVENT, todayISO, refreshEvent } from './assets/mc-data.js';
@@ -549,12 +549,16 @@ const modal = $('#evModal');
 const openM  = () => modal.classList.add('is-open');
 /* ==========================================================================
    OCHRONA WPISANYCH ZMIAN
-   Formularz zajęć ma kilkanaście pól. Przypadkowe kliknięcie w tło, Escape
-   albo krzyżyk kasowały wszystko bez słowa. Porównujemy więc stan formularza
-   z tym, co było przy otwarciu, i pytamy tylko wtedy, gdy naprawdę jest co
-   stracić — dając wybór: zapisz albo porzuć.
+   Formularz zajęć ma kilkanaście pól, a przypadkowe kliknięcie w tło kasowało
+   wszystko bez słowa. Porównujemy stan formularza z migawką zrobioną przy
+   otwarciu i pytamy TYLKO wtedy, gdy naprawdę jest co stracić — własnym
+   okienkiem, w którym każdy przycisk robi dokładnie to, co obiecuje:
+     Zapisz zmiany     → zapisuje i zamyka
+     Anuluj i zamknij  → zamyka bez zapisu
+     Wróć do edycji    → nic nie robi
    ========================================================================== */
 let evSnapshot = null;
+let evAsking = false;          // żeby dwa kliknięcia nie otworzyły dwóch okienek
 
 /** Odcisk wszystkich pól formularza — do porównania „czy coś się zmieniło". */
 function evFormPrint() {
@@ -564,29 +568,23 @@ function evFormPrint() {
 const evRemember = () => { evSnapshot = evFormPrint(); };
 const evDirty = () => evSnapshot !== null && evFormPrint() !== evSnapshot;
 
-/**
- * Czy wolno teraz zamknąć okno.
- * @returns {boolean} false = zostajemy w formularzu (albo trwa zapis)
- */
-function evMayClose() {
-  if (!evDirty()) return true;
-  if (confirm('Masz niezapisane zmiany w tych zajęciach.\n\n' +
-              'OK — zapisz je teraz\n' +
-              'Anuluj — nie zapisuj')) {
-    /* zapis sam zamknie okno po udanym wysłaniu */
-    const f = document.getElementById('evForm');
-    if (f.requestSubmit) f.requestSubmit(); else document.getElementById('evSave').click();
-    return false;
-  }
-  return confirm('Porzucić wpisane zmiany?\n\nOK — porzuć i zamknij\nAnuluj — wróć do formularza');
-}
-
-const closeM = (force) => {
-  if (!force && !evMayClose()) return;
+function shutM() {
   modal.classList.remove('is-open');
   $('#evMsg').innerHTML = '';
   evSnapshot = null;
-};
+}
+
+async function closeM(force) {
+  if (force || !evDirty()) return shutM();
+  if (evAsking) return;
+  evAsking = true;
+  const answer = await askSaveOrDiscard({
+    text: 'Zmieniłeś dane tych zajęć, ale ich jeszcze nie zapisano.'
+  });
+  evAsking = false;
+  if (answer === 'save')    { $('#evForm').requestSubmit(); return; }
+  if (answer === 'discard') shutM();
+}
 $('#evClose').onclick = $('#evCancel').onclick = () => closeM();
 modal.addEventListener('click', e => { if (e.target === modal) closeM(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeM(); });

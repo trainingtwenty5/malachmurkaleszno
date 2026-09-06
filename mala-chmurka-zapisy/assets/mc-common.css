@@ -316,6 +316,20 @@ table.tbl tbody tr:hover{background:var(--cream)}
 .modal-foot .spacer{margin-right:auto}
 
 /* ------------------------------------------------------------------ TOAST */
+.ask-back{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;
+  background:rgba(44,53,64,.5);opacity:0;transition:opacity .16s var(--ease)}
+.ask-back.is-on{opacity:1}
+.ask{width:100%;max-width:400px;background:var(--white);border-radius:var(--radius-lg);
+  padding:26px 24px;box-shadow:var(--shadow-lg);transform:translateY(10px);
+  transition:transform .16s var(--ease)}
+.ask-back.is-on .ask{transform:none}
+.ask h2{font-size:1.15rem;margin:0 0 6px}
+.ask p{margin:0 0 18px;color:var(--muted);font-size:.94rem;line-height:1.55}
+.ask-acts{display:flex;flex-direction:column;gap:8px}
+.ask-acts .btn{margin:0}
+@media (prefers-reduced-motion:reduce){
+  .ask-back,.ask-back .ask{transition:none}
+}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:300;
   background:var(--navy-deep);color:#fff;padding:12px 20px;border-radius:999px;
   box-shadow:var(--shadow-lg);font-size:.94rem;opacity:0;pointer-events:none;

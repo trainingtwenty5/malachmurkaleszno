@@ -37,6 +37,56 @@ const IG_PATH = 'M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.
 const FB_PATH = 'M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.02 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.09 24 12.07z';
 
 /* ==========================================================================
+   PRZYCISK „WSTECZ"
+   Dotąd zawsze prowadził na stronę główną — także wtedy, gdy ktoś przyszedł
+   z grafiku i chciał wrócić właśnie do grafiku. Teraz patrzymy, skąd użytkownik
+   przyszedł, i cofamy o JEDEN krok, z nazwą tego miejsca na przycisku.
+   ========================================================================== */
+
+/** Ludzkie nazwy podstron — do podpisu na przycisku cofania. */
+const PAGE_NAMES = [
+  ['kalendarz-zajec',        'grafiku zajęć'],
+  ['strona-zajec',           'opisu zajęć'],
+  ['zapisz-sie-na-zajecia',  'zapisu na zajęcia'],
+  ['rezerwacja-bawialni',    'rezerwacji'],
+  ['historia-zamowien',      'historii zamówień'],
+  ['dziekujemy-rezerwacja',  'potwierdzenia'],
+  ['dziekujemy',             'potwierdzenia'],
+  ['logowanie',              'logowania'],
+  ['panel-admina',           'panelu admina'],
+  ['admin',                  'panelu admina'],
+  ['diagnostyka',            'diagnostyki']
+];
+
+/**
+ * Dokąd i jak ma cofać przycisk.
+ * @returns {{label, href, useHistory}}
+ */
+export function backTarget(opts = {}) {
+  const home = { label: 'Powrót do strony głównej', href: opts.backTo || SETTINGS.homeUrl, useHistory: false };
+  if (opts.backTo) return home;
+
+  let ref = null;
+  try { ref = document.referrer ? new URL(document.referrer) : null; } catch { ref = null; }
+
+  /* obcy serwis albo wejście z zakładki — nie ma dokąd cofać */
+  if (!ref || ref.origin !== location.origin) return home;
+  /* odświeżenie tej samej strony też nie jest cofaniem */
+  if (ref.pathname === location.pathname) return home;
+
+  const file = ref.pathname.split('/').pop().replace(/\.html$/, '');
+  if (!file || file === 'index') {
+    return { label: 'Powrót do strony głównej', href: SETTINGS.homeUrl, useHistory: true };
+  }
+  const hit = PAGE_NAMES.find(([k]) => file === k);
+  return {
+    label: hit ? `Powrót do ${hit[1]}` : 'Wróć',
+    href: ref.pathname + ref.search,
+    useHistory: true
+  };
+}
+
+/* ==========================================================================
    Wstawia nagłówek, pasek „Powrót do strony głównej" i stopkę.
    opts.current – która pozycja menu jest aktywna (etykieta)
    opts.crumb   – dopisek obok przycisku powrotu
@@ -67,16 +117,17 @@ export function mountChrome(opts = {}) {
       </nav>
     </div>`;
 
+  const back = backTarget(opts);
   const backbar = document.createElement('div');
   backbar.className = 'backbar';
   backbar.innerHTML = `
     <div class="container">
-      <a class="back-btn" href="${opts.backTo || SETTINGS.homeUrl}">
+      <a class="back-btn" href="${back.href}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M19 12H5M11 18l-6-6 6-6"/>
         </svg>
-        Powrót do strony głównej
+        ${esc(back.label)}
       </a>
       ${opts.crumb ? `<span class="crumb">${esc(opts.crumb)}</span>` : ''}
     </div>`;
@@ -120,6 +171,16 @@ export function mountChrome(opts = {}) {
     <div class="container footer-bottom">
       <p>© <span>${new Date().getFullYear()}</span> ${SETTINGS.brand}, Leszno. Wszelkie prawa zastrzeżone.</p>
     </div>`;
+
+  /* Cofamy przez historię, żeby wrócić dokładnie tam, gdzie użytkownik był
+     (z pozycją przewijania i wybranym widokiem). Link w href zostaje jako
+     zapas — dla nowej karty i dla wyszukiwarek. */
+  if (back.useHistory) {
+    backbar.querySelector('.back-btn').addEventListener('click', e => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      if (history.length > 1) { e.preventDefault(); history.back(); }
+    });
+  }
 
   document.body.prepend(backbar);
   document.body.prepend(header);
@@ -182,6 +243,51 @@ export function updateNavAuth(user) {
     const { auth, A } = await import('./mc-firebase.js');
     await A.signOut(auth);
   };
+}
+
+/* ==========================================================================
+   OKIENKO Z PYTANIEM
+   Zastępuje systemowe confirm(): własny wygląd, sensowne podpisy przycisków
+   i — co najważniejsze — jasny podział na „zapisz", „odrzuć" i „wróć".
+   Zwraca 'save' | 'discard' | 'stay'.
+   ========================================================================== */
+export function askSaveOrDiscard({
+  title = 'Masz niezapisane zmiany',
+  text = 'Co zrobić z wprowadzonymi zmianami?',
+  saveLabel = 'Zapisz zmiany',
+  discardLabel = 'Anuluj i zamknij',
+  stayLabel = 'Wróć do edycji'
+} = {}) {
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.className = 'ask-back';
+    box.innerHTML = `
+      <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askTitle">
+        <h2 id="askTitle">${esc(title)}</h2>
+        <p>${esc(text)}</p>
+        <div class="ask-acts">
+          <button class="btn btn-primary btn-block" data-a="save">${esc(saveLabel)}</button>
+          <button class="btn btn-danger btn-block" data-a="discard">${esc(discardLabel)}</button>
+          <button class="btn btn-soft btn-block" data-a="stay">${esc(stayLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    const done = answer => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const onKey = e => { if (e.key === 'Escape') done('stay'); };
+
+    box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => done(b.dataset.a));
+    /* kliknięcie w tło = wróć do edycji: nic nie tracimy przez przypadek */
+    box.addEventListener('click', e => { if (e.target === box) done('stay'); });
+    document.addEventListener('keydown', onKey);
+    box.querySelector('[data-a="save"]').focus();
+  });
 }
 
 /* ------------------------------------------------------------ POWIADOMIENIA */

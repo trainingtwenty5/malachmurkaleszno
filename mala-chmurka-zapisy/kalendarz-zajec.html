@@ -38,14 +38,16 @@
   .month-name{font-family:var(--font-head);font-weight:700;font-size:.78rem;color:var(--muted);
     text-align:center;padding:4px 0}
   .month-cell{min-height:96px;background:var(--white);border:1px solid var(--line);
-    border-radius:12px;padding:6px 7px}
+    border-radius:12px;padding:6px 7px;width:100%;text-align:left;display:block;
+    font:inherit;color:inherit;cursor:pointer;transition:.15s var(--ease)}
+  .month-cell:not(.is-empty):hover{border-color:var(--brand-deep);box-shadow:var(--shadow-sm)}
+  .month-cell.is-empty{cursor:default}
   .month-cell.is-other{background:var(--cream);opacity:.55}
   .month-cell.is-today{border-color:var(--brand-deep);background:var(--brand-pale)}
-  .month-num{font-family:var(--font-head);font-weight:700;font-size:.84rem;color:var(--navy-deep)}
+  .month-num{display:block;font-family:var(--font-head);font-weight:700;font-size:.84rem;color:var(--navy-deep)}
   .month-ev{display:block;font-size:.72rem;line-height:1.3;border-radius:6px;padding:2px 5px;
     margin-top:3px;color:var(--navy-deep);background:var(--sky-pale);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .month-ev:hover{text-decoration:none;filter:brightness(.96)}
   .month-more{font-size:.7rem;color:var(--muted);margin-top:3px;display:block}
 
   @media (max-width:760px){
@@ -102,6 +104,9 @@
       <div class="cal-agenda" id="agenda"></div>
     </div>
 
+    <p class="hint day-hint" id="dayHint" hidden>Wybierz zajęcia z listy poniżej,
+      żeby zobaczyć szczegóły i zapisać dziecko.</p>
+
     <div class="month" id="month" hidden></div>
 
     <div class="legend" id="legend"></div>
@@ -149,6 +154,7 @@ function render(list) {
   const grid = document.querySelector('.cal-scroll');
   const month = $('#month');
 
+  $('#dayHint').hidden = true;
   if (view === 'month') {
     cal.hidden = true; month.hidden = false;
     renderMonth(list);
@@ -199,6 +205,7 @@ function legend(list) {
 function renderDay(list) {
   const d = new Date(anchor);
   $('#range').textContent = longDate(cmpISO(d));
+  $('#dayHint').hidden = false;
   $('#agenda').innerHTML = agendaHtml([d], list, cmpISO(new Date()));
   legend(list);
 }
@@ -217,18 +224,31 @@ function renderMonth(list) {
     const iso = cmpISO(d);
     const evs = list.filter(e => e.date === iso && e.active !== false)
                     .sort((x, y2) => toMin(x.start) - toMin(y2.start));
+    /* Kafelki są tylko podglądem — kliknięcie w dzień otwiera CAŁY dzień,
+       a dopiero tam wybiera się konkretne zajęcia. Na telefonie to jedyny
+       sensowny ruch: w komórce miesiąca nie da się rzetelnie wybrać godziny. */
     const chips = evs.slice(0, 3).map(ev =>
-      `<a class="month-ev" style="background:${esc(ev.color || '#93C7CF')}33"
-          href="${URLS.event}?id=${encodeURIComponent(ev.id)}"
-          title="${esc(ev.title)} · ${esc(ev.start)}–${esc(ev.end)}">${esc(ev.start)} ${esc(ev.title)}</a>`).join('');
-    cells.push(`<div class="month-cell${d.getMonth() !== m ? ' is-other' : ''}${iso === todayIso ? ' is-today' : ''}">
-        <div class="month-num">${d.getDate()}</div>${chips}
+      `<span class="month-ev" style="background:${esc(ev.color || '#93C7CF')}33"
+             title="${esc(ev.title)} · ${esc(ev.start)}–${esc(ev.end)}">${esc(ev.start)} ${esc(ev.title)}</span>`).join('');
+    const puste = evs.length === 0;
+    cells.push(`<button type="button" class="month-cell${d.getMonth() !== m ? ' is-other' : ''}${
+        iso === todayIso ? ' is-today' : ''}${puste ? ' is-empty' : ''}"
+        data-day="${iso}" ${puste ? 'disabled' : ''}
+        aria-label="${esc(longDate(iso))}${puste ? ', brak zajęć' : `, zajęć: ${evs.length}`}">
+        <span class="month-num">${d.getDate()}</span>${chips}
         ${evs.length > 3 ? `<span class="month-more">+${evs.length - 3} więcej</span>` : ''}
-      </div>`);
+      </button>`);
   }
 
   $('#month').innerHTML =
     DAY_SHORT.map(n => `<div class="month-name">${esc(n)}</div>`).join('') + cells.join('');
+
+  $$('#month [data-day]').forEach(el => el.onclick = () => {
+    const [y2, m2, d2] = el.dataset.day.split('-').map(Number);
+    anchor = new Date(y2, m2 - 1, d2);
+    setView('day');
+  });
+
   legend(list);
 }
 
