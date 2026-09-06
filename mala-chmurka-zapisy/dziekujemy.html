@@ -102,7 +102,7 @@
 </main>
 
 <script type="module">
-import { mountChrome, toast, $, esc, longDate, money, SETTINGS } from './assets/mc-common.js';
+import { mountChrome, toast, $, esc, longDate, money, SETTINGS, orderRef } from './assets/mc-common.js';
 
 mountChrome({ crumb: 'Potwierdzenie zapisu' });
 
@@ -139,7 +139,7 @@ if (reg) {
     ['Liczba dzieci',  String(reg.qty)],
     ['Forma płatności',esc(reg.paymentMethod)],
     ['Do zapłaty',     `<strong>${money(reg.total)}</strong>`],
-    ['Numer rezerwacji', `<code>${esc(String(reg.id).slice(0, 8).toUpperCase())}</code>`]
+    ['Numer rezerwacji', `<code>${esc(orderRef(reg.id))}</code>`]
   ];
   $('#summary').innerHTML = rows
     .map(([k, v]) => `<div class="sumrow"><span>${k}</span><strong>${v}</strong></div>`).join('');

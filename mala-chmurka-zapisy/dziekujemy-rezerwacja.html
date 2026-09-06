@@ -113,7 +113,7 @@
 </main>
 
 <script type="module">
-import { mountChrome, $, esc, money, longDate, SETTINGS } from './assets/mc-common.js';
+import { mountChrome, $, esc, money, longDate, SETTINGS, orderRef } from './assets/mc-common.js';
 import { auth, A } from './assets/mc-firebase.js';
 
 mountChrome({ crumb: 'Rezerwacja przyjęta' });
@@ -135,6 +135,7 @@ if (b) {
     <div class="sumrow"><span>Czas pobytu</span><span>${esc(b.durationLabel || '—')}</span></div>
     <div class="sumrow"><span>Liczba dzieci</span><span>${esc(String(b.qty || 1))}</span></div>
     <div class="sumrow"><span>Rezerwacja na</span><span>${esc(b.parent || '')}</span></div>
+    <div class="sumrow"><span>Numer rezerwacji</span><span><code>${esc(orderRef(b.id))}</code></span></div>
     <div class="sumrow total"><span>Do zapłaty na miejscu</span><span>${esc(money(b.total))}</span></div>`;
   $('#guestNote').hidden = !!b.hasAccount;
 }
