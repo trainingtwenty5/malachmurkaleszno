@@ -151,7 +151,6 @@ function bounds(list) {
    ========================================================================== */
 function render(list) {
   const cal = document.querySelector('.cal');
-  const grid = document.querySelector('.cal-scroll');
   const month = $('#month');
 
   $('#dayHint').hidden = true;
@@ -160,8 +159,10 @@ function render(list) {
     renderMonth(list);
   } else {
     cal.hidden = false; month.hidden = true;
-    /* w widoku dnia siatka godzinowa nie ma sensu — zostaje sama agenda */
-    grid.hidden = view === 'day';
+    /* Klasa, a nie `hidden` na siatce: samo ukrycie siatki nie wystarczało,
+       bo agenda jest domyślnie schowana poza telefonem. Klasa przełącza oba
+       widoki naraz — patrz `.cal.is-day` w mc-common.css. */
+    cal.classList.toggle('is-day', view === 'day');
     if (view === 'day') renderDay(list); else renderWeek(list);
   }
   $('#loading').hidden = true;
