@@ -547,8 +547,47 @@ function render() {
 /* ------------------------------------------------------------ MODAL ----- */
 const modal = $('#evModal');
 const openM  = () => modal.classList.add('is-open');
-const closeM = () => { modal.classList.remove('is-open'); $('#evMsg').innerHTML = ''; };
-$('#evClose').onclick = $('#evCancel').onclick = closeM;
+/* ==========================================================================
+   OCHRONA WPISANYCH ZMIAN
+   Formularz zajęć ma kilkanaście pól. Przypadkowe kliknięcie w tło, Escape
+   albo krzyżyk kasowały wszystko bez słowa. Porównujemy więc stan formularza
+   z tym, co było przy otwarciu, i pytamy tylko wtedy, gdy naprawdę jest co
+   stracić — dając wybór: zapisz albo porzuć.
+   ========================================================================== */
+let evSnapshot = null;
+
+/** Odcisk wszystkich pól formularza — do porównania „czy coś się zmieniło". */
+function evFormPrint() {
+  return JSON.stringify([...document.querySelectorAll('#evForm input, #evForm select, #evForm textarea')]
+    .map(el => (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value));
+}
+const evRemember = () => { evSnapshot = evFormPrint(); };
+const evDirty = () => evSnapshot !== null && evFormPrint() !== evSnapshot;
+
+/**
+ * Czy wolno teraz zamknąć okno.
+ * @returns {boolean} false = zostajemy w formularzu (albo trwa zapis)
+ */
+function evMayClose() {
+  if (!evDirty()) return true;
+  if (confirm('Masz niezapisane zmiany w tych zajęciach.\n\n' +
+              'OK — zapisz je teraz\n' +
+              'Anuluj — nie zapisuj')) {
+    /* zapis sam zamknie okno po udanym wysłaniu */
+    const f = document.getElementById('evForm');
+    if (f.requestSubmit) f.requestSubmit(); else document.getElementById('evSave').click();
+    return false;
+  }
+  return confirm('Porzucić wpisane zmiany?\n\nOK — porzuć i zamknij\nAnuluj — wróć do formularza');
+}
+
+const closeM = (force) => {
+  if (!force && !evMayClose()) return;
+  modal.classList.remove('is-open');
+  $('#evMsg').innerHTML = '';
+  evSnapshot = null;
+};
+$('#evClose').onclick = $('#evCancel').onclick = () => closeM();
 modal.addEventListener('click', e => { if (e.target === modal) closeM(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeM(); });
 
@@ -586,6 +625,7 @@ async function openModal(id) {
   $('#evDuplicate').hidden = !id;
   fill(id ? (await getEvent(id)) || EMPTY_EVENT : { ...EMPTY_EVENT, date: todayISO() });
   openM();
+  evRemember();
   $('#fTitle').focus();
 }
 
@@ -632,7 +672,7 @@ $('#evForm').addEventListener('submit', async e => {
     const weeks = Number($('#fRepeat').value) || 0;
     if (weeks > 0) await repeatWeekly(id, weeks);
     toast(editingId ? 'Zajęcia zapisane.' : `Zajęcia dodane${weeks ? ` (+${weeks} kolejnych tygodni)` : ''}.`);
-    closeM();
+    closeM(true);
   } catch (err) {
     badge('bad', authError(err));
   } finally {
@@ -643,7 +683,7 @@ $('#evForm').addEventListener('submit', async e => {
 $('#evDelete').onclick = async () => {
   if (!editingId) return;
   if (!confirm('Na pewno usunąć te zajęcia? Tej operacji nie da się cofnąć.')) return;
-  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeM(); }
+  try { await deleteEvent(editingId); toast('Zajęcia usunięte.'); closeM(true); }
   catch (err) { badge('bad', authError(err)); }
 };
 
@@ -651,7 +691,7 @@ $('#evDuplicate').onclick = async () => {
   if (!editingId) return;
   const d = prompt('Data kopii (RRRR-MM-DD):', $('#fDate').value);
   if (!d) return;
-  try { await duplicateEvent(editingId, d); toast('Skopiowano na ' + shortDate(d) + '.'); closeM(); }
+  try { await duplicateEvent(editingId, d); toast('Skopiowano na ' + shortDate(d) + '.'); closeM(true); }
   catch (err) { badge('bad', authError(err)); }
 };
 

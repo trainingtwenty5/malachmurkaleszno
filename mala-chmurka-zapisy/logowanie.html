@@ -66,7 +66,7 @@
         <a class="btn btn-outline btn-block" href="panel-admina.html" style="margin-top:8px">Pełny panel admina</a>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-        <a class="btn btn-primary" style="flex:1" href="zapisz-sie-na-zajecia.html">Zapisz się na zajęcia</a>
+        <a class="btn btn-primary" style="flex:1" href="rezerwacja-bawialni.html">Zarezerwuj miejsce</a>
         <a class="btn btn-outline" style="flex:1" href="kalendarz-zajec.html">Grafik zajęć</a>
       </div>
       <button class="btn btn-soft btn-block" id="logout" style="margin-top:10px">Wyloguj się</button>
@@ -251,7 +251,8 @@ A.onAuthStateChanged(auth, async user => {
 
 $('#logout').onclick = async () => { await A.signOut(auth); toast('Wylogowano.'); };
 
-setMode('login');
+/* Link „Zarejestruj się” z menu otwiera od razu właściwą zakładkę. */
+setMode(new URLSearchParams(location.search).get('tab') === 'register' ? 'register' : 'login');
 </script>
 </body>
 </html>

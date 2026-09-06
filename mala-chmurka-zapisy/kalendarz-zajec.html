@@ -12,6 +12,50 @@
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/mc-common.css">
 <style>
+  /* ---- dwa najbliższe terminy ---- */
+  .soon{margin:0 0 22px}
+  .soon-head{font-size:1.05rem;margin:0 0 10px}
+  .soon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .soon-card{display:block;background:var(--white);border:1px solid var(--line);
+    border-left-width:5px;border-radius:var(--radius);padding:14px 16px;
+    box-shadow:var(--shadow-sm);color:inherit}
+  .soon-card:hover{text-decoration:none;box-shadow:var(--shadow);transform:translateY(-1px)}
+  .soon-when{font-size:.82rem;color:var(--muted);font-family:var(--font-head);font-weight:600}
+  .soon-title{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-size:1.02rem;margin:3px 0 4px;line-height:1.25}
+  .soon-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+  .soon-meta span{background:var(--cream);border-radius:999px;padding:.12em .6em}
+  .soon-in{color:var(--brand-deep);font-weight:700}
+
+  /* ---- przełącznik widoku ---- */
+  .view-switch{display:flex;gap:4px;background:var(--cream-deep);padding:4px;border-radius:999px}
+  .view-switch button{padding:.38em .95em;border-radius:999px;font-family:var(--font-head);
+    font-weight:600;font-size:.86rem;color:var(--navy-deep);white-space:nowrap}
+  .view-switch button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+
+  /* ---- widok miesiąca ---- */
+  .month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+  .month-name{font-family:var(--font-head);font-weight:700;font-size:.78rem;color:var(--muted);
+    text-align:center;padding:4px 0}
+  .month-cell{min-height:96px;background:var(--white);border:1px solid var(--line);
+    border-radius:12px;padding:6px 7px}
+  .month-cell.is-other{background:var(--cream);opacity:.55}
+  .month-cell.is-today{border-color:var(--brand-deep);background:var(--brand-pale)}
+  .month-num{font-family:var(--font-head);font-weight:700;font-size:.84rem;color:var(--navy-deep)}
+  .month-ev{display:block;font-size:.72rem;line-height:1.3;border-radius:6px;padding:2px 5px;
+    margin-top:3px;color:var(--navy-deep);background:var(--sky-pale);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .month-ev:hover{text-decoration:none;filter:brightness(.96)}
+  .month-more{font-size:.7rem;color:var(--muted);margin-top:3px;display:block}
+
+  @media (max-width:760px){
+    .soon-grid{grid-template-columns:1fr}
+    .month{gap:4px}
+    .month-cell{min-height:70px;padding:4px 5px}
+    .month-ev{font-size:.66rem}
+  }
+</style>
+<style>
   .cal-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
   .cal-intro p{margin:0}
 </style>
@@ -26,14 +70,24 @@
         <h1>Grafik zajęć</h1>
         <p class="lead">Kliknij w kafelek, żeby zobaczyć szczegóły zajęć i zapisać dziecko.</p>
       </div>
-      <a class="btn btn-primary btn-auto" href="zapisz-sie-na-zajecia.html">Zapisz się na zajęcia</a>
     </div>
 
+    <!-- dwa najbliższe terminy — zanim ktokolwiek zacznie przeglądać kalendarz -->
+    <section class="soon" id="soon" hidden>
+      <h2 class="soon-head">Najbliższe zajęcia</h2>
+      <div class="soon-grid" id="soonGrid"></div>
+    </section>
+
     <div class="cal-toolbar">
-      <button class="cal-nav" id="prev" aria-label="Poprzedni tydzień">‹</button>
-      <button class="cal-nav" id="next" aria-label="Następny tydzień">›</button>
+      <button class="cal-nav" id="prev" aria-label="Poprzedni zakres">‹</button>
+      <button class="cal-nav" id="next" aria-label="Następny zakres">›</button>
       <button class="btn btn-soft cal-today btn-auto" id="today">Dziś</button>
       <div class="cal-range" id="range">—</div>
+      <div class="view-switch" role="group" aria-label="Widok kalendarza">
+        <button data-view="day">Dzień</button>
+        <button data-view="week" class="is-on">Tydzień</button>
+        <button data-view="month">Miesiąc</button>
+      </div>
     </div>
 
     <div class="cal">
@@ -48,6 +102,8 @@
       <div class="cal-agenda" id="agenda"></div>
     </div>
 
+    <div class="month" id="month" hidden></div>
+
     <div class="legend" id="legend"></div>
 
     <div class="loading" id="loading"><span class="spin"></span> Wczytuję grafik…</div>
@@ -56,10 +112,10 @@
 </main>
 
 <script type="module">
-import { mountChrome, $, esc, DAY_NAMES, DAY_SHORT, MONTHS_GEN,
-         weekStart, addDays, isoDate, toMin, fmtMin, URLS, SETTINGS,
-         seatState } from './assets/mc-common.js';
-import { watchEvents } from './assets/mc-data.js';
+import { mountChrome, $, $$, esc, DAY_NAMES, DAY_SHORT, MONTHS_GEN,
+         weekStart, addDays, isoDate, toMin, fmtMin, longDate, shortDate,
+         URLS, SETTINGS, seatState, signupClosed, money, MONTHS } from './assets/mc-common.js';
+import { watchEvents, listEvents, todayISO } from './assets/mc-data.js';
 
 mountChrome({ current: 'Grafik zajęć', crumb: 'Grafik zajęć' });
 
@@ -67,6 +123,11 @@ const SLOT = 34;                 // px na 30 minut
 const PXM  = SLOT / 30;
 let monday = weekStart(new Date());
 let unsub = null;
+
+/* 'day' | 'week' | 'month' — tydzień zostaje domyślny, bo tak grafik wygląda
+   dziś i tak przyzwyczajeni są klienci. */
+let view = 'week';
+let anchor = new Date();          // dzień, wokół którego liczymy zakres
 
 const cmpISO = isoDate;
 
@@ -79,7 +140,100 @@ function bounds(list) {
   return [s, Math.max(e, s + 120)];
 }
 
+/* ==========================================================================
+   Wybór widoku. Siatka tygodniowa zostaje dokładnie taka, jak była — dzień
+   i miesiąc to nowe tryby obok niej.
+   ========================================================================== */
 function render(list) {
+  const cal = document.querySelector('.cal');
+  const grid = document.querySelector('.cal-scroll');
+  const month = $('#month');
+
+  if (view === 'month') {
+    cal.hidden = true; month.hidden = false;
+    renderMonth(list);
+  } else {
+    cal.hidden = false; month.hidden = true;
+    /* w widoku dnia siatka godzinowa nie ma sensu — zostaje sama agenda */
+    grid.hidden = view === 'day';
+    if (view === 'day') renderDay(list); else renderWeek(list);
+  }
+  $('#loading').hidden = true;
+}
+
+/** Lista „dzień po dniu" — na telefonie jedyny widok, w trybie dnia także na desktopie. */
+function agendaHtml(days, list, todayIso) {
+  return days.map(d => {
+    const iso = cmpISO(d);
+    const evs = list.filter(e => e.date === iso && e.active !== false)
+                    .sort((x, y) => toMin(x.start) - toMin(y.start));
+    const items = evs.length ? evs.map(ev => {
+      const st = seatState(ev);
+      const free = st.free;
+      return `<a class="agenda-item" href="${URLS.event}?id=${encodeURIComponent(ev.id)}">
+        <span class="agenda-bar" style="background:${esc(ev.color || '#93C7CF')}"></span>
+        <span style="min-width:0;flex:1">
+          <span class="agenda-time">${esc(ev.start)}–${esc(ev.end)}</span>
+          <span class="agenda-title">${esc(ev.title)}</span>
+          <span class="agenda-meta">${st.state === 'closed' ? 'termin zapisów upłynął'
+            : free ? free + ' z ' + (ev.capacity || 0) + ' wolnych miejsc' : 'brak wolnych miejsc'}
+            · ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat</span>
+        </span></a>`;
+    }).join('') : '<div class="agenda-empty">Brak zajęć tego dnia.</div>';
+
+    return `<section class="agenda-day${iso === todayIso ? ' is-today' : ''}">
+      <div class="agenda-head"><span class="d">${DAY_NAMES[(d.getDay() + 6) % 7]}</span>
+        <span class="n">${d.getDate()} ${MONTHS_GEN[d.getMonth()]}${iso === todayIso ? ' · dziś' : ''}</span></div>
+      <div class="agenda-list">${items}</div></section>`;
+  }).join('');
+}
+
+function legend(list) {
+  const seen = new Map();
+  list.forEach(e => { if (e.active !== false && !seen.has(e.color)) seen.set(e.color, e.title); });
+  $('#legend').innerHTML = [...seen].slice(0, 8)
+    .map(([c, t]) => `<span><i style="background:${esc(c || '#93C7CF')}"></i>${esc(t)}</span>`).join('');
+}
+
+/* ---------------------------------------------------------- widok dnia --- */
+function renderDay(list) {
+  const d = new Date(anchor);
+  $('#range').textContent = longDate(cmpISO(d));
+  $('#agenda').innerHTML = agendaHtml([d], list, cmpISO(new Date()));
+  legend(list);
+}
+
+/* -------------------------------------------------------- widok miesiąca - */
+function renderMonth(list) {
+  const y = anchor.getFullYear(), m = anchor.getMonth();
+  $('#range').textContent = `${MONTHS[m]} ${y}`;
+
+  const first = weekStart(new Date(y, m, 1));
+  const last  = addDays(weekStart(new Date(y, m + 1, 0)), 6);
+  const todayIso = cmpISO(new Date());
+
+  const cells = [];
+  for (let d = new Date(first); d <= last; d = addDays(d, 1)) {
+    const iso = cmpISO(d);
+    const evs = list.filter(e => e.date === iso && e.active !== false)
+                    .sort((x, y2) => toMin(x.start) - toMin(y2.start));
+    const chips = evs.slice(0, 3).map(ev =>
+      `<a class="month-ev" style="background:${esc(ev.color || '#93C7CF')}33"
+          href="${URLS.event}?id=${encodeURIComponent(ev.id)}"
+          title="${esc(ev.title)} · ${esc(ev.start)}–${esc(ev.end)}">${esc(ev.start)} ${esc(ev.title)}</a>`).join('');
+    cells.push(`<div class="month-cell${d.getMonth() !== m ? ' is-other' : ''}${iso === todayIso ? ' is-today' : ''}">
+        <div class="month-num">${d.getDate()}</div>${chips}
+        ${evs.length > 3 ? `<span class="month-more">+${evs.length - 3} więcej</span>` : ''}
+      </div>`);
+  }
+
+  $('#month').innerHTML =
+    DAY_SHORT.map(n => `<div class="month-name">${esc(n)}</div>`).join('') + cells.join('');
+  legend(list);
+}
+
+/* -------------------------------------------------------- widok tygodnia - */
+function renderWeek(list) {
   const days = [...Array(7)].map((_, i) => addDays(monday, i));
   const a = days[0], b = days[6];
   $('#range').textContent = a.getMonth() === b.getMonth()
@@ -156,43 +310,16 @@ function render(list) {
   });
 
   /* ---------- agenda dla telefonów ---------- */
-  const ag = $('#agenda');
-  ag.innerHTML = days.map((d, i) => {
-    const iso = cmpISO(d);
-    const evs = list.filter(e => e.date === iso && e.active !== false)
-                    .sort((x, y) => toMin(x.start) - toMin(y.start));
-    const items = evs.length ? evs.map(ev => {
-      const st = seatState(ev);
-      const free = st.free;
-      return `<a class="agenda-item" href="${URLS.event}?id=${encodeURIComponent(ev.id)}">
-        <span class="agenda-bar" style="background:${esc(ev.color || '#93C7CF')}"></span>
-        <span style="min-width:0;flex:1">
-          <span class="agenda-time">${esc(ev.start)}–${esc(ev.end)}</span>
-          <span class="agenda-title">${esc(ev.title)}</span>
-          <span class="agenda-meta">${st.state === 'closed' ? 'termin zapisów upłynął'
-            : free ? free + ' z ' + (ev.capacity||0) + ' wolnych miejsc' : 'brak wolnych miejsc'}
-            · ${ev.ageMin ?? 0}–${ev.ageMax ?? 6} lat</span>
-        </span></a>`;
-    }).join('') : '<div class="agenda-empty">Brak zajęć tego dnia.</div>';
-    return `<section class="agenda-day">
-      <div class="agenda-head"><span class="d">${DAY_NAMES[i]}</span>
-        <span class="n">${d.getDate()} ${MONTHS_GEN[d.getMonth()]}${iso === todayIso ? ' · dziś' : ''}</span></div>
-      <div class="agenda-list">${items}</div></section>`;
-  }).join('');
+  $('#agenda').innerHTML = agendaHtml(days, list, todayIso);
 
-  /* ---------- legenda ---------- */
-  const seen = new Map();
-  list.forEach(e => { if (e.active !== false && !seen.has(e.color)) seen.set(e.color, e.title); });
-  $('#legend').innerHTML = [...seen].slice(0, 8)
-    .map(([c, t]) => `<span><i style="background:${esc(c || '#93C7CF')}"></i>${esc(t)}</span>`).join('');
-
-  $('#loading').hidden = true;
+  legend(list);
 }
 
 function load() {
   if (unsub) unsub();
   $('#loading').hidden = false;
-  const from = cmpISO(monday), to = cmpISO(addDays(monday, 6));
+  const [a, b] = range();
+  const from = cmpISO(a), to = cmpISO(b);
   unsub = watchEvents(from, to, list => {
     $('#err').innerHTML = '';
     render(list);
@@ -207,9 +334,74 @@ function load() {
   }, 7000);
 }
 
-$('#prev').onclick  = () => { monday = addDays(monday, -7); load(); };
-$('#next').onclick  = () => { monday = addDays(monday,  7); load(); };
-$('#today').onclick = () => { monday = weekStart(new Date()); load(); };
+/* ==========================================================================
+   ZAKRES DAT ZALEŻNY OD WIDOKU
+   ========================================================================== */
+function range() {
+  if (view === 'day')   return [new Date(anchor), new Date(anchor)];
+  if (view === 'month') {
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const last  = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+    /* siatka miesiąca zaczyna się w poniedziałek i kończy w niedzielę */
+    return [weekStart(first), addDays(weekStart(last), 6)];
+  }
+  return [new Date(monday), addDays(monday, 6)];
+}
+
+function step(dir) {
+  if (view === 'day')        anchor = addDays(anchor, dir);
+  else if (view === 'month') anchor = new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
+  else { monday = addDays(monday, 7 * dir); anchor = new Date(monday); }
+  load();
+}
+
+function setView(v) {
+  view = v;
+  $$('.view-switch button').forEach(b => b.classList.toggle('is-on', b.dataset.view === v));
+  if (v === 'week') monday = weekStart(anchor);
+  load();
+}
+$$('.view-switch button').forEach(b => b.onclick = () => setView(b.dataset.view));
+
+$('#prev').onclick  = () => step(-1);
+$('#next').onclick  = () => step(1);
+$('#today').onclick = () => { anchor = new Date(); monday = weekStart(anchor); load(); };
+
+/* ==========================================================================
+   DWA NAJBLIŻSZE TERMINY
+   Osobne zapytanie, bo mają być widoczne niezależnie od przeglądanego zakresu.
+   ========================================================================== */
+async function renderSoon() {
+  try {
+    const to = addDays(new Date(), 90);
+    const list = (await listEvents(todayISO(), isoDate(to)))
+      .filter(e => e.active !== false && !signupClosed(e))
+      .slice(0, 2);
+    if (!list.length) { $('#soon').hidden = true; return; }
+
+    $('#soonGrid').innerHTML = list.map(e => {
+      const st = seatState(e);
+      const dni = Math.round((new Date(e.date + 'T00:00:00') - new Date(todayISO() + 'T00:00:00')) / 86400000);
+      const kiedy = dni === 0 ? 'dziś' : dni === 1 ? 'jutro' : `za ${dni} dni`;
+      return `<a class="soon-card" style="border-left-color:${esc(e.color || '#93C7CF')}"
+                 href="${URLS.event}?id=${encodeURIComponent(e.id)}">
+          <div class="soon-when">${esc(longDate(e.date))} · ${esc(e.start)}–${esc(e.end)}
+            <span class="soon-in">${esc(kiedy)}</span></div>
+          <div class="soon-title">${esc(e.title || 'Zajęcia')}</div>
+          <div class="soon-meta">
+            <span>${esc(st.short)}</span>
+            <span>${esc(money(e.price))}</span>
+            ${e.ageMin !== undefined ? `<span>${e.ageMin}–${e.ageMax} lat</span>` : ''}
+          </div>
+        </a>`;
+    }).join('');
+    $('#soon').hidden = false;
+  } catch (e) {
+    $('#soon').hidden = true;      // brak najbliższych terminów nie blokuje grafiku
+  }
+}
+
+renderSoon();
 load();
 </script>
 </body>
