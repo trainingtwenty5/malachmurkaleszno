@@ -47,6 +47,12 @@
     color:var(--brand-deep);border-radius:999px;padding:.28em .85em;font-size:.85rem;font-weight:600;
     font-family:var(--font-head)}
   .who-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .admin-tabs{display:flex;gap:6px;flex-wrap:wrap;background:var(--cream-deep);padding:6px;
+    border-radius:var(--radius);margin:16px 0 14px}
+  .admin-tabs a,.admin-tabs span{padding:.6em 1.1em;border-radius:12px;font-family:var(--font-head);
+    font-weight:600;font-size:.94rem;color:var(--navy-deep);white-space:nowrap}
+  .admin-tabs a:hover{background:rgba(255,255,255,.6);text-decoration:none}
+  .admin-tabs .is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
   .quick{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 22px}
   .quick a{font-size:.86rem;padding:.45em .9em;border:1px solid var(--line);border-radius:999px;
     background:var(--white);color:var(--navy-deep);font-family:var(--font-head);font-weight:600}
@@ -171,10 +177,22 @@
         <button class="btn btn-soft btn-sm btn-auto" id="logout">Wyloguj</button>
       </div>
 
+      <!-- Ten sam pasek co w pełnym panelu — żeby z zarządzania zajęciami dało się
+           przejść wprost do właściwej zakładki, bez szukania po drodze. -->
+      <nav class="admin-tabs" aria-label="Sekcje panelu">
+        <span class="is-on">Zarządzanie zajęciami</span>
+        <a href="panel-admina.html?tab=cal">1 · Kalendarz zajęć</a>
+        <a href="panel-admina.html?tab=regs">2 · Zapisani</a>
+        <a href="panel-admina.html?tab=count">3 · Licznik w bawialni</a>
+        <a href="panel-admina.html?tab=rank">4 · Ranking wizyt</a>
+        <a href="panel-admina.html?tab=book">5 · Rezerwacje</a>
+        <a href="panel-admina.html?tab=play">6 · Czas zabawy</a>
+      </nav>
+
       <div class="quick">
-        <a href="panel-admina.html">Pełny panel (zapisani, licznik, ranking) →</a>
         <a href="kalendarz-zajec.html">Grafik oczami klienta</a>
         <a href="zapisz-sie-na-zajecia.html">Formularz zapisu</a>
+        <a href="rezerwacja-bawialni.html">Formularz rezerwacji</a>
       </div>
 
       <div class="stat-cards">

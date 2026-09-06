@@ -253,9 +253,8 @@
         <li><a href="#materialy">Oferty</a></li>
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
-        <li><a href="/mala-chmurka-zapisy/historia-zamowien.html">Moje zamówienia</a></li>
-        <li><a href="/mala-chmurka-zapisy/logowanie.html">Zaloguj się</a></li>
-        <li><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
+        <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Moje zamówienia</a></li>
+        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>
@@ -762,7 +761,6 @@
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
         <li><a href="/mala-chmurka-zapisy/historia-zamowien.html">Moje zamówienia</a></li>
-        <li><a href="/mala-chmurka-zapisy/logowanie.html">Zaloguj się</a></li>
       </ul>
     </nav>
 
@@ -925,6 +923,10 @@
 <!-- Licznik dzieci w bawialni + licznik odwiedzin (system zapisów).
      Skrypt sam wstawia się nad sekcję „120 m² / 0–6 lat / 7 dni / 4 domki". -->
 <script type="module" src="/mala-chmurka-zapisy/assets/mc-licznik.js"></script>
+<script type="module">
+  /* Menu główne: „Zarejestruj się" dla gościa, „Moje zamówienia" po zalogowaniu. */
+  import('/mala-chmurka-zapisy/assets/mc-common.js').then(m => m.watchNavAuth()).catch(() => {});
+</script>
 
 </body>
 </html>

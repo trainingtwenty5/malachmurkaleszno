@@ -27,6 +27,9 @@
   .stat-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow-sm)}
   .stat-card .k{font-size:.82rem;color:var(--muted)}
   .stat-card .v{font-family:var(--font-head);font-weight:700;font-size:1.55rem;color:var(--navy-deep);line-height:1.2}
+  /* Kafelki z wartością słowną („automatyczny", „ręczny") — liczbowy rozmiar
+     nie mieści się w kolumnie i napis wychodził poza kartę. */
+  .stat-card .v.v-text{font-size:1.05rem;line-height:1.35;overflow-wrap:anywhere}
   .swatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
   .swatches button{width:28px;height:28px;border-radius:8px;border:2px solid transparent}
   .swatches button.is-on{border-color:var(--navy-deep);transform:scale(1.08)}
@@ -195,7 +198,7 @@
         <div class="stat-cards">
           <div class="stat-card"><div class="k">Teraz w bawialni</div><div class="v" id="cNow">—</div></div>
           <div class="stat-card"><div class="k">Pokazywane do godziny</div><div class="v" id="cUntil">—</div></div>
-          <div class="stat-card"><div class="k">Tryb licznika</div><div class="v" id="cMode">—</div></div>
+          <div class="stat-card"><div class="k">Tryb licznika</div><div class="v v-text" id="cMode">—</div></div>
           <div class="stat-card"><div class="k">Dzieci z zajęć</div><div class="v" id="cFromClasses">—</div></div>
           <div class="stat-card"><div class="k">Dzieci z rezerwacji</div><div class="v" id="cFromBookings">—</div></div>
           <div class="stat-card"><div class="k">Odwiedziło nas łącznie</div><div class="v" id="cVisits">—</div></div>
@@ -585,11 +588,18 @@ A.onAuthStateChanged(auth, async user => {
   $('#gate').hidden = true;
   $('#app').hidden = false;
   $('#me').textContent = user.email || user.uid;
-  if (!booted) { booted = true; start(); }
+  if (!booted) { booted = true; start(); openTabFromUrl(); }
 });
 $('#logout').onclick = () => A.signOut(auth).then(() => location.reload());
 
 /* ============================================================ ZAKŁADKI ==== */
+/** Nazwa zakładki z adresu — pozwala wejść prosto w wybraną z innego miejsca. */
+function openTabFromUrl() {
+  const want = new URLSearchParams(location.search).get('tab') || location.hash.replace('#', '');
+  const btn = want && document.querySelector(`.admin-tabs button[data-tab="${want}"]`);
+  if (btn) btn.click();
+}
+
 $$('.admin-tabs button').forEach(b => b.onclick = () => {
   $$('.admin-tabs button').forEach(x => x.classList.toggle('is-on', x === b));
   $$('.panel').forEach(p => p.classList.toggle('is-on', p.id === 'tab-' + b.dataset.tab));
