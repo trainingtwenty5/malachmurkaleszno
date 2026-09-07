@@ -24,7 +24,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `logowanie.html` | Logowanie klienta (e-mail + hasło, Google, reset hasła). |
 | `dziekujemy.html` | Podziękowanie: podsumowanie, numer konta, kontakt. |
 | **`admin.html`** | **Ekran logowania administratora + zarządzanie zajęciami.** |
-| `panel-admina.html` | Pełny panel z 4 zakładkami (kalendarz, zapisani, licznik, ranking). |
+| `panel-admina.html` | Pełny panel z 7 zakładkami (kalendarz, zapisani, licznik, ranking, rezerwacje, czas zabawy, finanse). |
 | `assets/firebase-config.js` | Konfiguracja Firebase **i lista administratorów**. |
 | `assets/mc-firebase.js` | Inicjalizacja SDK + sprawdzanie uprawnień. |
 | `assets/mc-licznik.js` | Licznik dzieci na stronie głównej (jedna linijka w index.html). |
@@ -32,6 +32,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `assets/mc-data.js` | Cała logika bazy danych. |
 | **`assets/mc-cennik.js`** | **Cennik bawialni: taryfy, święta, progi wiekowe, zniżki.** |
 | **`assets/mc-dzieci.js`** | **Pamięć dzieci — podpowiedzi przy kolejnym zapisie.** |
+| **`assets/mc-finanse.js`** | **Finanse: wspólny kształt transakcji, agregaty i wykresy SVG.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
 | `tools/test-rules.mjs` | 80 testów reguł na emulatorze — dowód, że blokady działają. |
@@ -43,6 +44,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
+| `tools/test-finanse.mjs` | 80 testów zakładki „Finanse” (przychód, okresy) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -260,6 +262,7 @@ node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
+node tools/test-finanse.mjs # 80 testów: przychód, okresy, nowi klienci, podziałka osi
 ```
 
 ### Czego panel *nie* chroni
@@ -606,6 +609,65 @@ Każde potwierdzone „Przyszedł + Opłacone” dopisuje dziecku wizytę i czas
 *Zosia Kowalska, 726 431 978, 3 wizyty, 6 godz.* — dokładnie tak przy trzech
 wizytach po 2 h, 3 h i 1 h. Odznaczenie checkboxa cofa wizytę. Jest eksport do CSV.
 Dzieci rozpoznajemy po **numerze telefonu** — ten sam numer to ta sama kartoteka.
+
+---
+
+## Finanse (zakładka 7)
+
+Jedna kasa dla obu źródeł pieniędzy: **zapisów na zajęcia** i **rezerwacji wstępu
+do bawialni** (razem z wejściami z ulicy). Obie kolekcje sprowadzamy w
+`assets/mc-finanse.js` do wspólnego kształtu „transakcji" i dopiero na nim liczą
+się wszystkie kafelki — dzięki temu nie ma dwóch równoległych sposobów liczenia
+przychodu, które prędzej czy później by się rozjechały.
+
+**Trzy zasady, które warto znać, zanim spojrzysz na liczby:**
+
+* **Przychód to wyłącznie to, co odhaczono jako „opłacone".** Zamówienie bez
+  opłaty nie jest sprzedażą — czeka w kafelku „Do zainkasowania" w karcie *Saldo
+  okresu*. Odhaczasz je w zakładce **2 · Zapisani** albo **5 · Rezerwacje**.
+* **Odrzucone rezerwacje nie liczą się wcale.** Nikt za nie nie zapłacił i nie
+  zapłaci; widać je tylko w zakładce 5.
+* **Kwotę przypisujemy do dnia zajęć albo wizyty**, a nie do dnia, w którym ktoś
+  wypełnił formularz. Tak myśli obsługa („ile zarobiliśmy w sobotę"), a `eventDate`
+  i `date` są w bazie zawsze, w przeciwieństwie do znacznika utworzenia.
+
+**Co pokazuje zakładka**
+
+| Kafelek | Co liczy |
+|---|---|
+| Sprzedaż | Suma opłaconych kwot w wybranym okresie. |
+| Liczba rezerwacji | Wszystkie zamówienia, także te jeszcze nieopłacone. |
+| Średnia wartość transakcji | Sprzedaż podzielona przez liczbę **opłaconych** pozycji. |
+| Nowi klienci | Ilu rodziców trafiło do nas **pierwszy raz w życiu** w tym okresie. |
+| Przychód w czasie | Sprzedaż dzień po dniu. |
+| Przychód wg zajęć | Rozbicie na nazwy zajęć i wstęp — **cała historia**, nie tylko okres. |
+| Przychód na rezerwację | Sprzedaż podzielona przez **wszystkie** zamówienia danego dnia. |
+| Przychód wg dnia tygodnia | Od poniedziałku. Nad wykresem najlepszy dzień okresu. |
+| Skumulowany przychód | Narastająco — na końcu krzywej stoi suma całego okresu. |
+| Saldo okresu | Ile wpłynęło, ile zostało do zainkasowania, ile dzieci. |
+
+Filtr u góry przełącza okres (7 / 30 / 90 dni, rok). **Jaśniejsza linia na każdym
+wykresie to ten sam co do długości okres tuż przed wybranym** — stąd plakietki
+„+33%" przy liczbach. Gdy nie ma do czego porównać (poprzedni okres był pusty),
+plakietka pokazuje kreskę zamiast nieskończonego wzrostu.
+
+**Nowi klienci** liczą się z całej bazy, a nie z okresu: stały bywalec nie może
+zrobić się „nowy" tylko dlatego, że zmieniliśmy filtr dat. Rodzica rozpoznajemy
+po numerze telefonu, tak samo jak w rankingu wizyt.
+
+**Wejścia z ulicy** mają w bazie kwotę zero (przy drzwiach nikt nie wpisuje ceny),
+więc nie pojawiają się na wykresie przychodu wg zajęć — ale wchodzą do liczby
+rezerwacji i do licznika. Jeśli chcesz je widzieć w pieniądzach, wpisz kwotę
+przy rezerwacji.
+
+W odróżnieniu od pozostałych zakładek ta **nie słucha bazy na żywo**: historię
+ściągamy raz, przy pierwszym wejściu, i odświeżamy przyciskiem **Odśwież**.
+Nasłuch na wszystkich zapisach i rezerwacjach naraz kosztowałby tyle odczytów,
+że szkoda darmowego limitu Firebase. **Pobierz CSV** zgrywa pozycje z wybranego
+okresu — data, źródło, nazwa, dzieci, kwota, opłacone.
+
+Wykresy to ręcznie robione SVG, bez żadnej biblioteki z sieci — panel ma działać
+także wtedy, gdy CDN nie odpowiada. Matematykę pilnuje `node tools/test-finanse.mjs`.
 
 ---
 
