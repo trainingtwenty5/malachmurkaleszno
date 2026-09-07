@@ -147,6 +147,211 @@ export function previousRange({ from, to }) {
 export const inRange = (txs, { from, to }) =>
   txs.filter(t => t.date >= from && t.date <= to);
 
+/* --------------------------------------------------------------------------
+   GOTOWE ZAKRESY
+   Obsługa nie liczy dat w pamięci — myśli kategoriami „wczoraj", „ten
+   miesiąc", „trzeci kwartał". Każdy z tych skrótów rozwijamy tu na zwykłą
+   parę { from, to }, żeby reszta panelu znała tylko jeden kształt okresu.
+   -------------------------------------------------------------------------- */
+
+const dayOf   = iso => parseDate(iso);
+const shift   = (iso, n) => isoDate(addDays(parseDate(iso), n));
+/** Poniedziałek tygodnia, w którym leży data — tydzień zaczynamy po polsku. */
+const mondayOf = iso => {
+  const d = parseDate(iso);
+  return isoDate(addDays(d, -((d.getDay() + 6) % 7)));
+};
+const firstOfMonth = iso => iso.slice(0, 8) + '01';
+/** Kwartał (1–4), w którym leży data. */
+export const quarterOf = iso => Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1;
+
+/** Pierwszy i ostatni dzień kwartału. */
+export function quarterRange(year, q) {
+  const m = (q - 1) * 3 + 1;
+  const from = `${year}-${String(m).padStart(2, '0')}-01`;
+  /* Ostatni dzień = dzień przed pierwszym dniem następnego kwartału.
+     Prościej i pewniej niż tablica długości miesięcy z lutym w tle. */
+  const nextY = q === 4 ? year + 1 : year;
+  const nextM = q === 4 ? 1 : m + 3;
+  return { from, to: shift(`${nextY}-${String(nextM).padStart(2, '0')}-01`, -1) };
+}
+
+/** Pierwszy i ostatni dzień miesiąca. */
+export function monthRange(year, month) {
+  const from = `${year}-${String(month).padStart(2, '0')}-01`;
+  const nextY = month === 12 ? year + 1 : year;
+  const nextM = month === 12 ? 1 : month + 1;
+  return { from, to: shift(`${nextY}-${String(nextM).padStart(2, '0')}-01`, -1) };
+}
+
+/**
+ * Rozwija nazwę skrótu na zakres dat.
+ * Zwraca `null` przy nieznanej nazwie — wywołujący sam decyduje, co wtedy,
+ * zamiast dostawać po cichu dzisiejszą datę.
+ */
+export function presetRange(id, todayISO) {
+  const t = todayISO;
+  const y = Number(t.slice(0, 4));
+  switch (id) {
+    case 'today':      return { from: t, to: t };
+    case 'yesterday':  return { from: shift(t, -1), to: shift(t, -1) };
+    case 'last7':      return lastDays(7, t);
+    case 'last14':     return lastDays(14, t);
+    case 'last30':     return lastDays(30, t);
+    case 'last90':     return lastDays(90, t);
+    case 'last365':    return lastDays(365, t);
+    /* „Do dzisiaj" — od początku okresu do dziś włącznie. */
+    case 'wtd':        return { from: mondayOf(t), to: t };
+    case 'mtd':        return { from: firstOfMonth(t), to: t };
+    case 'qtd':        return { from: quarterRange(y, quarterOf(t)).from, to: t };
+    case 'ytd':        return { from: `${y}-01-01`, to: t };
+    case 'q1': case 'q2': case 'q3': case 'q4':
+      return quarterRange(y, Number(id[1]));
+    /* Kwartały poprzedniego roku — przy styczniowym zamknięciu roku
+       najczęściej patrzy się właśnie na nie. */
+    case 'q1prev': case 'q2prev': case 'q3prev': case 'q4prev':
+      return quarterRange(y - 1, Number(id[1]));
+    default:           return null;
+  }
+}
+
+/** Menu skrótów: nagłówek grupy i pozycje. Kolejność jak w panelu. */
+export const PRESET_GROUPS = [
+  { id: 'today',     label: 'Dzisiaj' },
+  { id: 'yesterday', label: 'Wczoraj' },
+  { label: 'Ostatnie', items: [
+    { id: 'last7',   label: '7 dni' },
+    { id: 'last14',  label: '14 dni' },
+    { id: 'last30',  label: '30 dni' },
+    { id: 'last90',  label: '90 dni' },
+    { id: 'last365', label: '365 dni' }
+  ] },
+  { label: 'Do dzisiaj', items: [
+    { id: 'wtd', label: 'Ten tydzień' },
+    { id: 'mtd', label: 'Ten miesiąc' },
+    { id: 'qtd', label: 'Ten kwartał' },
+    { id: 'ytd', label: 'Ten rok' }
+  ] },
+  { label: 'Kwartały', items: [
+    { id: 'q1', label: 'I kwartał' },
+    { id: 'q2', label: 'II kwartał' },
+    { id: 'q3', label: 'III kwartał' },
+    { id: 'q4', label: 'IV kwartał' },
+    { id: 'q1prev', label: 'I kwartał — rok wcześniej' },
+    { id: 'q2prev', label: 'II kwartał — rok wcześniej' },
+    { id: 'q3prev', label: 'III kwartał — rok wcześniej' },
+    { id: 'q4prev', label: 'IV kwartał — rok wcześniej' }
+  ] }
+];
+
+/** Wszystkie skróty spłaszczone do jednej listy — do szukania nazwy zakresu. */
+export const ALL_PRESETS = PRESET_GROUPS.flatMap(g => g.items || [g]);
+
+/** Data od–do w dowolnej kolejności → poprawny zakres. */
+export function normalizeRange(a, b) {
+  if (!a && !b) return null;
+  const from = a || b, to = b || a;
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+
+/**
+ * Nazwa zakresu do wyświetlenia na przycisku.
+ * Najpierw sprawdzamy, czy to któryś ze skrótów — „Ostatnie 30 dni" czyta się
+ * lepiej niż „09.08.2026 – 07.09.2026" i od razu mówi, że okres jedzie z dniem.
+ */
+export function rangeLabel(range, todayISO) {
+  if (!range) return '—';
+  const hit = ALL_PRESETS.find(p => {
+    const r = presetRange(p.id, todayISO);
+    return r && r.from === range.from && r.to === range.to;
+  });
+  if (hit) {
+    const group = PRESET_GROUPS.find(g => (g.items || []).includes(hit));
+    return group && group.label ? `${group.label}: ${hit.label.toLowerCase()}` : hit.label;
+  }
+  if (range.from === range.to) return shortDatePl(range.from);
+  return `${shortDatePl(range.from)} – ${shortDatePl(range.to)}`;
+}
+
+/** '2026-09-07' → '7 wrz 2026'. Krótko, bez zer wiodących. */
+export function shortDatePl(iso) {
+  if (!iso) return '—';
+  const d = parseDate(iso);
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** '2026-09-07' → '7 wrz'. Na osie i dymki, gdzie rok tylko zabiera miejsce. */
+export function dayLabelPl(iso) {
+  if (!iso) return '';
+  const d = parseDate(iso);
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
+}
+
+export const MONTHS_SHORT = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze',
+                             'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
+
+/* --------------------------------------------------------------------------
+   OKRES PORÓWNAWCZY
+   Jaśniejsza linia na wykresach. Domyślnie to okres tuż przed wybranym, ale
+   przy sezonowym biznesie sensowniejsze bywa „ten sam czas rok temu" —
+   bawialnia w wakacje i bawialnia w listopadzie to dwa różne światy.
+   -------------------------------------------------------------------------- */
+export const COMPARE_MODES = [
+  { id: 'prev', label: 'Poprzedni okres' },
+  { id: 'year', label: 'Ten sam okres rok temu' },
+  { id: 'none', label: 'Bez porównania' }
+];
+
+/** Ten sam zakres cofnięty o rok — dzień w dzień, bez kombinowania z 29 lutego. */
+export function sameRangeYearAgo({ from, to }) {
+  const back = iso => {
+    const d = parseDate(iso);
+    /* 29 lutego cofnięte o rok trafiłoby na 1 marca — ucinamy do 28. */
+    const day = (d.getMonth() === 1 && d.getDate() === 29) ? 28 : d.getDate();
+    return `${d.getFullYear() - 1}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+  return { from: back(from), to: back(to) };
+}
+
+/** Zakres do porównania albo `null`, gdy porównania nie chcemy. */
+export function comparisonRange(range, mode) {
+  if (!range || mode === 'none') return null;
+  return mode === 'year' ? sameRangeYearAgo(range) : previousRange(range);
+}
+
+/* --------------------------------------------------------------------------
+   SIATKA KALENDARZA
+   -------------------------------------------------------------------------- */
+
+/**
+ * Miesiąc rozpisany na tygodnie od poniedziałku. Puste pola na początku
+ * i końcu dostają dni sąsiednich miesięcy z flagą `outside`, żeby siatka
+ * była zawsze pełnym prostokątem i nie skakała między miesiącami.
+ */
+export function monthGrid(year, month) {
+  const first = `${year}-${String(month).padStart(2, '0')}-01`;
+  const start = mondayOf(first);
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const iso = shift(start, i);
+    cells.push({ iso, day: Number(iso.slice(8, 10)), outside: iso.slice(0, 7) !== first.slice(0, 7) });
+  }
+  /* Szósty tydzień bywa pusty (luty zaczynający się w poniedziałek) —
+     wtedy go nie rysujemy, żeby kalendarz nie miał wiszącego pasa. */
+  const weeks = [];
+  for (let w = 0; w < 6; w++) {
+    const row = cells.slice(w * 7, w * 7 + 7);
+    if (row.some(c => !c.outside)) weeks.push(row);
+  }
+  return weeks;
+}
+
+/** Miesiąc przesunięty o n — do strzałek w kalendarzu. */
+export function shiftMonth(year, month, n) {
+  const total = year * 12 + (month - 1) + n;
+  return { year: Math.floor(total / 12), month: (total % 12) + 1 };
+}
+
 /* ==========================================================================
    3. AGREGATY
    --------------------------------------------------------------------------
@@ -437,6 +642,137 @@ export function drawChart(host, cfg) {
     });
   }
 
+  if (cfg.hover) attachHover(svg, cfg, { padL, padT, iw, ih, y });
+
   host.innerHTML = '';
   host.appendChild(svg);
 }
+
+/* ==========================================================================
+   5. DYMEK POD KURSOREM
+   --------------------------------------------------------------------------
+   Sam wykres mówi „mniej więcej tyle" — a obsługa chce wiedzieć dokładnie,
+   ile było w konkretny wtorek. Dymek pokazuje datę i wartość każdej serii
+   naraz, żeby porównanie okresów dało się przeczytać bez mrużenia oczu.
+   ========================================================================== */
+
+/**
+ * Który punkt danych jest pod kursorem.
+ * Osobno i czysto, bo to jedyne miejsce, gdzie łatwo o błąd na krawędziach:
+ * pierwszy i ostatni punkt muszą łapać kursor również poza swoją połówką
+ * odstępu, inaczej skraje wykresu byłyby nieklikalne.
+ */
+export function hitIndex(px, { padL, iw, count, mode = 'line' }) {
+  const n = Math.max(1, count);
+  if (n === 1) return 0;
+  const rel = px - padL;
+  const i = mode === 'bar'
+    ? Math.floor(rel / (iw / n))
+    : Math.round((rel / iw) * (n - 1));
+  return Math.min(n - 1, Math.max(0, i));
+}
+
+/** Jeden dymek na całą stronę — tworzony przy pierwszym najechaniu. */
+let tipEl = null;
+function tip() {
+  if (!tipEl) {
+    tipEl = document.createElement('div');
+    tipEl.className = 'fin-tip';
+    tipEl.hidden = true;
+    document.body.appendChild(tipEl);
+  }
+  return tipEl;
+}
+export function hideTip() { if (tipEl) tipEl.hidden = true; }
+
+/** Ustawia dymek obok kursora, odbijając go od prawej i górnej krawędzi okna. */
+function placeTip(box, x, y) {
+  box.hidden = false;
+  const r = box.getBoundingClientRect();
+  const pad = 14;
+  let left = x + pad;
+  if (left + r.width > innerWidth - 8) left = x - r.width - pad;
+  if (left < 8) left = 8;
+  let top = y - r.height - pad;
+  if (top < 8) top = y + pad;
+  box.style.left = `${Math.round(left)}px`;
+  box.style.top  = `${Math.round(top)}px`;
+}
+
+/**
+ * Przezroczysta warstwa nad wykresem łapie kursor, a pionowa prowadnica
+ * i kropki na seriach pokazują, o który punkt chodzi.
+ * @param {object} cfg.hover
+ *   labels  podpisy punktów (daty albo dni tygodnia) — tytuł dymka
+ *   rows    [{ color, label, values:[] }] wiersze dymka
+ *   fmt     jak sformatować liczbę
+ */
+function attachHover(svg, cfg, geom) {
+  const { padL, padT, iw, ih, y } = geom;
+  const h = cfg.hover;
+  const bar = cfg.type === 'bar';
+  const count = bar ? (cfg.values || []).length : (cfg.pointCount || 0);
+  if (!count) return;
+
+  const px = i => bar ? padL + (iw / count) * (i + .5)
+                      : padL + (count === 1 ? iw / 2 : (i / (count - 1)) * iw);
+
+  /* Warstwa rysowana nad danymi — prowadnica i kropki muszą być na wierzchu. */
+  const layer = el('g', { class: 'fin-hover', opacity: 0 });
+  const guide = el('line', { class: 'fin-guide', y1: padT, y2: padT + ih });
+  layer.appendChild(guide);
+  const dots = h.rows.map(r => {
+    const c = el('circle', { r: 4.5, fill: '#fff', stroke: r.color, 'stroke-width': 2.5 });
+    layer.appendChild(c);
+    return c;
+  });
+  svg.appendChild(layer);
+
+  const catcher = el('rect', { x: padL, y: padT, width: iw, height: ih,
+                               fill: 'transparent', style: 'cursor:crosshair' });
+  svg.appendChild(catcher);
+
+  let last = -1;
+  const move = ev => {
+    const box = svg.getBoundingClientRect();
+    /* SVG bywa przeskalowany względem swojego viewBoxa (wąskie okno),
+       więc przeliczamy piksele ekranu na współrzędne rysunku. */
+    const scale = box.width ? (svg.viewBox.baseVal.width || box.width) / box.width : 1;
+    const i = hitIndex((ev.clientX - box.left) * scale, { padL, iw, count, mode: cfg.type });
+
+    if (i !== last) {
+      last = i;
+      layer.setAttribute('opacity', 1);
+      guide.setAttribute('x1', px(i));
+      guide.setAttribute('x2', px(i));
+      h.rows.forEach((r, k) => {
+        const v = r.values[i];
+        const show = v !== undefined && v !== null;
+        dots[k].setAttribute('opacity', show ? 1 : 0);
+        if (show) { dots[k].setAttribute('cx', px(i)); dots[k].setAttribute('cy', y(v)); }
+      });
+      tip().innerHTML =
+        `<div class="fin-tip-head">${escTip(h.labels[i] ?? '')}</div>` +
+        h.rows.map(r => `<div class="fin-tip-row">
+             <i style="background:${escTip(r.color)}"></i>
+             <span>${escTip(r.label)}</span>
+             <b>${escTip((h.fmt || String)(r.values[i] ?? 0))}</b>
+           </div>`).join('');
+    }
+    placeTip(tip(), ev.clientX, ev.clientY);
+  };
+
+  const leave = () => { last = -1; layer.setAttribute('opacity', 0); hideTip(); };
+
+  /* pointer* zamiast mouse* — ten sam kod obsługuje mysz i dotyk na tablecie
+     przy ladzie, a tam panel jest używany najczęściej. */
+  catcher.addEventListener('pointermove', move);
+  catcher.addEventListener('pointerdown', move);
+  catcher.addEventListener('pointerleave', leave);
+  catcher.addEventListener('pointercancel', leave);
+}
+
+/* Dymek składamy z tekstu, który sami wyliczyliśmy, ale nazwy zajęć biorą
+   się z bazy — a tam wpisuje je człowiek. Lepiej uciec znaki niż zakładać. */
+const escTip = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

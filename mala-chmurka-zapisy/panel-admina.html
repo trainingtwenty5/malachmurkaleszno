@@ -133,6 +133,86 @@
      poprzedniego. */
   .fin-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
   .fin-filters .control{width:auto;min-width:190px}
+  /* --- wybór okresu: przycisk + okienko ze skrótami i kalendarzem --- */
+  .fin-pick{position:relative}
+  .fin-chip{display:inline-flex;align-items:center;gap:8px;background:var(--white);
+    border:1px solid var(--line);border-radius:12px;padding:.55em 1em;min-height:44px;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);box-shadow:var(--shadow-sm)}
+  .fin-chip:hover{background:var(--cream)}
+  .fin-chip svg{width:17px;height:17px;flex:none;stroke:var(--brand-deep);fill:none;
+    stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .fin-caret{color:var(--muted);font-size:.8rem}
+  .fin-pop{position:absolute;z-index:60;top:calc(100% + 6px);left:0;display:flex;
+    background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-lg);overflow:hidden}
+  .fin-pop-narrow{flex-direction:column;padding:6px;min-width:230px}
+  .fin-pop-side{width:186px;flex:none;padding:8px;border-right:1px solid var(--line);
+    background:var(--cream);max-height:390px;overflow-y:auto}
+  .fin-pop-main{padding:12px 14px 12px;min-width:0}
+  .fin-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+    text-align:left;padding:.45em .7em;border-radius:10px;font-size:.9rem;color:var(--navy-deep)}
+  .fin-opt:hover{background:var(--brand-pale)}
+  .fin-opt.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep);font-weight:600}
+  .fin-opt .fin-caret{margin-left:auto}
+  .fin-group{margin-top:4px}
+  .fin-group > .fin-opt{font-family:var(--font-head);font-weight:600}
+  .fin-sub{display:none;padding:2px 0 4px 10px;margin-left:6px;border-left:2px solid var(--line)}
+  .fin-group.is-open .fin-sub{display:block}
+  .fin-group.is-open > .fin-opt .fin-caret{transform:rotate(180deg)}
+  .fin-pop-inputs{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .fin-pop-inputs .control{min-width:0;width:150px}
+  .fin-cals{display:flex;gap:18px}
+  .fin-cal{width:210px}
+  .fin-cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    font-size:.92rem;margin-bottom:6px;min-height:30px}
+  .fin-cal-nav{width:28px;height:28px;border-radius:8px;color:var(--navy-deep);
+    font-size:1.1rem;line-height:1;flex:none}
+  .fin-cal-nav:hover{background:var(--cream-deep)}
+  .fin-dow,.fin-week{display:grid;grid-template-columns:repeat(7,1fr)}
+  .fin-dow span{text-align:center;font-size:.72rem;color:var(--muted);padding:2px 0 4px}
+  .fin-day{height:30px;border-radius:9px;font-size:.85rem;color:var(--ink);
+    font-variant-numeric:tabular-nums}
+  .fin-day:hover:not(:disabled){background:var(--brand-pale)}
+  .fin-day.out{color:#C4BDB2}
+  .fin-day.today{box-shadow:inset 0 0 0 1.5px var(--brand)}
+  /* Dni pomiędzy końcami zakresu — pas w kolorze marki, końce mocniejsze. */
+  .fin-day.mid{background:var(--brand-pale);border-radius:0}
+  .fin-day.edge{background:var(--brand-deep);color:#fff;font-weight:700}
+  .fin-day.edge.from{border-radius:9px 0 0 9px}
+  .fin-day.edge.to{border-radius:0 9px 9px 0}
+  .fin-day.edge.from.to{border-radius:9px}
+  .fin-day:disabled{opacity:.35;cursor:not-allowed}
+  .fin-pop-foot{display:flex;align-items:center;gap:8px;margin-top:12px;
+    padding-top:11px;border-top:1px solid var(--line);flex-wrap:wrap}
+  /* Podpowiedź z datami dostaje własny wiersz, gdy nie mieści się obok
+     przycisków — bez tego na telefonie łamała się po jednej literze. */
+  .fin-pop-foot .hint{flex:1 1 170px;min-width:0}
+  /* --- dymek pod kursorem --- */
+  .fin-tip{position:fixed;z-index:999;pointer-events:none;
+    background:var(--white);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow-lg);padding:9px 12px;font-size:.84rem;color:var(--ink);
+    max-width:280px}
+  .fin-tip-head{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    margin-bottom:5px}
+  .fin-tip-row{display:flex;align-items:center;gap:8px;line-height:1.7;white-space:nowrap}
+  .fin-tip-row i{width:9px;height:9px;border-radius:50%;flex:none}
+  .fin-tip-row span{color:var(--muted)}
+  .fin-tip-row b{margin-left:auto;font-family:var(--font-head);font-weight:700;
+    color:var(--navy-deep);font-variant-numeric:tabular-nums;padding-left:14px}
+  .fin-guide{stroke:var(--brand);stroke-width:1;stroke-dasharray:3 3}
+  .fin-hover{transition:opacity .12s var(--ease)}
+  @media (max-width:760px){
+    /* Na telefonie dwa kalendarze obok siebie nie mają szans — zostaje jeden,
+       a okienko przykleja się do lewej krawędzi ekranu. */
+    .fin-pop{position:fixed;left:8px;right:8px;top:auto;flex-direction:column;
+      max-height:78vh;overflow-y:auto}
+    .fin-pop-side{width:auto;border-right:0;border-bottom:1px solid var(--line);max-height:none}
+    .fin-cals{flex-direction:column;gap:14px}
+    .fin-cal{width:100%}
+    .fin-cals .fin-cal:nth-child(2){display:none}
+    .fin-pop-inputs .control{width:100%}
+  }
   .fin-range{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
     background:var(--cream-deep);border-radius:999px;padding:.45em 1.1em;white-space:nowrap}
   .fin-grid{display:grid;gap:14px;margin-bottom:14px}
@@ -466,12 +546,61 @@
       <!-- ============================== 7. FINANSE ============================== -->
       <section class="panel" id="tab-fin">
         <div class="fin-filters">
-          <select class="control" id="finPeriod" aria-label="Okres">
-            <option value="7">Ostatnie 7 dni</option>
-            <option value="30" selected>Ostatnie 30 dni</option>
-            <option value="90">Ostatnie 90 dni</option>
-            <option value="365">Ostatni rok</option>
-          </select>
+          <!-- Wybór okresu: skróty po lewej, dwa miesiące kalendarza po prawej.
+               Panel siedzi w DOM-ie od początku i tylko się chowa — dzięki temu
+               wybrany zakres przeżywa zamknięcie i otwarcie okienka. -->
+          <div class="fin-pick" id="finPick">
+            <button type="button" class="fin-chip" id="finPickBtn"
+                    aria-haspopup="dialog" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+              <span id="finPickLabel">Ostatnie: 30 dni</span>
+              <span class="fin-caret" aria-hidden="true">▾</span>
+            </button>
+
+            <div class="fin-pop" id="finPop" role="dialog" aria-label="Wybór okresu" hidden>
+              <div class="fin-pop-side" id="finPresets"></div>
+              <div class="fin-pop-main">
+                <div class="fin-pop-inputs">
+                  <input class="control" id="finFrom" type="date" aria-label="Od">
+                  <span aria-hidden="true">→</span>
+                  <input class="control" id="finTo" type="date" aria-label="Do">
+                </div>
+                <div class="fin-cals">
+                  <div class="fin-cal">
+                    <div class="fin-cal-head">
+                      <button type="button" class="fin-cal-nav" id="finPrevM" aria-label="Poprzedni miesiąc">‹</button>
+                      <span id="finMonthA">—</span>
+                    </div>
+                    <div id="finGridA"></div>
+                  </div>
+                  <div class="fin-cal">
+                    <div class="fin-cal-head">
+                      <span id="finMonthB">—</span>
+                      <button type="button" class="fin-cal-nav" id="finNextM" aria-label="Następny miesiąc">›</button>
+                    </div>
+                    <div id="finGridB"></div>
+                  </div>
+                </div>
+                <div class="fin-pop-foot">
+                  <span class="hint" id="finPickHint"></span>
+                  <button type="button" class="btn btn-outline btn-sm" id="finCancel">Anuluj</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="finApply">Zastosuj</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Do czego porównujemy jaśniejszą linię na wykresach. -->
+          <div class="fin-pick" id="finCmp">
+            <button type="button" class="fin-chip" id="finCmpBtn"
+                    aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V8m0 0L4 11m3-3 3 3M17 4v12m0 0 3-3m-3 3-3-3"/></svg>
+              <span id="finCmpLabel">Poprzedni okres</span>
+              <span class="fin-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="fin-pop fin-pop-narrow" id="finCmpPop" role="menu" hidden></div>
+          </div>
+
           <div class="fin-range" id="finRange">—</div>
           <button class="btn btn-soft btn-sm btn-auto" id="finReload">Odśwież</button>
           <button class="btn btn-soft btn-sm btn-auto" id="finExport">Pobierz CSV</button>
@@ -483,7 +612,7 @@
           jako „opłacone”</strong> — reszta czeka w kafelku „Do zainkasowania”. Odrzucone
           rezerwacje nie liczą się wcale. Kwoty przypisujemy do <strong>dnia zajęć albo
           wizyty</strong>, a nie do dnia, w którym ktoś wypełnił formularz.
-          Jaśniejsza linia na wykresach to ten sam co do długości okres tuż przed wybranym.</p>
+          <strong>Najedź na wykres</strong>, żeby zobaczyć dokładne liczby z konkretnego dnia.</p>
 
         <!-- kafelki -->
         <section class="fin-grid fin-g4">
@@ -700,7 +829,7 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
-         DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
+         DAY_NAMES, DAY_SHORT, MONTHS, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
          askConfirm, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
@@ -2027,14 +2156,197 @@ async function openFinance() {
   }
 }
 
-$('#finPeriod').onchange = () => renderFinance();
+/* ==========================================================================
+   WYBÓR OKRESU
+   --------------------------------------------------------------------------
+   `FIN_RANGE` to jedyne źródło prawdy o tym, co pokazują wykresy. Okienko
+   wyboru pracuje na własnej kopii (`pickFrom` / `pickTo`) i dopiero „Zastosuj"
+   przenosi ją do `FIN_RANGE` — dzięki temu „Anuluj" naprawdę anuluje,
+   a klikanie po kalendarzu nie przerysowuje panelu przy każdym dniu.
+   ========================================================================== */
+let FIN_RANGE = FIN.presetRange('last30', todayISO());
+let FIN_CMP   = 'prev';
+let pickFrom = null, pickTo = null, pickMonth = null;
+
 $('#finReload').onclick  = () => { invalidateFinanceData(); openFinance(); };
 
-/** Podpisy pod osią X — kilka dat rozłożonych równo, w formacie „7.09”. */
-const finXLabels = days => FIN.pickLabels(days).map(({ i, iso }) => {
-  const d = new Date(iso.slice(0, 4), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
-  return { i, text: `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, '0')}` };
+/* ---------------------------------------------------- skróty w okienku --- */
+function buildPresets() {
+  $('#finPresets').innerHTML = FIN.PRESET_GROUPS.map(g => g.items
+    ? `<div class="fin-group" data-group="${esc(g.label)}">
+         <button type="button" class="fin-opt">${esc(g.label)}<span class="fin-caret">▾</span></button>
+         <div class="fin-sub">${g.items.map(it =>
+           `<button type="button" class="fin-opt" data-preset="${esc(it.id)}">${esc(it.label)}</button>`).join('')}</div>
+       </div>`
+    : `<button type="button" class="fin-opt" data-preset="${esc(g.id)}">${esc(g.label)}</button>`
+  ).join('');
+
+  /* Nagłówek grupy tylko rozwija listę — sam w sobie nie jest okresem. */
+  $$('#finPresets .fin-group > .fin-opt').forEach(b => b.onclick = () => {
+    b.parentElement.classList.toggle('is-open');
+  });
+  $$('#finPresets [data-preset]').forEach(b => b.onclick = () => {
+    const r = FIN.presetRange(b.dataset.preset, todayISO());
+    if (!r) return;
+    pickFrom = r.from; pickTo = r.to;
+    pickMonth = { year: Number(r.to.slice(0, 4)), month: Number(r.to.slice(5, 7)) };
+    /* Kalendarz pokazuje dwa miesiące, więc cofamy się o jeden — wybrany
+       koniec okresu ma wypaść w prawej połowie, nie uciec za krawędź. */
+    pickMonth = FIN.shiftMonth(pickMonth.year, pickMonth.month, -1);
+    drawPicker();
+  });
+}
+
+/* -------------------------------------------------------- kalendarz ----- */
+const DOW = ['pon', 'wto', 'śro', 'czw', 'pią', 'sob', 'nie'];
+
+function calendarHTML(year, month) {
+  const today = todayISO();
+  const range = FIN.normalizeRange(pickFrom, pickTo);
+  return `<div class="fin-dow">${DOW.map(d => `<span>${d}</span>`).join('')}</div>` +
+    FIN.monthGrid(year, month).map(week => `<div class="fin-week">${week.map(c => {
+      const inRange = range && c.iso >= range.from && c.iso <= range.to;
+      const isFrom  = range && c.iso === range.from;
+      const isTo    = range && c.iso === range.to;
+      const cls = ['fin-day'];
+      if (c.outside) cls.push('out');
+      if (c.iso === today) cls.push('today');
+      if (inRange && !isFrom && !isTo) cls.push('mid');
+      if (isFrom || isTo) { cls.push('edge'); if (isFrom) cls.push('from'); if (isTo) cls.push('to'); }
+      /* Przyszłość jest zablokowana: w finansach nie ma czego tam szukać,
+         a pusty wykres „do 2030 roku" tylko wygląda na awarię. */
+      const future = c.iso > today;
+      return `<button type="button" class="${cls.join(' ')}" data-day="${c.iso}"
+                ${future ? 'disabled' : ''}>${c.day}</button>`;
+    }).join('')}</div>`).join('');
+}
+
+function drawPicker() {
+  if (!pickMonth) {
+    const base = (FIN_RANGE && FIN_RANGE.to) || todayISO();
+    pickMonth = FIN.shiftMonth(Number(base.slice(0, 4)), Number(base.slice(5, 7)), -1);
+  }
+  const a = pickMonth;
+  const b = FIN.shiftMonth(a.year, a.month, 1);
+  const name = m => `${MONTHS[m.month - 1]} ${m.year}`;
+
+  $('#finMonthA').textContent = name(a);
+  $('#finMonthB').textContent = name(b);
+  $('#finGridA').innerHTML = calendarHTML(a.year, a.month);
+  $('#finGridB').innerHTML = calendarHTML(b.year, b.month);
+  $('#finFrom').value = pickFrom || '';
+  $('#finTo').value   = pickTo || '';
+
+  const range = FIN.normalizeRange(pickFrom, pickTo);
+  /* Nazwa okresu stoi już na przycisku — tutaj bardziej przydają się
+     konkretne daty i długość, bo to one decydują, co zobaczysz na wykresie. */
+  $('#finPickHint').textContent = range
+    ? `${FIN.shortDatePl(range.from)} – ${FIN.shortDatePl(range.to)} · ${plDni(FIN.rangeLength(range.from, range.to))}`
+    : 'Kliknij dzień początkowy, potem końcowy.';
+  $('#finApply').disabled = !range;
+
+  $$('#finPop [data-day]').forEach(b => b.onclick = () => pickDay(b.dataset.day));
+  $$('#finPresets [data-preset]').forEach(b => {
+    const r = FIN.presetRange(b.dataset.preset, todayISO());
+    b.classList.toggle('is-on', !!(range && r && r.from === range.from && r.to === range.to));
+  });
+}
+
+/** 1 dzień / 2 dni / 5 dni — odmiana jak w reszcie panelu. */
+function plDni(n) {
+  n = Number(n) || 0;
+  if (n === 1) return '1 dzień';
+  return `${n} dni`;
+}
+
+/**
+ * Klik w dzień. Pierwszy klik zaczyna nowy zakres, drugi go domyka.
+ * Trzeci zaczyna od nowa — bez tego trzeba by pamiętać o jakimś „resecie",
+ * a tak wybór poprawia się samym klikaniem.
+ */
+function pickDay(iso) {
+  if (!pickFrom || (pickFrom && pickTo)) { pickFrom = iso; pickTo = null; }
+  else pickTo = iso;
+  drawPicker();
+}
+
+[['#finFrom', v => { pickFrom = v; }], ['#finTo', v => { pickTo = v; }]].forEach(([sel, set]) => {
+  $(sel).onchange = () => {
+    const v = $(sel).value;
+    if (!v || v > todayISO()) { drawPicker(); return; }
+    set(v);
+    pickMonth = FIN.shiftMonth(Number(v.slice(0, 4)), Number(v.slice(5, 7)), -1);
+    drawPicker();
+  };
 });
+
+$('#finPrevM').onclick = () => { pickMonth = FIN.shiftMonth(pickMonth.year, pickMonth.month, -1); drawPicker(); };
+$('#finNextM').onclick = () => { pickMonth = FIN.shiftMonth(pickMonth.year, pickMonth.month,  1); drawPicker(); };
+
+/* ------------------------------------------------- otwieranie okienka --- */
+function openPicker() {
+  pickFrom = FIN_RANGE.from; pickTo = FIN_RANGE.to; pickMonth = null;
+  $('#finPop').hidden = false;
+  $('#finPickBtn').setAttribute('aria-expanded', 'true');
+  drawPicker();
+}
+function closePicker() {
+  $('#finPop').hidden = true;
+  $('#finPickBtn').setAttribute('aria-expanded', 'false');
+}
+
+$('#finPickBtn').onclick = e => {
+  e.stopPropagation();
+  if ($('#finPop').hidden) { closeCmp(); openPicker(); } else closePicker();
+};
+$('#finCancel').onclick = closePicker;
+$('#finApply').onclick = () => {
+  const r = FIN.normalizeRange(pickFrom, pickTo);
+  if (!r) return;
+  FIN_RANGE = r;
+  closePicker();
+  renderFinance();
+};
+$('#finPop').addEventListener('click', e => e.stopPropagation());
+
+/* ------------------------------------------------- okres porównawczy --- */
+function buildCompare() {
+  $('#finCmpPop').innerHTML = FIN.COMPARE_MODES.map(m =>
+    `<button type="button" class="fin-opt" data-cmp="${esc(m.id)}">${esc(m.label)}</button>`).join('');
+  $$('#finCmpPop [data-cmp]').forEach(b => b.onclick = () => {
+    FIN_CMP = b.dataset.cmp;
+    closeCmp();
+    renderFinance();
+  });
+}
+function closeCmp() {
+  $('#finCmpPop').hidden = true;
+  $('#finCmpBtn').setAttribute('aria-expanded', 'false');
+}
+$('#finCmpBtn').onclick = e => {
+  e.stopPropagation();
+  const pop = $('#finCmpPop');
+  if (pop.hidden) {
+    closePicker();
+    pop.hidden = false;
+    $('#finCmpBtn').setAttribute('aria-expanded', 'true');
+    $$('#finCmpPop [data-cmp]').forEach(b => b.classList.toggle('is-on', b.dataset.cmp === FIN_CMP));
+  } else closeCmp();
+};
+$('#finCmpPop').addEventListener('click', e => e.stopPropagation());
+
+/* Klik gdziekolwiek indziej i Escape zamykają oba okienka. */
+document.addEventListener('click', () => { closePicker(); closeCmp(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePicker(); closeCmp(); }
+});
+
+buildPresets();
+buildCompare();
+
+/** Podpisy pod osią X — kilka dat rozłożonych równo, w formacie „7 wrz”. */
+const finXLabels = days => FIN.pickLabels(days).map(({ i, iso }) =>
+  ({ i, text: FIN.dayLabelPl(iso) }));
 
 /** Krótka kwota na oś Y: „1,2 tys.” zamiast „1200,00 zł” — inaczej oś rośnie w nieskończoność. */
 const finShortMoney = v => {
@@ -2071,20 +2383,38 @@ function finLegend(hostId, now, prev) {
 function renderFinance() {
   if (!FIN_DATA) return;
   const TX = FIN_DATA.txs;
-  const days = Number($('#finPeriod').value) || 30;
-  const now  = FIN.lastDays(days, todayISO());
-  const prev = FIN.previousRange(now);
+  const now  = FIN_RANGE;
+  const cmp  = FIN.comparisonRange(now, FIN_CMP);
+  const withCmp = !!cmp;
+  /* Bez porównania nadal liczymy poprzedni okres — tylko po to, żeby serie
+     miały tę samą długość co bieżące i reszta funkcji nie musiała w kilkunastu
+     miejscach sprawdzać, czy porównanie w ogóle jest. Na wykresy ta seria
+     nie trafia, a plakietki zmiany pokazują wtedy kreskę: „nie ma do czego
+     porównać" to nie to samo co „bez zmian". */
+  const prev = cmp || FIN.previousRange(now);
+
+  $('#finPickLabel').textContent = FIN.rangeLabel(now, todayISO());
+  $('#finCmpLabel').textContent =
+    (FIN.COMPARE_MODES.find(m => m.id === FIN_CMP) || {}).label || '';
   $('#finRange').textContent = `${shortDate(now.from)} – ${shortDate(now.to)}`;
 
   const A1 = FIN.summary(TX, now), B1 = FIN.summary(TX, prev);
   const dNow = A1.days, dPrev = B1.days;
 
+  /* Etykiety serii w dymku i w legendzie — ten sam napis w obu miejscach. */
+  const labNow  = `${shortDate(now.from)} – ${shortDate(now.to)}`;
+  const labPrev = withCmp ? `${shortDate(prev.from)} – ${shortDate(prev.to)}` : '';
+  /* Dymek tytułuje się datą z BIEŻĄCEGO okresu; dla okresu porównawczego
+     ten sam indeks to inny dzień, więc jego datę dopisujemy przy wierszu. */
+  const tipLabels = dNow.map(FIN.dayLabelPl);
+
   /* ---- kafelki ---- */
-  const pctRevenue = FIN.changePct(A1.revenue, B1.revenue);
-  const pctOrders  = FIN.changePct(A1.orders, B1.orders);
-  const pctAvg     = FIN.changePct(A1.avgOrder, B1.avgOrder);
-  const pctNew     = FIN.changePct(A1.newClients, B1.newClients);
-  const pctPer     = FIN.changePct(A1.perOrder, B1.perOrder);
+  const pct = (a, b) => withCmp ? FIN.changePct(a, b) : null;
+  const pctRevenue = pct(A1.revenue, B1.revenue);
+  const pctOrders  = pct(A1.orders, B1.orders);
+  const pctAvg     = pct(A1.avgOrder, B1.avgOrder);
+  const pctNew     = pct(A1.newClients, B1.newClients);
+  const pctPer     = pct(A1.perOrder, B1.perOrder);
 
   finSet(['finRevenue', 'finRevenue2'], money(A1.revenue));
   finBadge(['finRevenuePct', 'finRevenuePct2'], pctRevenue);
@@ -2098,53 +2428,59 @@ function renderFinance() {
   finBadge(['finPerPct'], pctPer);
 
   /* ---- iskierki: sam kształt okresu, bez osi ---- */
-  const spark = (key, points) => FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
-    type: 'line', h: 54, axes: false,
-    series: [{ color: FIN.CHART.now, points, fill: true, width: 2 }]
+  const spark = (key, points, fmt) => FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
+    type: 'line', h: 54, axes: false, pointCount: points.length,
+    series: [{ color: FIN.CHART.now, points, fill: true, width: 2 }],
+    hover: { labels: tipLabels, fmt, rows: [{ color: FIN.CHART.now, label: labNow, values: points }] }
   });
   const revNow = FIN.revenueByDay(A1.txs, dNow);
   const cntNow = FIN.countByDay(A1.txs, dNow);
-  spark('sparkRevenue', revNow);
-  spark('sparkOrders', cntNow);
-  spark('sparkAvg', FIN.revenuePerBookingByDay(A1.txs, dNow));
-  spark('sparkNew', FIN.newClientsByDay(TX, dNow));
+  const liczba = v => String(Math.round(v));
+  spark('sparkRevenue', revNow, money);
+  spark('sparkOrders', cntNow, liczba);
+  spark('sparkAvg', FIN.revenuePerBookingByDay(A1.txs, dNow), money);
+  spark('sparkNew', FIN.newClientsByDay(TX, dNow), liczba);
 
-  /* ---- wykresy z osiami: bieżący okres na tle poprzedniego ---- */
-  const pair = (key, nowPoints, prevPoints, opts = {}) =>
+  /* ---- wykresy z osiami: bieżący okres na tle porównawczego ---- */
+  const pair = (key, nowPoints, prevPoints, opts = {}) => {
+    const fmt = opts.tipFmt || liczba;
+    const series = [{ color: FIN.CHART.now, points: nowPoints, fill: true }];
+    const rows = [{ color: FIN.CHART.now, label: labNow, values: nowPoints }];
+    if (withCmp) {
+      /* Jaśniejsza linia idzie pod spód, żeby bieżący okres był czytelny. */
+      series.unshift({ color: FIN.CHART.prev, points: prevPoints });
+      rows.push({ color: FIN.CHART.prev, label: labPrev, values: prevPoints });
+    }
     FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
       type: 'line', h: opts.h || 150, pointCount: nowPoints.length,
-      xLabels: finXLabels(dNow), yFmt: opts.yFmt,
-      padL: opts.padL,
-      series: [
-        { color: FIN.CHART.prev, points: prevPoints },
-        { color: FIN.CHART.now,  points: nowPoints, fill: true }
-      ],
-      alt: opts.alt || ''
+      xLabels: finXLabels(dNow), yFmt: opts.yFmt, padL: opts.padL,
+      series, alt: opts.alt || '',
+      hover: { labels: tipLabels, fmt, rows }
     });
+  };
 
   pair('revTime', revNow, FIN.revenueByDay(B1.txs, dPrev),
-       { h: 260, yFmt: finShortMoney, alt: 'Przychód dzień po dniu' });
+       { h: 260, yFmt: finShortMoney, tipFmt: money, alt: 'Przychód dzień po dniu' });
   pair('orders', cntNow, FIN.countByDay(B1.txs, dPrev),
        { padL: 34, alt: 'Liczba rezerwacji dzień po dniu' });
   pair('newClients', FIN.newClientsByDay(TX, dNow), FIN.newClientsByDay(TX, dPrev),
        { padL: 34, alt: 'Nowi klienci dzień po dniu' });
   pair('perOrder', FIN.revenuePerBookingByDay(A1.txs, dNow), FIN.revenuePerBookingByDay(B1.txs, dPrev),
-       { yFmt: finShortMoney, alt: 'Przychód na rezerwację' });
+       { yFmt: finShortMoney, tipFmt: money, alt: 'Przychód na rezerwację' });
   pair('cumulative', FIN.cumulative(revNow), FIN.cumulative(FIN.revenueByDay(B1.txs, dPrev)),
-       { yFmt: finShortMoney, alt: 'Skumulowany przychód' });
+       { yFmt: finShortMoney, tipFmt: money, alt: 'Skumulowany przychód' });
 
-  finLegend('legRevTime', now, prev);
-  finLegend('legOrders', now, prev);
-  finLegend('legNew', now, prev);
-  finLegend('legPer', now, prev);
-  finLegend('legCum', now, prev);
+  ['legRevTime', 'legOrders', 'legNew', 'legPer', 'legCum']
+    .forEach(id => finLegend(id, now, withCmp ? prev : null));
 
   /* ---- dzień tygodnia: sam bieżący okres, bo porównanie nic tu nie wnosi ---- */
   const wd = FIN.revenueByWeekday(A1.txs);
   FIN.drawChart(document.querySelector('[data-fin="weekday"]'), {
     type: 'bar', h: 150, values: wd, color: FIN.CHART.bar, yFmt: finShortMoney,
     xLabels: DAY_SHORT.map((text, i) => ({ i, text })),
-    alt: 'Przychód wg dnia tygodnia'
+    alt: 'Przychód wg dnia tygodnia',
+    hover: { labels: DAY_NAMES, fmt: money,
+             rows: [{ color: FIN.CHART.bar, label: labNow, values: wd }] }
   });
   const best = wd.indexOf(Math.max(...wd));
   $('#finBestDay').textContent = wd[best] > 0
@@ -2195,14 +2531,15 @@ let finResizeT;
 addEventListener('resize', () => {
   if (!FIN_DATA || !$('#tab-fin').classList.contains('is-on')) return;
   clearTimeout(finResizeT);
+  /* Stary dymek wisiałby nad przerysowanym już wykresem. */
+  FIN.hideTip();
   finResizeT = setTimeout(renderFinance, 150);
 });
 
 /* ------------------------------------------------------------- eksport -- */
 $('#finExport').onclick = () => {
   if (!FIN_DATA) return;
-  const days = Number($('#finPeriod').value) || 30;
-  const now = FIN.lastDays(days, todayISO());
+  const now = FIN_RANGE;
   const rows = [['Data', 'Źródło', 'Pozycja', 'Dzieci', 'Kwota', 'Opłacone'],
     ...FIN.inRange(FIN_DATA.txs, now).map(t => [
       t.date,
