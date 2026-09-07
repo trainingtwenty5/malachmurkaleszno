@@ -34,7 +34,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | **`assets/mc-dzieci.js`** | **Pamięć dzieci — podpowiedzi przy kolejnym zapisie.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 80 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 82 testy reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 77 testów: terminy, godziny otwarcia, numer rezerwacji — sam Node. |
@@ -103,12 +103,13 @@ Szczegóły: [„Bezpieczeństwo”](#bezpieczeństwo--jak-to-działa) niżej.
 
 ## Krok 3 — konta administratorów
 
-Dostęp mają dokładnie dwa adresy — są wpisane w `firestore.rules` (funkcja
+Dostęp mają dokładnie trzy adresy — są wpisane w `firestore.rules` (funkcja
 `adminEmails()`) i w `assets/firebase-config.js` (stała `ADMIN_EMAILS`):
 
 ```
 velorwr16@gmail.com
 malachmurka.leszno@gmail.com
+buchar123@gmail.com
 ```
 
 Żeby wejść do panelu:
@@ -230,7 +231,7 @@ Do tego `mc-firebase.js` ma 15-sekundowy limit na pobranie SDK, żeby zablokowan
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **80 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **82 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,

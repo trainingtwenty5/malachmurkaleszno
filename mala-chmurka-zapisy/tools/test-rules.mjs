@@ -28,6 +28,7 @@ const testEnv = await initializeTestEnvironment({
 
 const ADMIN = 'velorwr16@gmail.com';
 const ADMIN2 = 'malachmurka.leszno@gmail.com';
+const ADMIN3 = 'buchar123@gmail.com';
 
 const anon    = () => testEnv.unauthenticatedContext().firestore();
 const user    = (uid, email, verified = true) =>
@@ -117,6 +118,16 @@ await t('CREATE/UPDATE/DELETE: admin #2 (malachmurka.leszno, potwierdzony) → T
   await assertSucceeds(updateDoc(doc(db, 'events/ev1'), { price: 60 }));
   await assertSucceeds(deleteDoc(doc(db, 'events/ev1')));
 });
+await t('CREATE/UPDATE/DELETE: admin #3 (buchar123, potwierdzony) → TAK', async () => {
+  const db = user('a3', ADMIN3, true);
+  await assertSucceeds(setDoc(doc(db, 'events/nowe'), EVENT));
+  await assertSucceeds(updateDoc(doc(db, 'events/ev1'), { price: 55 }));
+  await assertSucceeds(deleteDoc(doc(db, 'events/ev1')));
+});
+/* Potwierdzenie adresu obowiązuje każdy adres z listy tak samo — nowy też.
+   To ta reguła stoi między „ktoś zna adres z listy" a „ktoś ma do niego skrzynkę". */
+await t('Admin #3 z NIEPOTWIERDZONYM adresem → NIE', async () =>
+  assertFails(setDoc(doc(user('a3', ADMIN3, false), 'events/nowe'), EVENT)));
 await t('Wielkość liter w adresie nie ma znaczenia (VELORWR16@Gmail.com) → TAK', async () =>
   assertSucceeds(setDoc(doc(user('a1', 'VELORWR16@Gmail.com', true), 'events/nowe'), EVENT)));
 

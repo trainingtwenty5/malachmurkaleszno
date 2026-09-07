@@ -36,7 +36,8 @@ service cloud.firestore {
     function adminEmails() {
       return [
         'velorwr16@gmail.com',
-        'malachmurka.leszno@gmail.com'
+        'malachmurka.leszno@gmail.com',
+        'buchar123@gmail.com'
       ];
     }
 
