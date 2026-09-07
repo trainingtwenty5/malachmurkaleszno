@@ -18,7 +18,10 @@ import {
   dateSeries, rangeLength, lastDays, previousRange, inRange,
   revenueOf, revenueByDay, countByDay, revenuePerBookingByDay, cumulative,
   firstSeen, newClientsByDay, newClientsIn, revenueByWeekday, revenueByLabel,
-  settlement, changePct, fmtPct, pctTone, summary, niceTicks, pickLabels
+  settlement, changePct, fmtPct, pctTone, summary, niceTicks, pickLabels,
+  quarterOf, quarterRange, monthRange, presetRange, ALL_PRESETS, PRESET_GROUPS,
+  normalizeRange, rangeLabel, shortDatePl, dayLabelPl, sameRangeYearAgo,
+  comparisonRange, monthGrid, shiftMonth, hitIndex
 } from '../assets/mc-finanse.js';
 
 let pass = 0, fail = 0;
@@ -293,6 +296,117 @@ eq('krótki szereg podpisuje każdy dzień',
 eq('długi szereg dostaje cztery podpisy, od pierwszego do ostatniego dnia',
    pickLabels(dateSeries('2026-09-01', '2026-09-30')).map(l => l.i), [0, 10, 19, 29]);
 eq('pusty szereg nie ma podpisów', pickLabels([]), []);
+
+/* ================================================== GOTOWE ZAKRESY ==== */
+console.log('\n=== SKRÓTY OKRESÓW ===');
+/* 2026-09-07 to poniedziałek. */
+eq('dzisiaj', presetRange('today', '2026-09-07'), { from: '2026-09-07', to: '2026-09-07' });
+eq('wczoraj', presetRange('yesterday', '2026-09-07'), { from: '2026-09-06', to: '2026-09-06' });
+eq('wczoraj przez przełom miesiąca',
+   presetRange('yesterday', '2026-09-01'), { from: '2026-08-31', to: '2026-08-31' });
+eq('ostatnie 7 dni', presetRange('last7', '2026-09-07'), { from: '2026-09-01', to: '2026-09-07' });
+eq('ostatnie 365 dni', rangeLength(...Object.values(presetRange('last365', '2026-09-07'))), 365);
+eq('ten tydzień do dziś (poniedziałek → sam poniedziałek)',
+   presetRange('wtd', '2026-09-07'), { from: '2026-09-07', to: '2026-09-07' });
+eq('ten tydzień do dziś (niedziela → cały tydzień)',
+   presetRange('wtd', '2026-09-13'), { from: '2026-09-07', to: '2026-09-13' });
+eq('ten miesiąc do dziś', presetRange('mtd', '2026-09-07'), { from: '2026-09-01', to: '2026-09-07' });
+eq('ten kwartał do dziś', presetRange('qtd', '2026-09-07'), { from: '2026-07-01', to: '2026-09-07' });
+eq('ten rok do dziś', presetRange('ytd', '2026-09-07'), { from: '2026-01-01', to: '2026-09-07' });
+eq('nieznany skrót nie udaje, że coś wie', presetRange('bzdura', '2026-09-07'), null);
+
+console.log('\n=== KWARTAŁY ===');
+eq('wrzesień to III kwartał', quarterOf('2026-09-07'), 3);
+eq('styczeń to I kwartał', quarterOf('2026-01-01'), 1);
+eq('grudzień to IV kwartał', quarterOf('2026-12-31'), 4);
+eq('I kwartał', quarterRange(2026, 1), { from: '2026-01-01', to: '2026-03-31' });
+eq('II kwartał', quarterRange(2026, 2), { from: '2026-04-01', to: '2026-06-30' });
+eq('III kwartał', quarterRange(2026, 3), { from: '2026-07-01', to: '2026-09-30' });
+eq('IV kwartał kończy się na sylwestrze, nie w styczniu',
+   quarterRange(2026, 4), { from: '2026-10-01', to: '2026-12-31' });
+eq('luty w roku przestępnym ma 29 dni', quarterRange(2024, 1).to, '2024-03-31');
+eq('kwartał z poprzedniego roku', presetRange('q3prev', '2026-09-07'),
+   { from: '2025-07-01', to: '2025-09-30' });
+eq('miesiąc: luty przestępny', monthRange(2024, 2), { from: '2024-02-01', to: '2024-02-29' });
+eq('miesiąc: luty zwykły', monthRange(2026, 2), { from: '2026-02-01', to: '2026-02-28' });
+eq('miesiąc: grudzień przeskakuje rok', monthRange(2026, 12), { from: '2026-12-01', to: '2026-12-31' });
+
+console.log('\n=== ZAKRES Z KALENDARZA ===');
+eq('daty w złej kolejności prostują się same',
+   normalizeRange('2026-09-30', '2026-09-01'), { from: '2026-09-01', to: '2026-09-30' });
+eq('kliknięcie jednego dnia daje zakres jednodniowy',
+   normalizeRange('2026-09-07', null), { from: '2026-09-07', to: '2026-09-07' });
+eq('nic nie wybrane', normalizeRange(null, null), null);
+
+console.log('\n=== NAZWA OKRESU NA PRZYCISKU ===');
+eq('skrót pokazuje się po nazwie, nie jako surowe daty',
+   rangeLabel(presetRange('last30', '2026-09-07'), '2026-09-07'), 'Ostatnie: 30 dni');
+eq('dzisiaj', rangeLabel(presetRange('today', '2026-09-07'), '2026-09-07'), 'Dzisiaj');
+eq('kwartał', rangeLabel(quarterRange(2026, 3), '2026-09-07'), 'Kwartały: iii kwartał');
+eq('własny zakres pokazuje daty',
+   rangeLabel({ from: '2026-09-02', to: '2026-09-05' }, '2026-09-07'), '2 wrz 2026 – 5 wrz 2026');
+eq('jeden dzień nie powtarza daty dwa razy',
+   rangeLabel({ from: '2026-09-02', to: '2026-09-02' }, '2026-09-07'), '2 wrz 2026');
+eq('brak zakresu', rangeLabel(null, '2026-09-07'), '—');
+eq('krótka data', shortDatePl('2026-09-07'), '7 wrz 2026');
+eq('data na oś i do dymka — bez roku', dayLabelPl('2026-08-31'), '31 sie');
+eq('każdy skrót ma nazwę', ALL_PRESETS.every(p => p.id && p.label), true);
+eq('każdy skrót daje się rozwinąć',
+   ALL_PRESETS.every(p => presetRange(p.id, '2026-09-07') !== null), true);
+
+console.log('\n=== OKRES PORÓWNAWCZY ===');
+eq('domyślnie poprzedni okres', comparisonRange({ from: '2026-09-01', to: '2026-09-30' }, 'prev'),
+   { from: '2026-08-02', to: '2026-08-31' });
+eq('ten sam okres rok temu', comparisonRange({ from: '2026-09-01', to: '2026-09-30' }, 'year'),
+   { from: '2025-09-01', to: '2025-09-30' });
+eq('bez porównania', comparisonRange({ from: '2026-09-01', to: '2026-09-30' }, 'none'), null);
+eq('29 lutego cofnięte o rok nie ucieka na marzec',
+   sameRangeYearAgo({ from: '2024-02-29', to: '2024-02-29' }),
+   { from: '2023-02-28', to: '2023-02-28' });
+eq('porównanie zachowuje długość okresu',
+   rangeLength(...Object.values(comparisonRange(presetRange('last7', '2026-09-07'), 'prev'))), 7);
+
+console.log('\n=== SIATKA KALENDARZA ===');
+{
+  const wrzesien = monthGrid(2026, 9);
+  eq('wrzesień 2026 mieści się w pięciu tygodniach', wrzesien.length, 5);
+  eq('każdy tydzień ma siedem dni', wrzesien.every(w => w.length === 7), true);
+  eq('tydzień zaczyna się w poniedziałek', wrzesien[0][0].iso, '2026-08-31');
+  eq('pierwszy dzień miesiąca nie jest oznaczony jako obcy',
+     wrzesien.flat().find(c => c.iso === '2026-09-01').outside, false);
+  eq('dzień z sąsiedniego miesiąca jest oznaczony',
+     wrzesien[0][0].outside, true);
+  eq('siatka pokrywa cały miesiąc',
+     wrzesien.flat().filter(c => !c.outside).length, 30);
+  /* Luty 2027 zaczyna się w poniedziałek i ma 28 dni — dokładnie cztery
+     tygodnie. Szósty (ani piąty) wiersz nie ma prawa się pojawić. */
+  eq('luty równy czterem tygodniom nie dostaje pustego wiersza', monthGrid(2027, 2).length, 4);
+}
+eq('miesiąc w przód', shiftMonth(2026, 12, 1), { year: 2027, month: 1 });
+eq('miesiąc wstecz', shiftMonth(2026, 1, -1), { year: 2025, month: 12 });
+eq('trzy miesiące w przód', shiftMonth(2026, 11, 3), { year: 2027, month: 2 });
+
+console.log('\n=== TRAFIENIE KURSOREM W PUNKT WYKRESU ===');
+{
+  /* Wykres liniowy: 5 punktów rozłożonych co 50 px od x=50 do x=250. */
+  const g = { padL: 50, iw: 200, count: 5 };
+  eq('lewa krawędź to pierwszy punkt', hitIndex(50, g), 0);
+  eq('prawa krawędź to ostatni punkt', hitIndex(250, g), 4);
+  eq('środek', hitIndex(150, g), 2);
+  eq('kursor bliżej trzeciego punktu', hitIndex(160, g), 2);
+  eq('kursor przed wykresem nie wychodzi poza zakres', hitIndex(-100, g), 0);
+  eq('kursor za wykresem też nie', hitIndex(9999, g), 4);
+  eq('jeden punkt zawsze trafia w siebie', hitIndex(123, { padL: 50, iw: 200, count: 1 }), 0);
+  eq('pusty wykres nie wysypuje się na dzieleniu', hitIndex(60, { padL: 50, iw: 200, count: 0 }), 0);
+}
+{
+  /* Słupki: 7 słupków po ~28.6 px. Trafienie liczy się polem słupka,
+     a nie odległością od jego środka. */
+  const g = { padL: 50, iw: 200, count: 7, mode: 'bar' };
+  eq('pierwszy słupek', hitIndex(55, g), 0);
+  eq('ostatni słupek', hitIndex(245, g), 6);
+  eq('kursor tuż za prawą krawędzią nie wypada poza listę', hitIndex(251, g), 6);
+}
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

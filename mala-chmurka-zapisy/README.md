@@ -44,7 +44,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
-| `tools/test-finanse.mjs` | 92 testy zakładki „Finanse” (przychód, okresy, kwoty w rankingu) — sam Node. |
+| `tools/test-finanse.mjs` | 154 testy zakładki „Finanse” (przychód, okresy, kalendarz) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -262,7 +262,7 @@ node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
-node tools/test-finanse.mjs # 92 testy: przychód, okresy, nowi klienci, kwoty w rankingu
+node tools/test-finanse.mjs # 154 testy: przychód, okresy, kalendarz, dymki na wykresach
 ```
 
 ### Czego panel *nie* chroni
@@ -686,10 +686,48 @@ przychodu, które prędzej czy później by się rozjechały.
 | Skumulowany przychód | Narastająco — na końcu krzywej stoi suma całego okresu. |
 | Saldo okresu | Ile wpłynęło, ile zostało do zainkasowania, ile dzieci. |
 
-Filtr u góry przełącza okres (7 / 30 / 90 dni, rok). **Jaśniejsza linia na każdym
-wykresie to ten sam co do długości okres tuż przed wybranym** — stąd plakietki
-„+33%" przy liczbach. Gdy nie ma do czego porównać (poprzedni okres był pusty),
-plakietka pokazuje kreskę zamiast nieskończonego wzrostu.
+### Wybór okresu
+
+Przycisk z datą otwiera okienko: po lewej gotowe skróty, po prawej dwa miesiące
+kalendarza z polami **od → do**.
+
+* **Dzisiaj**, **Wczoraj** — jednym kliknięciem.
+* **Ostatnie** — 7 / 14 / 30 / 90 / 365 dni, licząc z dzisiejszym włącznie.
+* **Do dzisiaj** — ten tydzień, miesiąc, kwartał, rok, każdy do dziś.
+* **Kwartały** — cztery kwartały bieżącego roku i cztery poprzedniego
+  (przy styczniowym zamknięciu roku najczęściej patrzy się właśnie na te drugie).
+* **Dowolny zakres z kalendarza** — pierwszy klik zaczyna, drugi domyka,
+  trzeci zaczyna od nowa. Kolejność nie ma znaczenia: kliknięcie „od tyłu"
+  prostuje się samo. Można też wpisać daty w pola u góry.
+
+Dni z przyszłości są zablokowane — w finansach nie ma tam czego szukać,
+a pusty wykres „do 2030 roku" wygląda jak awaria.
+
+Nic nie przelicza się, dopóki nie klikniesz **Zastosuj**; **Anuluj** naprawdę
+anuluje, bo okienko pracuje na własnej kopii wyboru.
+
+### Do czego porównujemy
+
+Drugi przycisk ustawia **jaśniejszą linię** na wykresach:
+
+* **Poprzedni okres** (domyślnie) — ten sam co do długości okres tuż przed wybranym;
+* **Ten sam okres rok temu** — przy sezonowym ruchu sensowniejszy, bo bawialnia
+  w wakacje i bawialnia w listopadzie to dwa różne światy;
+* **Bez porównania** — sam bieżący okres. Plakietki zmiany pokazują wtedy kreskę,
+  bo „nie ma do czego porównać" to nie to samo co „bez zmian".
+
+Kreskę zobaczysz też wtedy, gdy okres porównawczy był pusty — z zera nie da się
+urosnąć o żaden sensowny procent.
+
+### Dymek pod kursorem
+
+Najedź na dowolny wykres (także na iskierkę w kafelku), a zobaczysz **dokładne
+liczby z konkretnego dnia**: datę, wartość bieżącego okresu i wartość okresu
+porównawczego, każdą przy kropce w kolorze swojej linii. Pionowa prowadnica
+i kropki na liniach pokazują, o który dzień chodzi. Na wykresie dnia tygodnia
+dymek podaje nazwę dnia i kwotę.
+
+Działa też dotykiem — panel bywa obsługiwany z tabletu przy ladzie.
 
 **Nowi klienci** liczą się z całej bazy, a nie z okresu: stały bywalec nie może
 zrobić się „nowy" tylko dlatego, że zmieniliśmy filtr dat. Rodzica rozpoznajemy
