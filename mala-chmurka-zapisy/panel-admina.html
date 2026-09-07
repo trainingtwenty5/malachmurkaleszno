@@ -95,6 +95,16 @@
   .bk-no{background:var(--bad-pale);color:var(--bad);border-color:#F0C9C5}
   .bk-del{background:var(--cream-deep);color:var(--muted)}
   .bk-acts button:hover{filter:brightness(.96)}
+  /* Wyniki wyszukiwarki — płaska siatka kart zamiast siedmiu kolumn dni.
+     Data trafia na kartę, bo wyniki nie są już ułożone po dniach. */
+  .bk-found{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .bk-found .bk-card{margin-bottom:0}
+  .bk-when{font-family:var(--font-head);font-weight:700;font-size:.8rem;color:var(--brand-deep);
+    background:var(--brand-pale);border-radius:7px;padding:.1em .5em;display:inline-block;margin-bottom:5px}
+  /* Kwota w rankingu — te same tabelaryczne cyfry co w finansach, żeby
+     kolumna czytała się z góry na dół jak zestawienie. */
+  .rank-paid{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
   /* ---- zakładka 6: czas zabawy ---- */
   .pl-left{font-family:var(--font-head);font-weight:700;font-size:1.05rem;white-space:nowrap;
     font-variant-numeric:tabular-nums}
@@ -115,6 +125,74 @@
   .pl-acts button:hover{background:var(--cream-deep)}
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
+
+  /* ---- zakładka 7: finanse ----
+     Kafelki z liczbą, plakietką zmiany i wykresem — układ znany z paneli
+     sprzedażowych, ale w kolorach i krojach Małej Chmurki: kremowe tło,
+     Quicksand w nagłówkach, morska linia bieżącego okresu i błękitna
+     poprzedniego. */
+  .fin-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .fin-filters .control{width:auto;min-width:190px}
+  .fin-range{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    background:var(--cream-deep);border-radius:999px;padding:.45em 1.1em;white-space:nowrap}
+  .fin-grid{display:grid;gap:14px;margin-bottom:14px}
+  .fin-g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .fin-g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .fin-g23{grid-template-columns:2fr 1fr}
+  .fin-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);padding:15px 17px 17px;display:flex;flex-direction:column;min-width:0}
+  .fin-card h3{margin:0 0 9px;font-size:.95rem;font-weight:600;color:var(--navy-deep)}
+  .fin-metric{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+  .fin-value{font-family:var(--font-head);font-weight:700;font-size:1.6rem;line-height:1.15;
+    color:var(--navy-deep);font-variant-numeric:tabular-nums}
+  .fin-badge{font-size:.76rem;font-weight:700;font-family:var(--font-head);
+    padding:.2em .7em;border-radius:999px;background:var(--cream-deep);color:var(--muted);white-space:nowrap}
+  .fin-badge.is-up{background:var(--ok-pale);color:var(--ok)}
+  .fin-badge.is-down{background:var(--bad-pale);color:var(--bad)}
+  /* Iskierka trzyma się dołu karty, żeby cztery kafelki obok siebie miały
+     wykresy w jednej linii mimo nagłówków różnej długości. */
+  .fin-kpi{min-height:158px}
+  .fin-kpi h3{min-height:2.6em}
+  .fin-kpi .fin-spark{margin-top:auto}
+  .fin-chart{display:block;width:100%;overflow:visible}
+  .fin-chart .fin-gridline{stroke:#EDE4D6;stroke-width:1}
+  .fin-chart .fin-tick{fill:var(--muted);font-family:var(--font-body);font-size:11px}
+  .fin-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:11px;font-size:.78rem;color:var(--muted)}
+  .fin-legend span{display:inline-flex;align-items:center;gap:6px}
+  .fin-legend i{width:8px;height:8px;border-radius:50%;flex:none}
+  .fin-legend.col{flex-direction:column;gap:5px}
+  .fin-empty{color:var(--muted);font-size:.85rem;margin:auto 0}
+  /* Przychód wg zajęć — pasek proporcjonalny do najlepszej pozycji.
+     Czyta się szybciej niż kolumna liczb i od razu widać, co ciągnie kasę. */
+  .fin-bars{display:flex;flex-direction:column;gap:11px;margin-top:2px}
+  .fin-bar-row{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:.85rem}
+  .fin-bar-row b{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fin-bar-row .fin-sum{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fin-bar-track{grid-column:1/-1;height:8px;border-radius:999px;background:var(--cream-deep);overflow:hidden}
+  .fin-bar-fill{display:block;height:100%;border-radius:999px;background:var(--brand-deep)}
+  .fin-bar-row.is-entry .fin-bar-fill{background:var(--wood)}
+  .fin-bar-row small{grid-column:1/-1;color:var(--muted);font-size:.76rem}
+  /* Saldo — dwie kwoty jedna pod drugą, ta do zainkasowania na ciepło. */
+  .fin-split{display:flex;flex-direction:column;gap:10px;margin-top:2px}
+  .fin-split div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    padding:10px 12px;border-radius:12px;background:var(--cream)}
+  .fin-split div.is-due{background:var(--warn-pale)}
+  .fin-split .k{font-size:.84rem;color:var(--muted)}
+  .fin-split div.is-due .k{color:var(--warn)}
+  .fin-split .v{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fin-split div.is-due .v{color:var(--warn)}
+  @media (max-width:1080px){
+    .fin-g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .fin-g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .fin-g23{grid-template-columns:1fr}
+  }
+  @media (max-width:700px){
+    .fin-g4,.fin-g3{grid-template-columns:1fr}
+    .fin-kpi h3{min-height:0}
+  }
 </style>
 </head>
 <body>
@@ -144,6 +222,7 @@
         <button data-tab="rank">4 · Ranking wizyt</button>
         <button data-tab="book">5 · Rezerwacje <span class="tab-badge" id="bookBadge" hidden>0</span></button>
         <button data-tab="play">6 · Czas zabawy</button>
+        <button data-tab="fin">7 · Finanse</button>
       </nav>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
@@ -288,7 +367,7 @@
           <table class="tbl">
             <thead><tr>
               <th>#</th><th>Dzieci</th><th>Rodzic</th><th>Telefon</th><th>E-mail</th>
-              <th>Liczba wizyt</th><th>Łączny czas</th><th>Ostatnia wizyta</th>
+              <th>Liczba wizyt</th><th>Łączny czas</th><th>Zapłacono</th><th>Ostatnia wizyta</th>
             </tr></thead>
             <tbody id="rankRows"></tbody>
           </table>
@@ -305,11 +384,9 @@
           <div class="stat-card"><div class="k">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
         </div>
 
-        <div class="cal-toolbar">
-          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
-          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
-          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
-          <div class="cal-range" id="bkRange">—</div>
+        <div class="bar">
+          <input class="control grow" id="bkQ"
+                 placeholder="Szukaj: numer rezerwacji, imię dziecka, rodzic, telefon, e-mail, godzina, uwagi…">
           <select class="control mini" id="bkFilter" aria-label="Filtr statusu">
             <option value="">wszystkie statusy</option>
             <option value="pending">tylko oczekujące</option>
@@ -317,6 +394,20 @@
             <option value="rejected">tylko odrzucone</option>
           </select>
         </div>
+
+        <div class="cal-toolbar" id="bkWeekNav">
+          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
+          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
+          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
+          <div class="cal-range" id="bkRange">—</div>
+        </div>
+
+        <!-- Widoczne tylko przy szukaniu: wyszukiwarka celowo wychodzi poza
+             tydzień, bo rodzic dzwoni z numerem rezerwacji i nie wie, w którym
+             tygodniu ona leży. -->
+        <p class="hint" id="bkSearchInfo" hidden style="margin:-6px 0 12px">
+          Szukam w <strong>całej historii rezerwacji</strong>, nie tylko w tym tygodniu.
+          Wyczyść pole, żeby wrócić do widoku tygodnia.</p>
 
         <p class="hint" style="margin:-6px 0 12px">
           To rezerwacje samego wstępu do bawialni, złożone przez klientów. Dopóki nie klikniesz
@@ -370,6 +461,113 @@
           </table>
         </div>
         <p class="hint" id="plCount" style="margin-top:10px"></p>
+      </section>
+
+      <!-- ============================== 7. FINANSE ============================== -->
+      <section class="panel" id="tab-fin">
+        <div class="fin-filters">
+          <select class="control" id="finPeriod" aria-label="Okres">
+            <option value="7">Ostatnie 7 dni</option>
+            <option value="30" selected>Ostatnie 30 dni</option>
+            <option value="90">Ostatnie 90 dni</option>
+            <option value="365">Ostatni rok</option>
+          </select>
+          <div class="fin-range" id="finRange">—</div>
+          <button class="btn btn-soft btn-sm btn-auto" id="finReload">Odśwież</button>
+          <button class="btn btn-soft btn-sm btn-auto" id="finExport">Pobierz CSV</button>
+        </div>
+
+        <p class="hint" style="margin:-4px 0 14px">
+          Jedna kasa dla obu źródeł: zapisów na zajęcia i rezerwacji wstępu do bawialni
+          (razem z wejściami z ulicy). <strong>Przychodem jest wyłącznie to, co odhaczono
+          jako „opłacone”</strong> — reszta czeka w kafelku „Do zainkasowania”. Odrzucone
+          rezerwacje nie liczą się wcale. Kwoty przypisujemy do <strong>dnia zajęć albo
+          wizyty</strong>, a nie do dnia, w którym ktoś wypełnił formularz.
+          Jaśniejsza linia na wykresach to ten sam co do długości okres tuż przed wybranym.</p>
+
+        <!-- kafelki -->
+        <section class="fin-grid fin-g4">
+          <div class="fin-card fin-kpi">
+            <h3>Sprzedaż</h3>
+            <div class="fin-metric"><span class="fin-value" id="finRevenue">—</span><span class="fin-badge" id="finRevenuePct">—</span></div>
+            <div class="fin-spark" data-fin="sparkRevenue"></div>
+          </div>
+          <div class="fin-card fin-kpi">
+            <h3>Liczba rezerwacji</h3>
+            <div class="fin-metric"><span class="fin-value" id="finOrders">—</span><span class="fin-badge" id="finOrdersPct">—</span></div>
+            <div class="fin-spark" data-fin="sparkOrders"></div>
+          </div>
+          <div class="fin-card fin-kpi">
+            <h3>Średnia wartość transakcji</h3>
+            <div class="fin-metric"><span class="fin-value" id="finAvg">—</span><span class="fin-badge" id="finAvgPct">—</span></div>
+            <div class="fin-spark" data-fin="sparkAvg"></div>
+          </div>
+          <div class="fin-card fin-kpi">
+            <h3>Nowi klienci</h3>
+            <div class="fin-metric"><span class="fin-value" id="finNew">—</span><span class="fin-badge" id="finNewPct">—</span></div>
+            <div class="fin-spark" data-fin="sparkNew"></div>
+          </div>
+        </section>
+
+        <!-- duży wykres + rozbicie na zajęcia -->
+        <section class="fin-grid fin-g23">
+          <div class="fin-card">
+            <h3>Przychód w czasie</h3>
+            <div class="fin-metric"><span class="fin-value" id="finRevenue2">—</span><span class="fin-badge" id="finRevenuePct2">—</span></div>
+            <div data-fin="revTime"></div>
+            <div class="fin-legend" id="legRevTime"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Przychód wg zajęć (cały czas)</h3>
+            <div id="finByLabel"></div>
+          </div>
+        </section>
+
+        <!-- trzy wykresy -->
+        <section class="fin-grid fin-g3">
+          <div class="fin-card">
+            <h3>Liczba rezerwacji</h3>
+            <div class="fin-metric"><span class="fin-value" id="finOrders2">—</span><span class="fin-badge" id="finOrdersPct2">—</span></div>
+            <div data-fin="orders"></div>
+            <div class="fin-legend col" id="legOrders"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Nowi klienci</h3>
+            <div class="fin-metric"><span class="fin-value" id="finNew2">—</span><span class="fin-badge" id="finNewPct2">—</span></div>
+            <div data-fin="newClients"></div>
+            <div class="fin-legend col" id="legNew"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Przychód na rezerwację</h3>
+            <div class="fin-metric"><span class="fin-value" id="finPer">—</span><span class="fin-badge" id="finPerPct">—</span></div>
+            <div data-fin="perOrder"></div>
+            <div class="fin-legend col" id="legPer"></div>
+          </div>
+        </section>
+
+        <!-- dolny rząd -->
+        <section class="fin-grid fin-g3">
+          <div class="fin-card">
+            <h3>Przychód wg dnia tygodnia</h3>
+            <div class="fin-metric"><span class="fin-value" id="finBestDay">—</span></div>
+            <div data-fin="weekday"></div>
+            <div class="fin-legend" id="legWeekday"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Skumulowany przychód</h3>
+            <div class="fin-metric"><span class="fin-value" id="finCum">—</span><span class="fin-badge" id="finCumPct">—</span></div>
+            <div data-fin="cumulative"></div>
+            <div class="fin-legend col" id="legCum"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Saldo okresu</h3>
+            <div class="fin-split" id="finSettle"></div>
+            <p class="hint" style="margin:12px 0 0">Do zainkasowania odhaczasz w zakładce
+              <strong>2 · Zapisani</strong> (kolumna „Opłacone”) albo <strong>5 · Rezerwacje</strong>.</p>
+          </div>
+        </section>
+
+        <p class="hint" id="finCount" style="margin-top:4px"></p>
       </section>
     </div>
   </div>
@@ -507,6 +705,7 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          askConfirm, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
+import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
          countEventImages,
@@ -517,7 +716,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          watchBookings, setBookingStatus, deleteBooking,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
-         updateBooking, applyBookingToRanking, createWalkin, extendBooking } from './assets/mc-data.js';
+         updateBooking, applyBookingToRanking, createWalkin, extendBooking,
+         listRegistrations, listBookings } from './assets/mc-data.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -613,6 +813,7 @@ $$('.admin-tabs button').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'rank') loadRanking();
   if (b.dataset.tab === 'book') renderBookings();
   if (b.dataset.tab === 'play') { renderPlaytime(); startPlayClock(); } else stopPlayClock();
+  if (b.dataset.tab === 'fin') openFinance();
 });
 
 /* ================================================== STAN WSPÓŁDZIELONY ==== */
@@ -1064,6 +1265,7 @@ $('#regRows').addEventListener('change', async e => {
       await applyVisitToRanking(reg, -1);
       await updateRegistration(reg.id, { countedInRanking: false });
     }
+    invalidateFinanceData();
     const auto = await refreshPresence();
     toast(!auto ? 'Zaktualizowano. Licznik jest w trybie ręcznym — nie zmieniam go.'
                 : shouldCount ? 'Potwierdzone — licznik na stronie zaktualizowany.' : 'Zaktualizowano.');
@@ -1077,6 +1279,7 @@ $('#regRows').addEventListener('click', async e => {
   if (!confirm('Usunąć ten zapis na stałe?')) return;
   if (reg.countedInRanking) await applyVisitToRanking(reg, -1).catch(() => {});
   await deleteRegistration(reg.id);
+  invalidateFinanceData();
   await refreshPresence();
   toast('Zapis usunięty.');
 });
@@ -1157,11 +1360,25 @@ $('#saveVisits').onclick = async () => {
 };
 
 /* ========================================================= 4. RANKING ==== */
-let GUESTS = [];
+let GUESTS = [], PAID_BY_CLIENT = null;
+
 async function loadRanking() {
   try { GUESTS = await listGuests(); } catch (e) { toast('Błąd: ' + e.message); return; }
   renderRank();
+  /* Kwoty dolicza się z historii zamówień, więc mogą przyjść chwilę później
+     niż sama lista — ranking pokazuje się od razu, kolumna dopisuje się sama.
+     Gdy pobranie padnie, zostaje kreska zamiast zerowej kwoty: „nie wiem”
+     to co innego niż „nic nie zapłacił”. */
+  try {
+    const { txs } = await loadFinanceData();
+    PAID_BY_CLIENT = FIN.paidByClient(txs);
+    renderRank();
+  } catch (e) { console.warn('kwoty w rankingu:', e.message); }
 }
+
+/** Ile ten rodzic u nas zostawił — suma opłaconych zajęć i wstępów. */
+const paidOf = g => FIN.paidFor(PAID_BY_CLIENT, FIN.guestClientKey(g));
+
 function renderRank() {
   const q = $('#qRank').value.trim().toLowerCase();
   const list = GUESTS
@@ -1176,15 +1393,23 @@ function renderRank() {
       <td>${esc(g.email || '—')}</td>
       <td class="num"><strong>${esc(plWizyty(g.visits))}</strong></td>
       <td class="num">${humanMinutes(g.totalMinutes)}</td>
+      <td class="num rank-paid">${PAID_BY_CLIENT ? esc(money(paidOf(g).total)) : '—'}</td>
       <td class="num">${g.lastVisit ? esc(shortDate(g.lastVisit)) : '—'}</td>
     </tr>`).join('')
-    : `<tr><td colspan="8"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
-  $('#rankCount').textContent = `${list.length} dzieci w rankingu.`;
+    : `<tr><td colspan="9"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
+
+  /* Podsumowanie liczy to, co widać na liście — przy włączonej wyszukiwarce
+     to suma dla znalezionych rodziców, a nie dla całego rankingu. */
+  const suma = PAID_BY_CLIENT ? list.reduce((s, g) => s + paidOf(g).total, 0) : null;
+  $('#rankCount').textContent = suma === null
+    ? `${plDzieci(list.length)} w rankingu. Liczę zapłacone kwoty…`
+    : `${plDzieci(list.length)} w rankingu · zapłacone łącznie: ${money(suma)}.`;
 }
 $('#qRank').addEventListener('input', renderRank);
 $('#exportRank').onclick = () => {
-  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Ostatnia wizyta'],
-    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0, g.lastVisit || ''])];
+  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Zaplacono','Ostatnia wizyta'],
+    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0,
+      PAID_BY_CLIENT ? paidOf(g).total.toFixed(2).replace('.', ',') : '', g.lastVisit || ''])];
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
@@ -1218,36 +1443,24 @@ function loadBookingWeek() {
   });
 }
 
-function renderBookings() {
-  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
-  const shown = BOOKINGS.filter(b => !filter || (b.status || 'pending') === filter);
+/**
+ * Rezerwacja o danym id. Najpierw w bieżącym tygodniu (tam jest najświeższa,
+ * bo słucha bazy na żywo), a dopiero potem w historii pobranej na potrzeby
+ * wyszukiwarki. Bez tego drugiego kroku przyciski na znalezionej rezerwacji
+ * spoza tygodnia nic by nie robiły.
+ */
+const findBooking = id =>
+  BOOKINGS.find(x => x.id === id) ||
+  (FIN_DATA ? FIN_DATA.bookings.find(x => x.id === id) : null) || null;
 
-  /* podsumowanie liczy cały tydzień, nie tylko przefiltrowane */
-  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
-  const pending = count('pending');
-  $('#bkPending').textContent  = pending;
-  $('#bkAccepted').textContent = count('accepted');
-  $('#bkRejected').textContent = count('rejected');
-  $('#bkKids').textContent = BOOKINGS
-    .filter(b => b.status === 'accepted')
-    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
-
-  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
-  const badge = $('#bookBadge');
-  badge.textContent = pending;
-  badge.hidden = pending === 0;
-
-  const today = todayISO();
-  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
-    const dISO = isoDate(addDays(bkMonday, i));
-    const day = shown.filter(b => b.date === dISO)
-      .sort((a, b) => toMin(a.start) - toMin(b.start));
-
-    const cards = day.length ? day.map(b => {
-      const st = b.status || 'pending';
-      const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
-      return `
+/** Kafelek jednej rezerwacji. Ten sam w widoku tygodnia i w wynikach szukania —
+    w tym drugim dostaje jeszcze datę, bo wyniki nie są ułożone po dniach. */
+function bookingCard(b, { withDate = false } = {}) {
+  const st = b.status || 'pending';
+  const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
+  return `
         <div class="bk-card ${st}">
+          ${withDate ? `<div class="bk-when">${esc(shortDate(b.date || todayISO()))}</div>` : ''}
           <b>${esc(b.start || '—')} · ${esc(b.durationLabel || b.duration || '')}</b>
           <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code></div>
           <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
@@ -1272,27 +1485,126 @@ function renderBookings() {
             <button class="bk-del" data-del="${b.id}">Usuń</button>
           </div>
         </div>`;
-    }).join('') : '<div class="bk-empty">brak rezerwacji</div>';
+}
 
+/**
+ * Czy rezerwacja pasuje do wpisanej frazy. Ta sama zasada, co przy zapisach
+ * w zakładce 2: numer rezerwacji sprawdzamy osobno (klient dyktuje go przez
+ * telefon, z krzyżykiem albo bez), a reszta to zwykłe szukanie po słowach —
+ * wszystkie muszą trafić, więc „ania 15:30" zawęża wynik, a nie rozszerza.
+ */
+function matchesBooking(b, q) {
+  if (!q) return true;
+  if (matchesRef(b.id, q)) return true;
+  const hay = [
+    ...(b.children || []).map(c => c.name),
+    b.parentFirstName, b.parentLastName, b.phone, b.phoneKey, b.email,
+    b.start, b.stayUntil, b.date, b.note, b.adminNote,
+    b.durationLabel, b.duration, b.source === 'walkin' ? 'wejscie z ulicy' : '',
+    BOOKING_STATUS_SHORT[b.status || 'pending'] || ''
+  ].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+}
+
+/* Wyszukiwarka celowo wychodzi poza bieżący tydzień — rodzic dzwoni z numerem
+   rezerwacji i nie wie, w którym tygodniu ona leży. Historię bierzemy z tego
+   samego, raz pobranego zestawu, co wykresy i kwoty w rankingu. */
+let bkSearching = false;
+
+$('#bkQ').addEventListener('input', () => {
+  const q = $('#bkQ').value.trim();
+  if (q && !FIN_DATA && !bkSearching) {
+    bkSearching = true;
+    loadFinanceData()
+      .catch(e => toast('Nie udało się wczytać historii rezerwacji: ' + e.message))
+      .finally(() => { bkSearching = false; renderBookings(); });
+  }
+  renderBookings();
+});
+
+function renderBookings() {
+  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
+  const q = $('#bkQ') ? $('#bkQ').value.trim() : '';
+  const byStatus = b => !filter || (b.status || 'pending') === filter;
+
+  /* Kafelki podsumowania zawsze dotyczą tygodnia — to one mówią obsłudze,
+     ile jest do zrobienia „teraz", i szukanie nie powinno tego mieszać. */
+  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
+  const pending = count('pending');
+  $('#bkPending').textContent  = pending;
+  $('#bkAccepted').textContent = count('accepted');
+  $('#bkRejected').textContent = count('rejected');
+  $('#bkKids').textContent = BOOKINGS
+    .filter(b => b.status === 'accepted')
+    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
+
+  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
+  const badge = $('#bookBadge');
+  badge.textContent = pending;
+  badge.hidden = pending === 0;
+
+  $('#bkSearchInfo').hidden = !q;
+  $('#bkWeekNav').hidden = !!q;
+
+  if (q) { renderBookingSearch(q, byStatus); return; }
+
+  const shown = BOOKINGS.filter(byStatus);
+  const today = todayISO();
+  $('#bkGrid').className = 'bk-grid';
+  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
+    const dISO = isoDate(addDays(bkMonday, i));
+    const day = shown.filter(b => b.date === dISO)
+      .sort((a, b) => toMin(a.start) - toMin(b.start));
+    const cards = day.length ? day.map(b => bookingCard(b)).join('')
+                             : '<div class="bk-empty">brak rezerwacji</div>';
     return `<div class="bk-day${dISO === today ? ' is-today' : ''}">
         <h4>${DAY_SHORT[i]} <span>${shortDate(dISO).slice(0, 5)}</span></h4>
         ${cards}
       </div>`;
   }).join('');
 
-  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
-  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
-  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
-  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
-  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
-
+  wireBookingCards();
   $('#bkCount').textContent = shown.length
     ? `W tym tygodniu: ${shown.length} rezerwacji.`
     : 'W tym tygodniu nie ma rezerwacji pasujących do filtra.';
 }
 
+/** Wyniki szukania: płaska lista od najnowszej, z całej historii. */
+function renderBookingSearch(q, byStatus) {
+  const grid = $('#bkGrid');
+  grid.className = 'bk-found';
+
+  if (!FIN_DATA) {
+    grid.innerHTML = '<div class="loading"><span class="spin"></span> Wczytuję historię rezerwacji…</div>';
+    $('#bkCount').textContent = '';
+    return;
+  }
+
+  const hits = FIN_DATA.bookings
+    .filter(byStatus)
+    .filter(b => matchesBooking(b, q))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || toMin(b.start) - toMin(a.start));
+
+  grid.innerHTML = hits.length
+    ? hits.map(b => bookingCard(b, { withDate: true })).join('')
+    : `<div class="bk-empty">Nie znalazłem rezerwacji pasującej do „${esc(q)}".</div>`;
+
+  wireBookingCards();
+  $('#bkCount').textContent = hits.length
+    ? `Znaleziono ${hits.length} z ${FIN_DATA.bookings.length} rezerwacji w całej historii.`
+    : '';
+}
+
+function wireBookingCards() {
+  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
+  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
+  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
+  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
+  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
+}
+
 async function decide(id, status) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   let note = '';
   if (status === 'rejected') {
     note = prompt('Powód odmowy (zobaczy go klient — możesz zostawić puste):',
@@ -1320,6 +1632,7 @@ async function decide(id, status) {
     if (b) await syncBookingRanking(b, { status }).catch(e => console.warn('ranking:', e.message));
 
     /* Zaakceptowana rezerwacja od razu wchodzi do licznika na stronie. */
+    invalidateFinanceData();
     await refreshPresence();
     toast(status === 'accepted' ? 'Rezerwacja zaakceptowana — licznik zaktualizowany.'
                                 : 'Rezerwacja odrzucona.');
@@ -1346,17 +1659,18 @@ async function syncBookingRanking(b, { paid = b.paid, status = b.status } = {}) 
 }
 
 async function setPaid(id, paid) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   if (!b) return;
   try {
     await updateBooking(id, { paid: !!paid });
     await syncBookingRanking(b, { paid });
+    invalidateFinanceData();
     toast(paid ? 'Oznaczone jako opłacone.' : 'Zdjęto oznaczenie opłaty.');
   } catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
 }
 
 async function setUntil(id, hhmm) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   if (!b) return;
   try {
     /* jeśli wizyta jest już policzona w rankingu, najpierw ją cofamy — inaczej
@@ -1364,6 +1678,7 @@ async function setUntil(id, hhmm) {
     if (b.countedInRanking) await applyBookingToRanking(b, -1);
     await updateBooking(id, { stayUntil: hhmm || '' });
     if (b.countedInRanking) await applyBookingToRanking({ ...b, stayUntil: hhmm || '' }, +1);
+    invalidateFinanceData();
     await refreshPresence();
     toast('Godzina wyjścia zapisana.');
   } catch (err) { toast('Nie udało się zapisać godziny: ' + (err.message || '')); }
@@ -1371,10 +1686,11 @@ async function setUntil(id, hhmm) {
 
 async function removeBooking(id) {
   if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   try {
     if (b && b.countedInRanking) await applyBookingToRanking(b, -1).catch(() => {});
     await deleteBooking(id);
+    invalidateFinanceData();
     await refreshPresence();
     toast('Rezerwacja usunięta.');
   }
@@ -1637,6 +1953,7 @@ $('#wiForm').addEventListener('submit', async e => {
       await applyBookingToRanking(b, +1).catch(() => {});
       await markBookingCounted(b.id, true).catch(() => {});
     }
+    invalidateFinanceData();
     await refreshPresence();
     toast('Dodano do bawialni.');
     wiCloseM();
@@ -1659,6 +1976,244 @@ $('#plExport').onclick = () => {
   const a = document.createElement('a');
   a.href = url;
   a.download = `czas-zabawy-mala-chmurka-${todayISO()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+/* ==========================================================================
+   7. FINANSE
+   --------------------------------------------------------------------------
+   Cała matematyka siedzi w assets/mc-finanse.js — tutaj zostaje samo pobranie
+   danych i wpisanie wyników do kafelków. Inaczej niż pozostałe zakładki
+   ta nie słucha bazy na żywo: liczby z całej historii ściągamy raz, przy
+   pierwszym wejściu (i po kliknięciu „Odśwież”). Panel finansowy czyta się
+   spokojnie, a nasłuch na wszystkich zapisach i rezerwacjach naraz kosztowałby
+   tyle odczytów, że szkoda darmowego limitu Firebase.
+   ========================================================================== */
+let FIN_DATA = null, finLoading = null;
+
+/**
+ * Cała historia zapisów i rezerwacji, ściągnięta raz i trzymana w pamięci.
+ * Korzystają z niej trzy miejsca: wykresy w tej zakładce, kwoty w rankingu
+ * (zakładka 4) i wyszukiwarka rezerwacji (zakładka 5) — ta ostatnia dlatego,
+ * że szuka poza bieżącym tygodniem. Równoległe wejścia dostają to samo
+ * przyrzeczenie, żeby dwie zakładki otwarte pod rząd nie pobrały bazy dwa razy.
+ */
+function loadFinanceData() {
+  if (FIN_DATA) return Promise.resolve(FIN_DATA);
+  if (!finLoading) {
+    finLoading = Promise.all([listRegistrations(), listBookings()])
+      .then(([regs, bookings]) => (FIN_DATA = {
+        regs, bookings, txs: FIN.toTransactions({ regs, bookings })
+      }))
+      .finally(() => { finLoading = null; });
+  }
+  return finLoading;
+}
+
+/* Każda zmiana w rezerwacji albo zapisie unieważnia zapamiętaną historię —
+   inaczej kwoty w rankingu i wyniki wyszukiwarki pokazywałyby stan sprzed
+   kliknięcia. Następne wejście w zakładkę pobierze świeże dane. */
+function invalidateFinanceData() { FIN_DATA = null; }
+
+async function openFinance() {
+  if (FIN_DATA) { renderFinance(); return; }
+  $('#finCount').textContent = 'Wczytuję historię zapisów i rezerwacji…';
+  try {
+    await loadFinanceData();
+    renderFinance();
+  } catch (e) {
+    $('#finCount').textContent = 'Nie udało się wczytać danych: ' + e.message;
+  }
+}
+
+$('#finPeriod').onchange = () => renderFinance();
+$('#finReload').onclick  = () => { invalidateFinanceData(); openFinance(); };
+
+/** Podpisy pod osią X — kilka dat rozłożonych równo, w formacie „7.09”. */
+const finXLabels = days => FIN.pickLabels(days).map(({ i, iso }) => {
+  const d = new Date(iso.slice(0, 4), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  return { i, text: `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, '0')}` };
+});
+
+/** Krótka kwota na oś Y: „1,2 tys.” zamiast „1200,00 zł” — inaczej oś rośnie w nieskończoność. */
+const finShortMoney = v => {
+  if (v >= 1000) return (Math.round(v / 100) / 10).toString().replace('.', ',') + ' tys.';
+  return Math.round(v) + ' zł';
+};
+
+/* Ta sama liczba bywa w dwóch miejscach: raz na kafelku, raz nad wykresem.
+   Stąd listy identyfikatorów zamiast pojedynczych. */
+function finSet(ids, text) {
+  ids.forEach(id => {
+    const val = $('#' + id);
+    if (val) val.textContent = text;
+  });
+}
+function finBadge(ids, pct) {
+  ids.forEach(id => {
+    const b = $('#' + id);
+    if (!b) return;
+    b.textContent = FIN.fmtPct(pct);
+    b.className = 'fin-badge ' + FIN.pctTone(pct);
+  });
+}
+
+/** Legenda: kropka + zakres dat. Dwie serie albo jedna, zależnie od wykresu. */
+function finLegend(hostId, now, prev) {
+  const host = $('#' + hostId);
+  if (!host) return;
+  const line = (color, r) =>
+    `<span><i style="background:${color}"></i>${esc(shortDate(r.from))} – ${esc(shortDate(r.to))}</span>`;
+  host.innerHTML = line(FIN.CHART.now, now) + (prev ? line(FIN.CHART.prev, prev) : '');
+}
+
+function renderFinance() {
+  if (!FIN_DATA) return;
+  const TX = FIN_DATA.txs;
+  const days = Number($('#finPeriod').value) || 30;
+  const now  = FIN.lastDays(days, todayISO());
+  const prev = FIN.previousRange(now);
+  $('#finRange').textContent = `${shortDate(now.from)} – ${shortDate(now.to)}`;
+
+  const A1 = FIN.summary(TX, now), B1 = FIN.summary(TX, prev);
+  const dNow = A1.days, dPrev = B1.days;
+
+  /* ---- kafelki ---- */
+  const pctRevenue = FIN.changePct(A1.revenue, B1.revenue);
+  const pctOrders  = FIN.changePct(A1.orders, B1.orders);
+  const pctAvg     = FIN.changePct(A1.avgOrder, B1.avgOrder);
+  const pctNew     = FIN.changePct(A1.newClients, B1.newClients);
+  const pctPer     = FIN.changePct(A1.perOrder, B1.perOrder);
+
+  finSet(['finRevenue', 'finRevenue2'], money(A1.revenue));
+  finBadge(['finRevenuePct', 'finRevenuePct2'], pctRevenue);
+  finSet(['finOrders', 'finOrders2'], String(A1.orders));
+  finBadge(['finOrdersPct', 'finOrdersPct2'], pctOrders);
+  finSet(['finAvg'], money(A1.avgOrder));
+  finBadge(['finAvgPct'], pctAvg);
+  finSet(['finNew', 'finNew2'], String(A1.newClients));
+  finBadge(['finNewPct', 'finNewPct2'], pctNew);
+  finSet(['finPer'], money(A1.perOrder));
+  finBadge(['finPerPct'], pctPer);
+
+  /* ---- iskierki: sam kształt okresu, bez osi ---- */
+  const spark = (key, points) => FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
+    type: 'line', h: 54, axes: false,
+    series: [{ color: FIN.CHART.now, points, fill: true, width: 2 }]
+  });
+  const revNow = FIN.revenueByDay(A1.txs, dNow);
+  const cntNow = FIN.countByDay(A1.txs, dNow);
+  spark('sparkRevenue', revNow);
+  spark('sparkOrders', cntNow);
+  spark('sparkAvg', FIN.revenuePerBookingByDay(A1.txs, dNow));
+  spark('sparkNew', FIN.newClientsByDay(TX, dNow));
+
+  /* ---- wykresy z osiami: bieżący okres na tle poprzedniego ---- */
+  const pair = (key, nowPoints, prevPoints, opts = {}) =>
+    FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
+      type: 'line', h: opts.h || 150, pointCount: nowPoints.length,
+      xLabels: finXLabels(dNow), yFmt: opts.yFmt,
+      padL: opts.padL,
+      series: [
+        { color: FIN.CHART.prev, points: prevPoints },
+        { color: FIN.CHART.now,  points: nowPoints, fill: true }
+      ],
+      alt: opts.alt || ''
+    });
+
+  pair('revTime', revNow, FIN.revenueByDay(B1.txs, dPrev),
+       { h: 260, yFmt: finShortMoney, alt: 'Przychód dzień po dniu' });
+  pair('orders', cntNow, FIN.countByDay(B1.txs, dPrev),
+       { padL: 34, alt: 'Liczba rezerwacji dzień po dniu' });
+  pair('newClients', FIN.newClientsByDay(TX, dNow), FIN.newClientsByDay(TX, dPrev),
+       { padL: 34, alt: 'Nowi klienci dzień po dniu' });
+  pair('perOrder', FIN.revenuePerBookingByDay(A1.txs, dNow), FIN.revenuePerBookingByDay(B1.txs, dPrev),
+       { yFmt: finShortMoney, alt: 'Przychód na rezerwację' });
+  pair('cumulative', FIN.cumulative(revNow), FIN.cumulative(FIN.revenueByDay(B1.txs, dPrev)),
+       { yFmt: finShortMoney, alt: 'Skumulowany przychód' });
+
+  finLegend('legRevTime', now, prev);
+  finLegend('legOrders', now, prev);
+  finLegend('legNew', now, prev);
+  finLegend('legPer', now, prev);
+  finLegend('legCum', now, prev);
+
+  /* ---- dzień tygodnia: sam bieżący okres, bo porównanie nic tu nie wnosi ---- */
+  const wd = FIN.revenueByWeekday(A1.txs);
+  FIN.drawChart(document.querySelector('[data-fin="weekday"]'), {
+    type: 'bar', h: 150, values: wd, color: FIN.CHART.bar, yFmt: finShortMoney,
+    xLabels: DAY_SHORT.map((text, i) => ({ i, text })),
+    alt: 'Przychód wg dnia tygodnia'
+  });
+  const best = wd.indexOf(Math.max(...wd));
+  $('#finBestDay').textContent = wd[best] > 0
+    ? `${DAY_NAMES[best]} — ${money(wd[best])}`
+    : money(0);
+  $('#legWeekday').innerHTML =
+    `<span><i style="background:${FIN.CHART.now}"></i>${esc(shortDate(now.from))} – ${esc(shortDate(now.to))}</span>`;
+
+  /* ---- skumulowany: na końcu krzywej stoi suma całego okresu, więc kafelek
+         pokazuje tę samą liczbę i tę samą zmianę co sprzedaż ---- */
+  finSet(['finCum'], money(A1.revenue));
+  finBadge(['finCumPct'], pctRevenue);
+
+  /* ---- saldo okresu ---- */
+  const s = FIN.settlement(A1.txs);
+  $('#finSettle').innerHTML = `
+    <div><span class="k">Wpłynęło (${s.paidCount})</span><span class="v">${esc(money(s.paid))}</span></div>
+    <div class="${s.unpaid > 0 ? 'is-due' : ''}"><span class="k">Do zainkasowania (${s.unpaidCount})</span>
+      <span class="v">${esc(money(s.unpaid))}</span></div>
+    <div><span class="k">Dzieci w okresie</span><span class="v">${A1.kids}</span></div>`;
+
+  /* ---- przychód wg zajęć: cała historia, nie tylko wybrany okres ---- */
+  const rows = FIN.revenueByLabel(TX);
+  const host = $('#finByLabel');
+  if (!rows.length) {
+    host.innerHTML = `<p class="fin-empty">Nie ma jeszcze opłaconych zapisów ani rezerwacji —
+      wykres pojawi się, gdy odhaczysz pierwszą płatność.</p>`;
+  } else {
+    const max = rows[0].total || 1;
+    host.innerHTML = `<div class="fin-bars">` + rows.slice(0, 8).map(r => `
+      <div class="fin-bar-row${r.source === 'zajecia' ? '' : ' is-entry'}">
+        <b title="${esc(r.label)}">${esc(r.label)}</b>
+        <span class="fin-sum">${esc(money(r.total))}</span>
+        <span class="fin-bar-track"><i class="fin-bar-fill" style="width:${(r.total / max * 100).toFixed(1)}%"></i></span>
+        <small>${r.count} ${r.count === 1 ? 'zamówienie' : 'zamówień'} · ${esc(plDzieci(r.kids))}</small>
+      </div>`).join('') + `</div>` +
+      (rows.length > 8 ? `<p class="hint" style="margin:12px 0 0">…i ${rows.length - 8} więcej.</p>` : '');
+  }
+
+  $('#finCount').textContent =
+    `Podstawa: ${TX.length} zamówień z całej historii, w wybranym okresie ${A1.orders}. `
+    + `Odrzucone rezerwacje pominięte.`;
+}
+
+/* Wykresy rysują się pod aktualną szerokość karty, więc po zmianie rozmiaru
+   okna trzeba je przerysować — inaczej zostają w starej skali. */
+let finResizeT;
+addEventListener('resize', () => {
+  if (!FIN_DATA || !$('#tab-fin').classList.contains('is-on')) return;
+  clearTimeout(finResizeT);
+  finResizeT = setTimeout(renderFinance, 150);
+});
+
+/* ------------------------------------------------------------- eksport -- */
+$('#finExport').onclick = () => {
+  if (!FIN_DATA) return;
+  const days = Number($('#finPeriod').value) || 30;
+  const now = FIN.lastDays(days, todayISO());
+  const rows = [['Data', 'Źródło', 'Pozycja', 'Dzieci', 'Kwota', 'Opłacone'],
+    ...FIN.inRange(FIN_DATA.txs, now).map(t => [
+      t.date,
+      t.source === 'zajecia' ? 'zajęcia' : t.source === 'wejscie' ? 'wejście z ulicy' : 'bawialnia',
+      t.label, t.qty, t.total.toFixed(2).replace('.', ','), t.paid ? 'tak' : 'nie'
+    ])];
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finanse-mala-chmurka-${now.from}_${now.to}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 };
