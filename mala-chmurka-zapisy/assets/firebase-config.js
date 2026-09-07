@@ -46,7 +46,7 @@ export const SDK = "https://www.gstatic.com/firebasejs/12.18.0";
 export const ADMIN_EMAILS = [
   'velorwr16@gmail.com',
   'malachmurka.leszno@gmail.com',
-   'buchar123@gmail.com', 
+   'buchar123@gmail.com' 
 ];
 
 /* Czy adres z listy musi być potwierdzony (kliknięty link z maila)?
