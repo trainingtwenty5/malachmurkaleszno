@@ -13,7 +13,8 @@
    ========================================================================== */
 
 import {
-  clientKey, txFromRegistration, txFromBooking, toTransactions,
+  clientKey, guestClientKey, paidByClient, paidFor,
+  txFromRegistration, txFromBooking, toTransactions,
   dateSeries, rangeLength, lastDays, previousRange, inRange,
   revenueOf, revenueByDay, countByDay, revenuePerBookingByDay, cumulative,
   firstSeen, newClientsByDay, newClientsIn, revenueByWeekday, revenueByLabel,
@@ -76,6 +77,46 @@ eq('ten sam telefon zapisany inaczej to ten sam klient',
    clientKey({ phone: '+48 505-849-404' }), 'tel:505849404');
 eq('bez telefonu bierzemy e-mail', clientKey({ email: 'Ala@Example.PL' }), 'mail:ala@example.pl');
 eq('bez telefonu i e-maila nie ma klienta', clientKey({}), '');
+
+console.log('\n=== KWOTY W RANKINGU ===');
+{
+  /* Wiersz rankingu (kolekcja `guests`) musi trafić w ten sam klucz,
+     co transakcje — inaczej kwota wylądowałaby przy kimś innym albo znikła. */
+  eq('wiersz rankingu z telefonem',
+     guestClientKey({ phoneKey: '505849404', phone: '505 849 404', email: 'a@b.pl' }), 'tel:505849404');
+  eq('wiersz rankingu bez znormalizowanego klucza bierze telefon',
+     guestClientKey({ phoneKey: '', phone: '+48 505-849-404' }), 'tel:505849404');
+  /* Ranking wpisuje w `phoneKey` adres e-mail, gdy nie ma telefonu. */
+  eq('klucz zrobiony z e-maila nie udaje telefonu',
+     guestClientKey({ phoneKey: 'ala_example_pl', phone: '', email: 'ala@example.pl' }),
+     'mail:ala@example.pl');
+  eq('…nawet gdy w adresie są cyfry (tu było najłatwiej o pomyłkę)',
+     guestClientKey({ phoneKey: 'ala123_example_pl', phone: '', email: 'ala123@example.pl' }),
+     'mail:ala123@example.pl');
+  eq('wiersz bez jakiegokolwiek kontaktu nie ma klucza', guestClientKey({}), '');
+}
+{
+  const txs = toTransactions({
+    regs: [
+      reg({ total: 90,  paid: true,  phone: '505 849 404' }),
+      reg({ id: 'r2', total: 45, paid: true,  phone: '505 849 404' }),
+      reg({ id: 'r3', total: 500, paid: false, phone: '505 849 404' })
+    ],
+    bookings: [bkg({ total: 60, paid: true, phone: '505 849 404' })]
+  });
+  const map = paidByClient(txs);
+  eq('sumuje zajęcia i bawialnię tego samego rodzica',
+     paidFor(map, 'tel:505849404').total, 195);
+  eq('liczy tylko opłacone pozycje', paidFor(map, 'tel:505849404').count, 3);
+  eq('kwota trafia do wiersza rankingu przez wspólny klucz',
+     paidFor(map, guestClientKey({ phoneKey: '505849404' })).total, 195);
+  eq('klient bez ani jednej opłaty dostaje zero, nie undefined',
+     paidFor(map, 'tel:111111111'), { total: 0, count: 0 });
+  eq('brak danych finansowych też daje zero', paidFor(null, 'tel:505849404'), { total: 0, count: 0 });
+  eq('wiersz bez klucza nie zbiera cudzych kwot', paidFor(map, ''), { total: 0, count: 0 });
+}
+eq('anonimowe wejście z ulicy nie tworzy klienta w zestawieniu kwot',
+   paidByClient(toTransactions({ bookings: [bkg({ phone: '', email: '', total: 40, paid: true })] })).size, 0);
 
 console.log('\n=== ODRZUCONE REZERWACJE NIE SĄ SPRZEDAŻĄ ===');
 {

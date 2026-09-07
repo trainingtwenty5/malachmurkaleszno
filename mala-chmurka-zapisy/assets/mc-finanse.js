@@ -41,6 +41,26 @@ export function clientKey(o) {
   return '';
 }
 
+/**
+ * Klucz klienta dla wiersza z rankingu (kolekcja `guests`).
+ *
+ * Osobna funkcja, a nie samo `clientKey`, przez jeden szczegół: ranking trzyma
+ * identyfikator w polu `phoneKey`, ale gdy klient nie podał telefonu, wpisuje
+ * tam adres e-mail z zamienionymi znakami (`ala123@example.pl` →
+ * `ala123_example_pl`). Przepuszczenie tego przez `normPhone` zostawiłoby
+ * z adresu same cyfry i zrobiło z „ala123…" telefon o numerze 123 — kwota
+ * nigdy nie trafiłaby do właściwego wiersza. Prawdziwy `phoneKey` to zawsze
+ * same cyfry, więc po tym go poznajemy.
+ */
+export function guestClientKey(g) {
+  const raw = String(g.phoneKey || '');
+  const phone = /^\d+$/.test(raw) ? raw : normPhone(g.phone);
+  if (phone) return 'tel:' + phone;
+  const mail = String(g.email || '').trim().toLowerCase();
+  if (mail) return 'mail:' + mail;
+  return '';
+}
+
 /** Zapis na zajęcia → transakcja. */
 export function txFromRegistration(r) {
   const qty = Math.max(1, Number(r.qty) || 1);
@@ -214,6 +234,26 @@ export function revenueByLabel(txs) {
   });
   return [...map.values()].filter(r => r.total > 0).sort((a, b) => b.total - a.total);
 }
+
+/**
+ * Ile każdy klient u nas zostawił. Klucz taki sam, jak w `clientKey`,
+ * więc wiersz rankingu dopasujemy przez `guestClientKey`.
+ * Liczą się tylko pozycje opłacone — tak samo jak wszędzie indziej w finansach.
+ */
+export function paidByClient(txs) {
+  const map = new Map();
+  txs.filter(isPaid).forEach(t => {
+    if (!t.client) return;
+    const row = map.get(t.client) || { total: 0, count: 0 };
+    row.total += t.total; row.count += 1;
+    map.set(t.client, row);
+  });
+  return map;
+}
+
+/** Odczyt z mapy powyżej — klient bez ani jednej opłaty dostaje czyste zero. */
+export const paidFor = (map, key) =>
+  (map && key && map.get(key)) || { total: 0, count: 0 };
 
 /** Rozliczenie okresu: co wpłynęło, a co jeszcze wisi. */
 export function settlement(txs) {

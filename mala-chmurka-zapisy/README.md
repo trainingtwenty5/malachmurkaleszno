@@ -44,7 +44,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
-| `tools/test-finanse.mjs` | 80 testów zakładki „Finanse” (przychód, okresy) — sam Node. |
+| `tools/test-finanse.mjs` | 92 testy zakładki „Finanse” (przychód, okresy, kwoty w rankingu) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -262,7 +262,7 @@ node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
-node tools/test-finanse.mjs # 80 testów: przychód, okresy, nowi klienci, podziałka osi
+node tools/test-finanse.mjs # 92 testy: przychód, okresy, nowi klienci, kwoty w rankingu
 ```
 
 ### Czego panel *nie* chroni
@@ -505,6 +505,31 @@ widoczna w zakładce **2 · Zapisani** przy danych dziecka i obejmuje ją wyszuk
 więc da się na przykład znaleźć wszystkie zgłoszenia ze słowem „alergia". Przy odrzuceniu możesz wpisać powód — klient zobaczy go
 w swojej historii.
 
+### Wyszukiwarka rezerwacji (zakładka 5)
+
+Nad siatką tygodnia jest pole szukania: **numer rezerwacji, imię dziecka, rodzic,
+telefon, e-mail, godzina, uwagi** i status. Numer rezerwacji rozpoznajemy tak samo
+jak w zakładce 2 — z krzyżykiem albo bez, wielkimi literami albo małymi. Wpisanie
+kilku słów zawęża wynik: `zosia 15:30` znajdzie tylko te rezerwacje, które pasują
+do obu.
+
+**Szukanie celowo wychodzi poza bieżący tydzień** i przegląda całą historię —
+rodzic dzwoni z numerem rezerwacji i nie wie, w którym tygodniu ona leży. Widok
+przełącza się wtedy z siatki siedmiu dni na płaską listę wyników od najnowszej,
+z datą na każdej karcie, a nawigacja tygodniami znika (nie miałaby co robić).
+Wyczyszczenie pola wraca do zwykłego widoku tygodnia. Wszystkie przyciski
+— **Akceptuj**, **Odrzuć**, **Opłacone**, **Do godz.**, **Usuń** — działają
+na znalezionej rezerwacji tak samo jak w widoku tygodnia.
+
+Kafelki podsumowania nad wyszukiwarką (czekają na decyzję, zaakceptowane,
+odrzucone, dzieci) zawsze dotyczą **tygodnia**, nie wyników szukania — to one
+mówią obsłudze, ile jest do zrobienia teraz, i szukanie nie powinno tego mieszać.
+
+Historię rezerwacji pobieramy raz, przy pierwszym szukaniu, i dzielimy ją
+z zakładką 7 oraz z kwotami w rankingu. Każda zmiana (akceptacja, opłata, godzina
+wyjścia, usunięcie, dziecko z ulicy) unieważnia ten zapas, więc następne wejście
+w zakładkę widzi świeże dane.
+
 ### Zakładka 6 · Czas zabawy
 
 Jedna lista wszystkich, którzy są dziś w bawialni — **z zajęć, z rezerwacji i wprowadzonych
@@ -609,6 +634,21 @@ Każde potwierdzone „Przyszedł + Opłacone” dopisuje dziecku wizytę i czas
 *Zosia Kowalska, 726 431 978, 3 wizyty, 6 godz.* — dokładnie tak przy trzech
 wizytach po 2 h, 3 h i 1 h. Odznaczenie checkboxa cofa wizytę. Jest eksport do CSV.
 Dzieci rozpoznajemy po **numerze telefonu** — ten sam numer to ta sama kartoteka.
+
+**Kolumna „Zapłacono”** pokazuje, ile ten rodzic u nas łącznie zostawił — zajęcia
+i wstęp do bawialni razem, wyłącznie pozycje odhaczone jako opłacone. Kwot nie
+trzymamy w kartotece: doliczamy je z historii zamówień tym samym rachunkiem, co
+zakładka **7 · Finanse**, więc obie zakładki nie mogą pokazać różnych liczb.
+Dzięki temu kwoty działają też dla wizyt sprzed wprowadzenia tej kolumny —
+nie było czego wstecznie dopisywać do bazy.
+
+Pod tabelą stoi suma dla **aktualnie wyświetlanej listy** — po wpisaniu czegoś
+w wyszukiwarkę zobaczysz sumę dla znalezionych rodziców, a nie dla całego rankingu.
+Kwoty przychodzą chwilę po samej liście (najpierw ranking, potem historia zamówień);
+zanim doliczą się do końca, w kolumnie stoi kreska. Kreska zamiast `0,00 zł` znaczy
+„jeszcze nie wiem”, a nie „nic nie zapłacił” — to dwie różne rzeczy.
+
+Eksport CSV ma tę kolumnę razem z resztą.
 
 ---
 
