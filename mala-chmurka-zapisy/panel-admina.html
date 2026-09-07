@@ -95,6 +95,16 @@
   .bk-no{background:var(--bad-pale);color:var(--bad);border-color:#F0C9C5}
   .bk-del{background:var(--cream-deep);color:var(--muted)}
   .bk-acts button:hover{filter:brightness(.96)}
+  /* Wyniki wyszukiwarki — płaska siatka kart zamiast siedmiu kolumn dni.
+     Data trafia na kartę, bo wyniki nie są już ułożone po dniach. */
+  .bk-found{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .bk-found .bk-card{margin-bottom:0}
+  .bk-when{font-family:var(--font-head);font-weight:700;font-size:.8rem;color:var(--brand-deep);
+    background:var(--brand-pale);border-radius:7px;padding:.1em .5em;display:inline-block;margin-bottom:5px}
+  /* Kwota w rankingu — te same tabelaryczne cyfry co w finansach, żeby
+     kolumna czytała się z góry na dół jak zestawienie. */
+  .rank-paid{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
   /* ---- zakładka 6: czas zabawy ---- */
   .pl-left{font-family:var(--font-head);font-weight:700;font-size:1.05rem;white-space:nowrap;
     font-variant-numeric:tabular-nums}
@@ -357,7 +367,7 @@
           <table class="tbl">
             <thead><tr>
               <th>#</th><th>Dzieci</th><th>Rodzic</th><th>Telefon</th><th>E-mail</th>
-              <th>Liczba wizyt</th><th>Łączny czas</th><th>Ostatnia wizyta</th>
+              <th>Liczba wizyt</th><th>Łączny czas</th><th>Zapłacono</th><th>Ostatnia wizyta</th>
             </tr></thead>
             <tbody id="rankRows"></tbody>
           </table>
@@ -374,11 +384,9 @@
           <div class="stat-card"><div class="k">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
         </div>
 
-        <div class="cal-toolbar">
-          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
-          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
-          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
-          <div class="cal-range" id="bkRange">—</div>
+        <div class="bar">
+          <input class="control grow" id="bkQ"
+                 placeholder="Szukaj: numer rezerwacji, imię dziecka, rodzic, telefon, e-mail, godzina, uwagi…">
           <select class="control mini" id="bkFilter" aria-label="Filtr statusu">
             <option value="">wszystkie statusy</option>
             <option value="pending">tylko oczekujące</option>
@@ -386,6 +394,20 @@
             <option value="rejected">tylko odrzucone</option>
           </select>
         </div>
+
+        <div class="cal-toolbar" id="bkWeekNav">
+          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
+          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
+          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
+          <div class="cal-range" id="bkRange">—</div>
+        </div>
+
+        <!-- Widoczne tylko przy szukaniu: wyszukiwarka celowo wychodzi poza
+             tydzień, bo rodzic dzwoni z numerem rezerwacji i nie wie, w którym
+             tygodniu ona leży. -->
+        <p class="hint" id="bkSearchInfo" hidden style="margin:-6px 0 12px">
+          Szukam w <strong>całej historii rezerwacji</strong>, nie tylko w tym tygodniu.
+          Wyczyść pole, żeby wrócić do widoku tygodnia.</p>
 
         <p class="hint" style="margin:-6px 0 12px">
           To rezerwacje samego wstępu do bawialni, złożone przez klientów. Dopóki nie klikniesz
@@ -1243,6 +1265,7 @@ $('#regRows').addEventListener('change', async e => {
       await applyVisitToRanking(reg, -1);
       await updateRegistration(reg.id, { countedInRanking: false });
     }
+    invalidateFinanceData();
     const auto = await refreshPresence();
     toast(!auto ? 'Zaktualizowano. Licznik jest w trybie ręcznym — nie zmieniam go.'
                 : shouldCount ? 'Potwierdzone — licznik na stronie zaktualizowany.' : 'Zaktualizowano.');
@@ -1256,6 +1279,7 @@ $('#regRows').addEventListener('click', async e => {
   if (!confirm('Usunąć ten zapis na stałe?')) return;
   if (reg.countedInRanking) await applyVisitToRanking(reg, -1).catch(() => {});
   await deleteRegistration(reg.id);
+  invalidateFinanceData();
   await refreshPresence();
   toast('Zapis usunięty.');
 });
@@ -1336,11 +1360,25 @@ $('#saveVisits').onclick = async () => {
 };
 
 /* ========================================================= 4. RANKING ==== */
-let GUESTS = [];
+let GUESTS = [], PAID_BY_CLIENT = null;
+
 async function loadRanking() {
   try { GUESTS = await listGuests(); } catch (e) { toast('Błąd: ' + e.message); return; }
   renderRank();
+  /* Kwoty dolicza się z historii zamówień, więc mogą przyjść chwilę później
+     niż sama lista — ranking pokazuje się od razu, kolumna dopisuje się sama.
+     Gdy pobranie padnie, zostaje kreska zamiast zerowej kwoty: „nie wiem”
+     to co innego niż „nic nie zapłacił”. */
+  try {
+    const { txs } = await loadFinanceData();
+    PAID_BY_CLIENT = FIN.paidByClient(txs);
+    renderRank();
+  } catch (e) { console.warn('kwoty w rankingu:', e.message); }
 }
+
+/** Ile ten rodzic u nas zostawił — suma opłaconych zajęć i wstępów. */
+const paidOf = g => FIN.paidFor(PAID_BY_CLIENT, FIN.guestClientKey(g));
+
 function renderRank() {
   const q = $('#qRank').value.trim().toLowerCase();
   const list = GUESTS
@@ -1355,15 +1393,23 @@ function renderRank() {
       <td>${esc(g.email || '—')}</td>
       <td class="num"><strong>${esc(plWizyty(g.visits))}</strong></td>
       <td class="num">${humanMinutes(g.totalMinutes)}</td>
+      <td class="num rank-paid">${PAID_BY_CLIENT ? esc(money(paidOf(g).total)) : '—'}</td>
       <td class="num">${g.lastVisit ? esc(shortDate(g.lastVisit)) : '—'}</td>
     </tr>`).join('')
-    : `<tr><td colspan="8"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
-  $('#rankCount').textContent = `${list.length} dzieci w rankingu.`;
+    : `<tr><td colspan="9"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
+
+  /* Podsumowanie liczy to, co widać na liście — przy włączonej wyszukiwarce
+     to suma dla znalezionych rodziców, a nie dla całego rankingu. */
+  const suma = PAID_BY_CLIENT ? list.reduce((s, g) => s + paidOf(g).total, 0) : null;
+  $('#rankCount').textContent = suma === null
+    ? `${plDzieci(list.length)} w rankingu. Liczę zapłacone kwoty…`
+    : `${plDzieci(list.length)} w rankingu · zapłacone łącznie: ${money(suma)}.`;
 }
 $('#qRank').addEventListener('input', renderRank);
 $('#exportRank').onclick = () => {
-  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Ostatnia wizyta'],
-    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0, g.lastVisit || ''])];
+  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Zaplacono','Ostatnia wizyta'],
+    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0,
+      PAID_BY_CLIENT ? paidOf(g).total.toFixed(2).replace('.', ',') : '', g.lastVisit || ''])];
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
@@ -1397,36 +1443,24 @@ function loadBookingWeek() {
   });
 }
 
-function renderBookings() {
-  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
-  const shown = BOOKINGS.filter(b => !filter || (b.status || 'pending') === filter);
+/**
+ * Rezerwacja o danym id. Najpierw w bieżącym tygodniu (tam jest najświeższa,
+ * bo słucha bazy na żywo), a dopiero potem w historii pobranej na potrzeby
+ * wyszukiwarki. Bez tego drugiego kroku przyciski na znalezionej rezerwacji
+ * spoza tygodnia nic by nie robiły.
+ */
+const findBooking = id =>
+  BOOKINGS.find(x => x.id === id) ||
+  (FIN_DATA ? FIN_DATA.bookings.find(x => x.id === id) : null) || null;
 
-  /* podsumowanie liczy cały tydzień, nie tylko przefiltrowane */
-  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
-  const pending = count('pending');
-  $('#bkPending').textContent  = pending;
-  $('#bkAccepted').textContent = count('accepted');
-  $('#bkRejected').textContent = count('rejected');
-  $('#bkKids').textContent = BOOKINGS
-    .filter(b => b.status === 'accepted')
-    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
-
-  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
-  const badge = $('#bookBadge');
-  badge.textContent = pending;
-  badge.hidden = pending === 0;
-
-  const today = todayISO();
-  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
-    const dISO = isoDate(addDays(bkMonday, i));
-    const day = shown.filter(b => b.date === dISO)
-      .sort((a, b) => toMin(a.start) - toMin(b.start));
-
-    const cards = day.length ? day.map(b => {
-      const st = b.status || 'pending';
-      const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
-      return `
+/** Kafelek jednej rezerwacji. Ten sam w widoku tygodnia i w wynikach szukania —
+    w tym drugim dostaje jeszcze datę, bo wyniki nie są ułożone po dniach. */
+function bookingCard(b, { withDate = false } = {}) {
+  const st = b.status || 'pending';
+  const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
+  return `
         <div class="bk-card ${st}">
+          ${withDate ? `<div class="bk-when">${esc(shortDate(b.date || todayISO()))}</div>` : ''}
           <b>${esc(b.start || '—')} · ${esc(b.durationLabel || b.duration || '')}</b>
           <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code></div>
           <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
@@ -1451,27 +1485,126 @@ function renderBookings() {
             <button class="bk-del" data-del="${b.id}">Usuń</button>
           </div>
         </div>`;
-    }).join('') : '<div class="bk-empty">brak rezerwacji</div>';
+}
 
+/**
+ * Czy rezerwacja pasuje do wpisanej frazy. Ta sama zasada, co przy zapisach
+ * w zakładce 2: numer rezerwacji sprawdzamy osobno (klient dyktuje go przez
+ * telefon, z krzyżykiem albo bez), a reszta to zwykłe szukanie po słowach —
+ * wszystkie muszą trafić, więc „ania 15:30" zawęża wynik, a nie rozszerza.
+ */
+function matchesBooking(b, q) {
+  if (!q) return true;
+  if (matchesRef(b.id, q)) return true;
+  const hay = [
+    ...(b.children || []).map(c => c.name),
+    b.parentFirstName, b.parentLastName, b.phone, b.phoneKey, b.email,
+    b.start, b.stayUntil, b.date, b.note, b.adminNote,
+    b.durationLabel, b.duration, b.source === 'walkin' ? 'wejscie z ulicy' : '',
+    BOOKING_STATUS_SHORT[b.status || 'pending'] || ''
+  ].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+}
+
+/* Wyszukiwarka celowo wychodzi poza bieżący tydzień — rodzic dzwoni z numerem
+   rezerwacji i nie wie, w którym tygodniu ona leży. Historię bierzemy z tego
+   samego, raz pobranego zestawu, co wykresy i kwoty w rankingu. */
+let bkSearching = false;
+
+$('#bkQ').addEventListener('input', () => {
+  const q = $('#bkQ').value.trim();
+  if (q && !FIN_DATA && !bkSearching) {
+    bkSearching = true;
+    loadFinanceData()
+      .catch(e => toast('Nie udało się wczytać historii rezerwacji: ' + e.message))
+      .finally(() => { bkSearching = false; renderBookings(); });
+  }
+  renderBookings();
+});
+
+function renderBookings() {
+  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
+  const q = $('#bkQ') ? $('#bkQ').value.trim() : '';
+  const byStatus = b => !filter || (b.status || 'pending') === filter;
+
+  /* Kafelki podsumowania zawsze dotyczą tygodnia — to one mówią obsłudze,
+     ile jest do zrobienia „teraz", i szukanie nie powinno tego mieszać. */
+  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
+  const pending = count('pending');
+  $('#bkPending').textContent  = pending;
+  $('#bkAccepted').textContent = count('accepted');
+  $('#bkRejected').textContent = count('rejected');
+  $('#bkKids').textContent = BOOKINGS
+    .filter(b => b.status === 'accepted')
+    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
+
+  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
+  const badge = $('#bookBadge');
+  badge.textContent = pending;
+  badge.hidden = pending === 0;
+
+  $('#bkSearchInfo').hidden = !q;
+  $('#bkWeekNav').hidden = !!q;
+
+  if (q) { renderBookingSearch(q, byStatus); return; }
+
+  const shown = BOOKINGS.filter(byStatus);
+  const today = todayISO();
+  $('#bkGrid').className = 'bk-grid';
+  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
+    const dISO = isoDate(addDays(bkMonday, i));
+    const day = shown.filter(b => b.date === dISO)
+      .sort((a, b) => toMin(a.start) - toMin(b.start));
+    const cards = day.length ? day.map(b => bookingCard(b)).join('')
+                             : '<div class="bk-empty">brak rezerwacji</div>';
     return `<div class="bk-day${dISO === today ? ' is-today' : ''}">
         <h4>${DAY_SHORT[i]} <span>${shortDate(dISO).slice(0, 5)}</span></h4>
         ${cards}
       </div>`;
   }).join('');
 
-  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
-  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
-  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
-  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
-  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
-
+  wireBookingCards();
   $('#bkCount').textContent = shown.length
     ? `W tym tygodniu: ${shown.length} rezerwacji.`
     : 'W tym tygodniu nie ma rezerwacji pasujących do filtra.';
 }
 
+/** Wyniki szukania: płaska lista od najnowszej, z całej historii. */
+function renderBookingSearch(q, byStatus) {
+  const grid = $('#bkGrid');
+  grid.className = 'bk-found';
+
+  if (!FIN_DATA) {
+    grid.innerHTML = '<div class="loading"><span class="spin"></span> Wczytuję historię rezerwacji…</div>';
+    $('#bkCount').textContent = '';
+    return;
+  }
+
+  const hits = FIN_DATA.bookings
+    .filter(byStatus)
+    .filter(b => matchesBooking(b, q))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || toMin(b.start) - toMin(a.start));
+
+  grid.innerHTML = hits.length
+    ? hits.map(b => bookingCard(b, { withDate: true })).join('')
+    : `<div class="bk-empty">Nie znalazłem rezerwacji pasującej do „${esc(q)}".</div>`;
+
+  wireBookingCards();
+  $('#bkCount').textContent = hits.length
+    ? `Znaleziono ${hits.length} z ${FIN_DATA.bookings.length} rezerwacji w całej historii.`
+    : '';
+}
+
+function wireBookingCards() {
+  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
+  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
+  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
+  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
+  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
+}
+
 async function decide(id, status) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   let note = '';
   if (status === 'rejected') {
     note = prompt('Powód odmowy (zobaczy go klient — możesz zostawić puste):',
@@ -1499,6 +1632,7 @@ async function decide(id, status) {
     if (b) await syncBookingRanking(b, { status }).catch(e => console.warn('ranking:', e.message));
 
     /* Zaakceptowana rezerwacja od razu wchodzi do licznika na stronie. */
+    invalidateFinanceData();
     await refreshPresence();
     toast(status === 'accepted' ? 'Rezerwacja zaakceptowana — licznik zaktualizowany.'
                                 : 'Rezerwacja odrzucona.');
@@ -1525,17 +1659,18 @@ async function syncBookingRanking(b, { paid = b.paid, status = b.status } = {}) 
 }
 
 async function setPaid(id, paid) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   if (!b) return;
   try {
     await updateBooking(id, { paid: !!paid });
     await syncBookingRanking(b, { paid });
+    invalidateFinanceData();
     toast(paid ? 'Oznaczone jako opłacone.' : 'Zdjęto oznaczenie opłaty.');
   } catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
 }
 
 async function setUntil(id, hhmm) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   if (!b) return;
   try {
     /* jeśli wizyta jest już policzona w rankingu, najpierw ją cofamy — inaczej
@@ -1543,6 +1678,7 @@ async function setUntil(id, hhmm) {
     if (b.countedInRanking) await applyBookingToRanking(b, -1);
     await updateBooking(id, { stayUntil: hhmm || '' });
     if (b.countedInRanking) await applyBookingToRanking({ ...b, stayUntil: hhmm || '' }, +1);
+    invalidateFinanceData();
     await refreshPresence();
     toast('Godzina wyjścia zapisana.');
   } catch (err) { toast('Nie udało się zapisać godziny: ' + (err.message || '')); }
@@ -1550,10 +1686,11 @@ async function setUntil(id, hhmm) {
 
 async function removeBooking(id) {
   if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   try {
     if (b && b.countedInRanking) await applyBookingToRanking(b, -1).catch(() => {});
     await deleteBooking(id);
+    invalidateFinanceData();
     await refreshPresence();
     toast('Rezerwacja usunięta.');
   }
@@ -1816,6 +1953,7 @@ $('#wiForm').addEventListener('submit', async e => {
       await applyBookingToRanking(b, +1).catch(() => {});
       await markBookingCounted(b.id, true).catch(() => {});
     }
+    invalidateFinanceData();
     await refreshPresence();
     toast('Dodano do bawialni.');
     wiCloseM();
@@ -1852,23 +1990,45 @@ $('#plExport').onclick = () => {
    spokojnie, a nasłuch na wszystkich zapisach i rezerwacjach naraz kosztowałby
    tyle odczytów, że szkoda darmowego limitu Firebase.
    ========================================================================== */
-let FIN_TX = null, finLoading = false;
+let FIN_DATA = null, finLoading = null;
+
+/**
+ * Cała historia zapisów i rezerwacji, ściągnięta raz i trzymana w pamięci.
+ * Korzystają z niej trzy miejsca: wykresy w tej zakładce, kwoty w rankingu
+ * (zakładka 4) i wyszukiwarka rezerwacji (zakładka 5) — ta ostatnia dlatego,
+ * że szuka poza bieżącym tygodniem. Równoległe wejścia dostają to samo
+ * przyrzeczenie, żeby dwie zakładki otwarte pod rząd nie pobrały bazy dwa razy.
+ */
+function loadFinanceData() {
+  if (FIN_DATA) return Promise.resolve(FIN_DATA);
+  if (!finLoading) {
+    finLoading = Promise.all([listRegistrations(), listBookings()])
+      .then(([regs, bookings]) => (FIN_DATA = {
+        regs, bookings, txs: FIN.toTransactions({ regs, bookings })
+      }))
+      .finally(() => { finLoading = null; });
+  }
+  return finLoading;
+}
+
+/* Każda zmiana w rezerwacji albo zapisie unieważnia zapamiętaną historię —
+   inaczej kwoty w rankingu i wyniki wyszukiwarki pokazywałyby stan sprzed
+   kliknięcia. Następne wejście w zakładkę pobierze świeże dane. */
+function invalidateFinanceData() { FIN_DATA = null; }
 
 async function openFinance() {
-  if (FIN_TX || finLoading) { renderFinance(); return; }
-  finLoading = true;
+  if (FIN_DATA) { renderFinance(); return; }
   $('#finCount').textContent = 'Wczytuję historię zapisów i rezerwacji…';
   try {
-    const [regs, bookings] = await Promise.all([listRegistrations(), listBookings()]);
-    FIN_TX = FIN.toTransactions({ regs, bookings });
+    await loadFinanceData();
     renderFinance();
   } catch (e) {
     $('#finCount').textContent = 'Nie udało się wczytać danych: ' + e.message;
-  } finally { finLoading = false; }
+  }
 }
 
 $('#finPeriod').onchange = () => renderFinance();
-$('#finReload').onclick  = () => { FIN_TX = null; openFinance(); };
+$('#finReload').onclick  = () => { invalidateFinanceData(); openFinance(); };
 
 /** Podpisy pod osią X — kilka dat rozłożonych równo, w formacie „7.09”. */
 const finXLabels = days => FIN.pickLabels(days).map(({ i, iso }) => {
@@ -1909,13 +2069,14 @@ function finLegend(hostId, now, prev) {
 }
 
 function renderFinance() {
-  if (!FIN_TX) return;
+  if (!FIN_DATA) return;
+  const TX = FIN_DATA.txs;
   const days = Number($('#finPeriod').value) || 30;
   const now  = FIN.lastDays(days, todayISO());
   const prev = FIN.previousRange(now);
   $('#finRange').textContent = `${shortDate(now.from)} – ${shortDate(now.to)}`;
 
-  const A1 = FIN.summary(FIN_TX, now), B1 = FIN.summary(FIN_TX, prev);
+  const A1 = FIN.summary(TX, now), B1 = FIN.summary(TX, prev);
   const dNow = A1.days, dPrev = B1.days;
 
   /* ---- kafelki ---- */
@@ -1946,7 +2107,7 @@ function renderFinance() {
   spark('sparkRevenue', revNow);
   spark('sparkOrders', cntNow);
   spark('sparkAvg', FIN.revenuePerBookingByDay(A1.txs, dNow));
-  spark('sparkNew', FIN.newClientsByDay(FIN_TX, dNow));
+  spark('sparkNew', FIN.newClientsByDay(TX, dNow));
 
   /* ---- wykresy z osiami: bieżący okres na tle poprzedniego ---- */
   const pair = (key, nowPoints, prevPoints, opts = {}) =>
@@ -1965,7 +2126,7 @@ function renderFinance() {
        { h: 260, yFmt: finShortMoney, alt: 'Przychód dzień po dniu' });
   pair('orders', cntNow, FIN.countByDay(B1.txs, dPrev),
        { padL: 34, alt: 'Liczba rezerwacji dzień po dniu' });
-  pair('newClients', FIN.newClientsByDay(FIN_TX, dNow), FIN.newClientsByDay(FIN_TX, dPrev),
+  pair('newClients', FIN.newClientsByDay(TX, dNow), FIN.newClientsByDay(TX, dPrev),
        { padL: 34, alt: 'Nowi klienci dzień po dniu' });
   pair('perOrder', FIN.revenuePerBookingByDay(A1.txs, dNow), FIN.revenuePerBookingByDay(B1.txs, dPrev),
        { yFmt: finShortMoney, alt: 'Przychód na rezerwację' });
@@ -2006,7 +2167,7 @@ function renderFinance() {
     <div><span class="k">Dzieci w okresie</span><span class="v">${A1.kids}</span></div>`;
 
   /* ---- przychód wg zajęć: cała historia, nie tylko wybrany okres ---- */
-  const rows = FIN.revenueByLabel(FIN_TX);
+  const rows = FIN.revenueByLabel(TX);
   const host = $('#finByLabel');
   if (!rows.length) {
     host.innerHTML = `<p class="fin-empty">Nie ma jeszcze opłaconych zapisów ani rezerwacji —
@@ -2024,7 +2185,7 @@ function renderFinance() {
   }
 
   $('#finCount').textContent =
-    `Podstawa: ${FIN_TX.length} zamówień z całej historii, w wybranym okresie ${A1.orders}. `
+    `Podstawa: ${TX.length} zamówień z całej historii, w wybranym okresie ${A1.orders}. `
     + `Odrzucone rezerwacje pominięte.`;
 }
 
@@ -2032,18 +2193,18 @@ function renderFinance() {
    okna trzeba je przerysować — inaczej zostają w starej skali. */
 let finResizeT;
 addEventListener('resize', () => {
-  if (!FIN_TX || !$('#tab-fin').classList.contains('is-on')) return;
+  if (!FIN_DATA || !$('#tab-fin').classList.contains('is-on')) return;
   clearTimeout(finResizeT);
   finResizeT = setTimeout(renderFinance, 150);
 });
 
 /* ------------------------------------------------------------- eksport -- */
 $('#finExport').onclick = () => {
-  if (!FIN_TX) return;
+  if (!FIN_DATA) return;
   const days = Number($('#finPeriod').value) || 30;
   const now = FIN.lastDays(days, todayISO());
   const rows = [['Data', 'Źródło', 'Pozycja', 'Dzieci', 'Kwota', 'Opłacone'],
-    ...FIN.inRange(FIN_TX, now).map(t => [
+    ...FIN.inRange(FIN_DATA.txs, now).map(t => [
       t.date,
       t.source === 'zajecia' ? 'zajęcia' : t.source === 'wejscie' ? 'wejście z ulicy' : 'bawialnia',
       t.label, t.qty, t.total.toFixed(2).replace('.', ','), t.paid ? 'tak' : 'nie'
