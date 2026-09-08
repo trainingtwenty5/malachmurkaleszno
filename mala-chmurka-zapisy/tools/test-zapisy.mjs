@@ -12,7 +12,7 @@
 
 import { signupClosed, seatState, SIGNUP_CLOSED_TEXT, slotInPast, nextQuarter, fmtMin,
          openingFor, withinOpening, closingMinFor, bookingEndMin, orderRef, matchesRef,
-         centerScrollLeft }
+         centerScrollLeft, seriesDates }
   from '../assets/mc-common.js';
 import { mergeChildren, childKey, childLabel, normChild, knownChildren }
   from '../assets/mc-dzieci.js';
@@ -32,6 +32,11 @@ function ok(name, cond, dump = '') {
 }
 const eq = (name, got, want) =>
   ok(`${name} → ${JSON.stringify(want)}`, got === want, `dostałem: ${JSON.stringify(got)}`);
+/* Porownanie po tresci — `eq` sprawdza tozsamosc, wiec dla tablic i obiektow
+   zawsze wypadaloby FAIL, nawet przy identycznej zawartosci. */
+const eqDeep = (name, got, want) =>
+  ok(`${name} → ${JSON.stringify(want)}`, JSON.stringify(got) === JSON.stringify(want),
+     `dostałem: ${JSON.stringify(got)}`);
 
 /* ================================================ TERMIN ZAPISÓW ======== */
 console.log('\n=== TERMIN ZAPISÓW UPŁYNĄŁ ===');
@@ -234,6 +239,55 @@ eq('szeroka zakładka też liczy się od swojego środka',
    centerScrollLeft(500, 200, 343, 705), 429);
 eq('wynik jest liczbą całkowitą — scrollLeft nie lubi ułamków',
    Number.isInteger(centerScrollLeft(401, 99, 343, 705)), true);
+
+/* ==========================================================================
+   POWTARZAJĄCE SIĘ ZAJĘCIA
+   Seria liczy się od pierwszego terminu, ale ten JUŻ ISTNIEJE — funkcja zwraca
+   wyłącznie kolejne terminy do utworzenia. Najłatwiej tu o pomyłkę o jeden:
+   „8 wystąpień" znaczy oryginał + 7 kopii, a nie 8 kopii.
+   ========================================================================== */
+console.log('\n=== SERIA TERMINÓW ===');
+/* 2026-09-07 to poniedziałek. */
+eqDeep('co tydzień, 4 wystąpienia = oryginał + 3 kopie',
+   seriesDates({ startISO: '2026-09-07', endMode: 'count', count: 4 }),
+   ['2026-09-14', '2026-09-21', '2026-09-28']);
+eqDeep('jedno wystąpienie nie tworzy żadnej kopii',
+   seriesDates({ startISO: '2026-09-07', endMode: 'count', count: 1 }), []);
+eqDeep('bez zaznaczonych dni powtarza w dzień oryginału',
+   seriesDates({ startISO: '2026-09-09', endMode: 'count', count: 3 }),
+   ['2026-09-16', '2026-09-23']);
+eqDeep('poniedziałki i środy',
+   seriesDates({ startISO: '2026-09-07', weekdays: [0, 2], endMode: 'count', count: 5 }),
+   ['2026-09-09', '2026-09-14', '2026-09-16', '2026-09-21']);
+eqDeep('sam oryginał nie liczy się dwa razy, gdy jego dzień jest zaznaczony',
+   seriesDates({ startISO: '2026-09-07', weekdays: [0], endMode: 'count', count: 3 }),
+   ['2026-09-14', '2026-09-21']);
+eqDeep('do wskazanego dnia włącznie',
+   seriesDates({ startISO: '2026-09-07', weekdays: [0], endMode: 'date', endDate: '2026-10-05' }),
+   ['2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05']);
+eqDeep('dzień przed ostatnim terminem ucina serię',
+   seriesDates({ startISO: '2026-09-07', weekdays: [0], endMode: 'date', endDate: '2026-10-04' }),
+   ['2026-09-14', '2026-09-21', '2026-09-28']);
+eqDeep('data końca przed startem nie daje nic',
+   seriesDates({ startISO: '2026-09-07', endMode: 'date', endDate: '2026-09-01' }), []);
+eqDeep('brak daty końca nie daje nic',
+   seriesDates({ startISO: '2026-09-07', endMode: 'date', endDate: '' }), []);
+eqDeep('brak daty startu nie daje nic', seriesDates({ startISO: '', endMode: 'count', count: 5 }), []);
+eqDeep('seria przez przełom roku',
+   seriesDates({ startISO: '2026-12-28', weekdays: [0], endMode: 'count', count: 3 }),
+   ['2027-01-04', '2027-01-11']);
+eqDeep('seria przez luty w roku przestępnym',
+   seriesDates({ startISO: '2024-02-19', weekdays: [0], endMode: 'count', count: 3 }),
+   ['2024-02-26', '2024-03-04']);
+/* Bez twardego limitu „do dnia" mogłoby zrobić setki kopii jednym kliknięciem. */
+eq('limit bezpieczeństwa ucina zbyt długą serię',
+   seriesDates({ startISO: '2026-01-01', weekdays: [0,1,2,3,4,5,6],
+                 endMode: 'date', endDate: '2027-12-31', max: 10 }).length, 10);
+eqDeep('nieistniejący numer dnia jest pomijany',
+   seriesDates({ startISO: '2026-09-07', weekdays: [9], endMode: 'count', count: 3 }), []);
+eqDeep('wszystkie dni tygodnia = codziennie',
+   seriesDates({ startISO: '2026-09-07', weekdays: [0,1,2,3,4,5,6], endMode: 'count', count: 4 }),
+   ['2026-09-08', '2026-09-09', '2026-09-10']);
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

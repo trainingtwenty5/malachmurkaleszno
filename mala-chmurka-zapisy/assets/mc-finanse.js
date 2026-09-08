@@ -612,7 +612,10 @@ export function csvRow(t) {
        samo bycie zaakceptowanym znaczy, że dziecko przyszło. */
     zajecia ? yesNo(r.attended) : '—',
     yesNo(r.countedInRanking),
-    zajecia ? (r.paymentMethod || '') : (r.tariff === 'weekend' ? 'weekend' : 'dzień powszedni'),
+    /* Przy zajęciach zawsze metoda płatności. Przy wstępie do bawialni metoda
+       jest tylko wtedy, gdy ktoś ją wybrał przy drzwiach — w pozostałych
+       przypadkach bardziej mówi taryfa, według której naliczono cenę. */
+    r.paymentMethod || (zajecia ? '' : (r.tariff === 'weekend' ? 'weekend' : 'dzień powszedni')),
     zajecia ? '' : (r.durationLabel || r.duration || ''),
     (r.note || '').replace(/\s*\n\s*/g, ' '),
     (r.adminNote || '').replace(/\s*\n\s*/g, ' '),

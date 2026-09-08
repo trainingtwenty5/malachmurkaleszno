@@ -38,13 +38,13 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-rules.mjs` | 82 testy reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
-| `tools/test-zapisy.mjs` | 83 testy: terminy, godziny otwarcia, numer rezerwacji — sam Node. |
+| `tools/test-zapisy.mjs` | 98 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
 | `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
-| `tools/test-finanse.mjs` | 201 testów zakładki „Finanse” (przychód, okresy, arkusz CSV) — sam Node. |
+| `tools/test-finanse.mjs` | 214 testów zakładki „Finanse” (przychód, wejścia, arkusz CSV) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -263,7 +263,7 @@ node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
-node tools/test-finanse.mjs # 201 testów: przychód, okresy, kalendarz, arkusz CSV
+node tools/test-finanse.mjs # 214 testów: przychód, okresy, wejścia przy drzwiach, CSV
 ```
 
 ### Czego panel *nie* chroni
@@ -316,6 +316,27 @@ kto i od kiedy ma dostęp.
   podsumowania, **+ Nowe zajęcia**, **Edytuj**, **Duplikuj**, **Usuń**,
   „Powiel na kolejne tygodnie”.
 * **Wyloguj** natychmiast zwija panel i wraca do ekranu logowania.
+
+---
+
+## Powtarzające się zajęcia
+
+W oknie zajęć jest sekcja **Powtarzanie** z przełącznikiem „Powtarza się”. Po włączeniu:
+
+* **Powtarzaj w** — zaznacz dni tygodnia (P W Ś C P S N). Nic nie zaznaczone znaczy
+  „co tydzień w ten sam dzień, co pierwsze zajęcia”.
+* **Kończy się** — albo **W dniu** (data ostatniego możliwego terminu), albo
+  **Po wystąpieniu** (ile terminów łącznie z pierwszym).
+* Pod spodem stoi podpowiedź: ile terminów powstanie i kiedy wypada ostatni. Liczy się
+  na żywo, więc widać skutek zanim się cokolwiek zapisze.
+
+Pierwszy termin to te zajęcia, które właśnie zapisujesz — kopie powstają dopiero po nim.
+„8 wystąpień” znaczy oryginał plus siedem kopii. Każda kopia dostaje **własną, pustą listę
+zapisów** i komplet zdjęć oryginału. Serię ogranicza twardy limit, żeby jedno kliknięcie
+nie zrobiło setek terminów.
+
+Same daty liczy czysta funkcja `seriesDates` z `mc-common.js` — bez przeglądarki, więc
+da się ją sprawdzić testem (`node tools/test-zapisy.mjs`).
 
 ---
 
@@ -558,12 +579,37 @@ ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekund�
   a przy zapisie na zajęcia tylko odznacza obecność, więc dziecko znika z bawialni,
   ale sam zapis zostaje.
 
-**Dziecko z ulicy.** Przycisk **„+ Dziecko z ulicy”** otwiera formularz: imiona po przecinku,
-godzina od i do, liczba dzieci, telefon i opcjonalnie „opłacone”. Taki wpis zapisujemy jako
-rezerwację od razu zaakceptowaną, z oznaczeniem `source: 'walkin'` — dzięki temu bez żadnego
-dodatkowego kodu wchodzi do licznika na stronie głównej, na listę czasu zabawy, a po
-odhaczeniu opłaty także do rankingu. Reguły pozwalają założyć rezerwację od razu
-zaakceptowaną **wyłącznie administratorowi**; klient przez formularz nadal tworzy `pending`.
+**Nowe wejście.** Przycisk **„+ Nowe wejście”** otwiera formularz dla kogoś, kto przyszedł
+bez zapisu:
+
+* **Dzieci wierszami** — imię i (nieobowiązkowa) data urodzenia, osobno dla każdego dziecka.
+  Przyszło rodzeństwo? Jeden rekord, dwa wiersze, cena naliczona każdemu osobno.
+* **Cena liczy się sama, tym samym cennikiem co rezerwacja ze strony**: taryfa dnia
+  (weekend i święta drożej), progi wiekowe (do 6. miesiąca gratis, do 1. roku połowa)
+  i zniżka rodzeństwa −20% od dwojga dzieci. Wycena przelicza się przy każdej zmianie,
+  z rozpisaniem na poszczególne dzieci — obsługa widzi, skąd wzięła się kwota.
+* **Czas pobytu** to trzy kafelki z ceną — te same, co w formularzu klienta.
+  Cena na kafelku zależy od taryfy dnia, więc w weekend od razu widać wyższe stawki.
+  Wybór przestawia i cenę, i godzinę wyjścia; „bez limitu” ustawia godzinę zamknięcia
+  właściwą dla danego dnia. Pobyt, który nie zmieści się przed zamknięciem, jest
+  wyłączony z podpisem — a jeśli przestał się mieścić po zmianie godziny wejścia,
+  zaznaczenie samo przeskakuje na pierwszy pasujący.
+* Pod wyceną jest zwijany **cennik wstępu** — składany z tych samych tabel,
+  z których liczy się cena, więc nie ma jak rozjechać się z rzeczywistością.
+* **Forma płatności** z listy `SETTINGS.paymentMethods` — trafia do rekordu, na kafelek
+  w zakładce 5 i do kolumny „Płatność / taryfa” w arkuszu CSV.
+* **Zamknięcie z wpisanymi danymi pyta**, dokładnie tak samo jak przy zajęciach: wylicza,
+  które pola są wypełnione, i daje trzy wyjścia — dodać, odrzucić albo wrócić do formularza.
+  Kliknięcie obok okienka ani Escape nie kasują już wpisanych danych bez słowa.
+
+Taki wpis zapisujemy jako rezerwację od razu zaakceptowaną, z oznaczeniem `source: 'walkin'` —
+dzięki temu bez żadnego dodatkowego kodu wchodzi do licznika na stronie głównej, na listę
+czasu zabawy, a po odhaczeniu opłaty także do rankingu. Reguły pozwalają założyć rezerwację
+od razu zaakceptowaną **wyłącznie administratorowi**; klient przez formularz nadal tworzy
+`pending`.
+
+Wejścia z ulicy mają teraz **prawdziwą kwotę**, więc widać je w zakładce Finanse — wcześniej
+zapisywały się z ceną zero i znikały z wykresu przychodu wg zajęć.
 
 ### Co widzi klient
 

@@ -147,6 +147,59 @@
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
 
+  /* ---- nowe wejście: kafelki czasu pobytu (jak w formularzu klienta) ---- */
+  .durations{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .dur{position:relative}
+  .dur input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+  .dur span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px;
+    border:2px solid var(--line);border-radius:16px;background:var(--white);text-align:center;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);transition:.18s var(--ease)}
+  .dur b{font-size:1.3rem;color:var(--brand-deep);line-height:1.1}
+  .dur input:checked + span{border-color:var(--brand-deep);background:var(--brand-pale);
+    box-shadow:var(--shadow-sm)}
+  .dur input:focus-visible + span{outline:3px solid var(--brand);outline-offset:2px}
+  .dur input:disabled + span{opacity:.45;background:var(--cream-deep);cursor:not-allowed}
+  .dur .dur-no{display:block;font-style:normal;font-size:.72rem;font-weight:600;
+    color:var(--bad);line-height:1.25;margin-top:2px}
+  .wi-cennik{border:1px solid var(--line);border-radius:var(--radius);background:var(--cream);
+    padding:10px 14px;margin-bottom:16px}
+  .wi-cennik summary{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    cursor:pointer;font-size:.92rem}
+  .wi-cennik .pricelist{font-size:.85rem;line-height:1.75;color:var(--muted);margin-top:8px}
+  .wi-cennik .pricelist b{color:var(--navy-deep)}
+  @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
+
+  /* ---- nowe wejście: dzieci wierszami + wycena na żywo ---- */
+  .wi-kid{display:grid;grid-template-columns:1fr 150px 38px;gap:8px;align-items:end;margin-bottom:8px}
+  .wi-kid .hint{font-size:.78rem;margin:0 0 3px}
+  .wi-kid-del{width:38px;height:44px;border-radius:11px;color:var(--bad);
+    background:var(--bad-pale);border:1px solid rgba(181,68,60,.25);font-size:1.1rem;line-height:1}
+  .wi-kid-del:hover{filter:brightness(.97)}
+  .wi-kid-del:disabled{opacity:.35;cursor:not-allowed}
+  .wi-quote{background:var(--brand-pale);border:1px solid #CBE4EA;border-radius:var(--radius);
+    padding:12px 14px;margin-bottom:16px}
+  .wi-quote-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    font-family:var(--font-head);font-weight:700;color:var(--navy-deep)}
+  .wi-quote-head b{font-size:1.25rem;white-space:nowrap}
+  .wi-quote-tariff{font-size:.83rem;color:var(--brand-deep);font-weight:600}
+  .wi-quote-lines{margin:8px 0 0;padding:0;list-style:none;font-size:.85rem;color:var(--muted-2,#4d5a66)}
+  .wi-quote-lines li{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+  .wi-quote-lines .zniz{color:var(--ok);font-size:.79rem}
+  /* ---- powtarzanie zajęć ---- */
+  .rep-main{margin-bottom:10px}
+  .rep-days{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0}
+  .rep-days button{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);
+    background:var(--white);font-family:var(--font-head);font-weight:700;color:var(--navy-deep)}
+  .rep-days button[aria-pressed="true"]{background:var(--brand-deep);color:#fff;border-color:var(--brand-deep)}
+  .rep-days button:hover{border-color:var(--brand)}
+  .rep-end{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;margin-top:8px}
+  .rep-end .check{margin:0}
+  @media (max-width:560px){
+    .wi-kid{grid-template-columns:1fr 38px}
+    .wi-kid .wi-kid-dob{grid-column:1}
+    .rep-end{grid-template-columns:1fr}
+  }
+
   /* ---- zakładka 7: finanse ----
      Kafelki z liczbą, plakietką zmiany i wykresem — układ znany z paneli
      sprzedażowych, ale w kolorach i krojach Małej Chmurki: kremowe tło,
@@ -544,7 +597,7 @@
 
         <div class="bar">
           <input class="control grow" id="plQ" placeholder="Szukaj: imię dziecka, telefon, godzina (np. 15:30)…">
-          <button class="btn btn-primary btn-sm btn-auto" id="plAdd">+ Dziecko z ulicy</button>
+          <button class="btn btn-primary btn-sm btn-auto" id="plAdd">+ Nowe wejście</button>
           <button class="btn btn-soft btn-sm btn-auto" id="plExport">Pobierz CSV</button>
         </div>
 
@@ -735,27 +788,58 @@
 <div class="modal" id="wiModal" role="dialog" aria-modal="true" aria-labelledby="wiTitle">
   <div class="modal-box">
     <div class="modal-head">
-      <h2 id="wiTitle">Dziecko z ulicy</h2>
+      <h2 id="wiTitle">Nowe wejście</h2>
       <button class="modal-close" id="wiClose" aria-label="Zamknij">×</button>
     </div>
     <form id="wiForm">
       <div id="wiMsg"></div>
-      <p class="hint" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz imiona i godziny —
-        dzieci od razu wejdą do licznika na stronie i na listę czasu zabawy.</p>
+      <p class="hint" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz dzieci i godziny —
+        wejdą od razu do licznika na stronie i na listę czasu zabawy. Cena liczy się
+        sama, tym samym cennikiem co rezerwacja ze strony.</p>
 
       <div class="field">
-        <label for="wiNames">Imiona dzieci (po przecinku) *</label>
-        <input class="control" id="wiNames" required placeholder="np. Zosia, Antek">
+        <span class="lbl">Dzieci *</span>
+        <p class="hint" style="margin:-2px 0 8px">Data urodzenia jest nieobowiązkowa, ale to ona
+          decyduje o progu wiekowym: do 6. miesiąca gratis, do 1. roku połowa ceny.
+          Od dwojga dzieci sama nalicza się zniżka rodzeństwa.</p>
+        <div id="wiKids"></div>
+        <button type="button" class="day-add" id="wiAddKid">+ Dodaj kolejne dziecko</button>
       </div>
-      <div class="row3">
+
+      <div class="row2">
         <div class="field"><label for="wiFrom">Od godziny *</label><input class="control" id="wiFrom" type="time" required></div>
         <div class="field"><label for="wiTo">Do godziny *</label><input class="control" id="wiTo" type="time" required></div>
-        <div class="field"><label for="wiQty">Liczba dzieci</label><input class="control" id="wiQty" type="number" min="1" max="10" value="1"></div>
       </div>
+
       <div class="field">
-        <label for="wiPhone">Telefon (nieobowiązkowy)</label>
-        <input class="control" id="wiPhone" type="tel" placeholder="np. 726 431 978">
+        <span class="lbl">Czas pobytu</span>
+        <!-- Kafelki z ceną, dokładnie jak w formularzu klienta — obsługa widzi
+             stawkę, zanim wybierze, i nie musi jej pamiętać z cennika. -->
+        <div class="durations" id="wiDurations"></div>
       </div>
+
+      <!-- Wycena przelicza się przy każdej zmianie: taryfa dnia, progi wiekowe,
+           zniżka rodzeństwa. To ten sam rachunek, co po stronie klienta. -->
+      <div class="wi-quote" id="wiQuote"></div>
+
+      <!-- Pełny cennik pod ręką. Składany z tych samych tabel, z których liczy
+           się cena, więc nie ma jak rozjechać się z rzeczywistością. -->
+      <details class="wi-cennik">
+        <summary>Cennik wstępu</summary>
+        <div class="pricelist" id="wiCennik"></div>
+      </details>
+
+      <div class="row2">
+        <div class="field">
+          <label for="wiPay">Forma płatności</label>
+          <select class="control" id="wiPay"></select>
+        </div>
+        <div class="field">
+          <label for="wiPhone">Telefon (nieobowiązkowy)</label>
+          <input class="control" id="wiPhone" type="tel" placeholder="np. 726 431 978">
+        </div>
+      </div>
+
       <label class="check"><input type="checkbox" id="wiPaid"><span>Opłacone (dopisze wizytę do rankingu)</span></label>
 
       <div class="modal-foot">
@@ -841,8 +925,33 @@
       <div class="row3">
         <div class="field"><label for="fArrive">Przyjdź ile minut wcześniej</label><input class="control" id="fArrive" type="number" min="0" max="90" value="10"></div>
         <div class="field"><label for="fCancel">Bezpłatna rezygnacja (godz. przed)</label><input class="control" id="fCancel" type="number" min="0" max="168" value="24"></div>
-        <div class="field"><label for="fRepeat">Powiel na kolejne tygodnie</label><input class="control" id="fRepeat" type="number" min="0" max="52" value="0"></div>
       </div>
+
+      <!-- Powtarzanie zajęć. Zamiast liczby tygodni obsługa zaznacza dni
+           i mówi, kiedy seria ma się skończyć — tak samo, jak w kalendarzu. -->
+      <fieldset class="rep">
+        <legend>Powtarzanie</legend>
+        <label class="check rep-main"><input type="checkbox" id="fRepeatOn"><span>Powtarza się</span></label>
+
+        <div id="fRepeatBox" hidden>
+          <span class="lbl">Powtarzaj w</span>
+          <div class="rep-days" id="fRepeatDays" role="group" aria-label="Dni tygodnia"></div>
+          <p class="hint" style="margin:6px 0 12px">Nic nie zaznaczone = co tydzień w ten sam
+            dzień, co pierwsze zajęcia.</p>
+
+          <span class="lbl">Kończy się</span>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="fRepeatEnd" id="fRepeatEndDate" value="date" checked><span>W dniu</span></label>
+            <input class="control" id="fRepeatUntil" type="date" aria-label="Ostatni dzień serii">
+          </div>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="fRepeatEnd" id="fRepeatEndCount" value="count"><span>Po wystąpieniu</span></label>
+            <input class="control" id="fRepeatCount" type="number" min="2" max="120" value="8" aria-label="Ile wystąpień">
+          </div>
+
+          <p class="hint" id="fRepeatInfo" style="margin:10px 0 0"></p>
+        </div>
+      </fieldset>
 
       <label class="check"><input type="checkbox" id="fActive" checked><span>Zajęcia widoczne dla klientów</span></label>
 
@@ -862,11 +971,12 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          centerScrollLeft,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
          askConfirm, orderRef, matchesRef,
-         bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
+         bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN,
+         seriesDates, closingMinFor, openingFor } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
-import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
+import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          countEventImages,
          watchRegistrations, updateRegistration, deleteRegistration,
          applyVisitToRanking, listGuests, computePresence, pushPresence,
@@ -876,7 +986,9 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
          updateBooking, applyBookingToRanking, createWalkin, extendBooking,
-         listRegistrations, listBookings } from './assets/mc-data.js';
+         listRegistrations, listBookings, repeatOnDates } from './assets/mc-data.js';
+import { quote, discountSummary, DURATIONS, tariffLabel, tariffFor, PRICES,
+         AGE_TIERS, SIBLING_DISCOUNT } from './assets/mc-cennik.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -1229,6 +1341,73 @@ $('#evCancel').onclick = () => closeModal();
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
 
+/* ==========================================================================
+   POWTARZANIE ZAJĘĆ
+   --------------------------------------------------------------------------
+   Zamiast „powiel na N tygodni" obsługa zaznacza dni tygodnia i mówi, kiedy
+   seria ma się skończyć — datą albo liczbą wystąpień. Same daty liczy czysta
+   funkcja `seriesDates` z mc-common.js, tutaj zostaje obsługa klikania.
+   ========================================================================== */
+const repDays = new Set();          // 0 = poniedziałek … 6 = niedziela
+
+/** '2026-09-07' → Date. Panel nie importuje `parseDate`, a tu jest potrzebne. */
+const parseDateISO = iso => {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+$('#fRepeatDays').innerHTML = DAY_SHORT
+  .map((d, i) => `<button type="button" data-day="${i}" aria-pressed="false"
+                    title="${esc(DAY_NAMES[i])}">${esc(d[0].toUpperCase())}</button>`).join('');
+
+$$('#fRepeatDays button').forEach(b => b.onclick = () => {
+  const i = Number(b.dataset.day);
+  if (repDays.has(i)) repDays.delete(i); else repDays.add(i);
+  repRender();
+});
+
+/** Ustawienia powtarzania odczytane z formularza. */
+function repConfig() {
+  return {
+    on: $('#fRepeatOn').checked,
+    weekdays: [...repDays],
+    endMode: $('#fRepeatEndCount').checked ? 'count' : 'date',
+    endDate: $('#fRepeatUntil').value,
+    count: Number($('#fRepeatCount').value) || 2
+  };
+}
+
+/** Daty kolejnych terminów dla podanego dnia startu (pusto = bez powtarzania). */
+function repDates(startISO) {
+  const c = repConfig();
+  if (!c.on || !startISO) return [];
+  return seriesDates({ startISO, weekdays: c.weekdays, endMode: c.endMode,
+                       endDate: c.endDate, count: c.count });
+}
+
+/** Odświeża wygląd sekcji i podpowiedź „ile terminów powstanie". */
+function repRender() {
+  const c = repConfig();
+  $('#fRepeatBox').hidden = !c.on;
+  $$('#fRepeatDays button').forEach(b =>
+    b.setAttribute('aria-pressed', String(repDays.has(Number(b.dataset.day)))));
+  $('#fRepeatUntil').disabled = c.endMode !== 'date';
+  $('#fRepeatCount').disabled = c.endMode !== 'count';
+
+  if (!c.on) { $('#fRepeatInfo').textContent = ''; return; }
+  const start = $('#fDate').value;
+  if (!start) { $('#fRepeatInfo').textContent = 'Najpierw podaj datę pierwszych zajęć.'; return; }
+  const daty = repDates(start);
+  $('#fRepeatInfo').textContent = daty.length
+    ? `Powstanie ${daty.length} kolejnych terminów, ostatni ${shortDate(daty[daty.length - 1])}. `
+      + `Każdy z własną listą zapisów i kompletem zdjęć.`
+    : 'Przy tych ustawieniach nie powstanie żaden dodatkowy termin.';
+}
+
+['#fRepeatOn', '#fRepeatEndDate', '#fRepeatEndCount', '#fRepeatUntil', '#fRepeatCount', '#fDate']
+  .forEach(sel => $(sel).addEventListener('change', repRender));
+$('#fRepeatCount').addEventListener('input', repRender);
+
 /* Galeria zdjęć zajęć. Tak jak reszta pól czeka z zapisem na „Zapisz",
    więc bierze udział w pytaniu o niezapisane zmiany. */
 const gal = mountGallery($('#galHost'));
@@ -1252,7 +1431,16 @@ function fillForm(ev) {
   $('#fLoc').value   = ev.location || `${SETTINGS.address}, ${SETTINGS.city}`;
   $('#fArrive').value= ev.arriveMinutes ?? 10;
   $('#fCancel').value= ev.cancelHours ?? 24;
-  $('#fRepeat').value= 0;
+  /* Powtarzanie zawsze startuje wyłączone — przy edycji istniejących zajęć
+     włączenie go zrobiłoby serię z pojedynczego terminu przez przypadek. */
+  $('#fRepeatOn').checked = false;
+  $('#fRepeatEndDate').checked = true;
+  $('#fRepeatCount').value = 8;
+  $('#fRepeatUntil').value = ev.date
+    ? isoDate(addDays(parseDateISO(ev.date), 7 * 8))
+    : '';
+  repDays.clear();
+  repRender();
   $('#fActive').checked = ev.active !== false;
   const pm = ev.paymentMethods || SETTINGS.paymentMethods;
   $$('.pay').forEach(c => c.checked = pm.includes(c.value));
@@ -1308,9 +1496,11 @@ $('#evForm').addEventListener('submit', async e => {
     await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
     /* Zdjęcia PRZED powielaniem — kopie na kolejne tygodnie mają je przejąć. */
     await gal.commit(id);
-    const rep = Number($('#fRepeat').value) || 0;
-    if (rep > 0) { await repeatWeekly(id, rep); toast(`Zapisano i powielono na ${rep} kolejnych tygodni.`); }
-    else toast('Zapisano zajęcia.');
+    const seria = repDates(data.date);
+    if (seria.length) {
+      await repeatOnDates(id, seria);
+      toast(`Zapisano i utworzono ${seria.length} kolejnych terminów.`);
+    } else toast('Zapisano zajęcia.');
     closeModal(true);
   } catch (err) { toast('Błąd zapisu: ' + err.message); }
   finally { $('#evSave').disabled = false; }
@@ -1635,6 +1825,7 @@ function bookingCard(b, { withDate = false } = {}) {
           <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code></div>
           <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
             · ${esc(plDzieci(b.qty || 1))} · ${esc(money(b.total))}</div>
+          ${b.paymentMethod ? `<div class="bk-line">${esc(b.paymentMethod)}</div>` : ''}
           ${kids ? `<div class="bk-line">${kids}</div>` : ''}
           <div class="bk-line"><a href="tel:${esc(b.phone || '')}">${esc(b.phone || '')}</a></div>
           ${b.note ? `<div class="bk-note"><strong>Uwagi od rodzica</strong>${esc(b.note)}</div>` : ''}
@@ -1921,7 +2112,7 @@ function renderPlaytime() {
   if (!rows.length) {
     $('#plRows').innerHTML = `<tr><td colspan="7"><div class="empty">${
       all.length ? 'Nic nie pasuje do wyszukiwania.'
-                 : 'Dziś nikogo jeszcze nie ma w bawialni. Kliknij „+ Dziecko z ulicy”, żeby dodać wejście bez zapisu.'
+                 : 'Dziś nikogo jeszcze nie ma w bawialni. Kliknij „+ Nowe wejście”, żeby dodać wejście bez zapisu.'
     }</div></td></tr>`;
     $('#plCount').textContent = '';
     return;
@@ -2083,39 +2274,247 @@ $('#plQ').oninput = renderPlaytime;
 
 /* ---------------------------------------------------- dziecko z ulicy --- */
 const wiModal = $('#wiModal');
-const wiCloseM = () => wiModal.classList.remove('is-open');
+
+/* Formy płatności bierzemy z ustawień lokalu — dopisanie metody
+   w firebase-config.js pojawi się tu samo, bez ruszania panelu. */
+$('#wiPay').innerHTML = (SETTINGS.paymentMethods || ['Płatność na miejscu'])
+  .map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+
+/* --------------------------------------------------------- czas pobytu
+   Kafelki z ceną zamiast listy rozwijanej — te same, co w formularzu klienta.
+   Cena na kafelku zależy od taryfy dnia, więc w weekend widać od razu wyższe
+   stawki i nie trzeba ich sprawdzać w cenniku. */
+const wiDuration = () =>
+  ($$('#wiDurations input[name=wiDur]').find(r => r.checked) || {}).value || '1h';
+
+function wiRenderDurations() {
+  const date = todayISO();
+  const t = tariffFor(date);
+  const wybrany = wiDuration();
+  /* Pobyt nie może wyjść poza godzinę zamknięcia: przy wejściu o 18:00 w dzień
+     do 19:00 dwie godziny się nie zmieszczą. „Bez limitu" mieści się zawsze —
+     kończy się razem z zamknięciem. */
+  const o = openingFor(date);
+  const od = toMin($('#wiFrom').value || '0:00');
+  const mieści = d => !o || d.minutes === null || od + d.minutes <= o.closeMin;
+
+  $('#wiDurations').innerHTML = DURATIONS.map(d => `
+    <label class="dur">
+      <input type="radio" name="wiDur" value="${esc(d.id)}"
+             ${d.id === wybrany ? 'checked' : ''} ${mieści(d) ? '' : 'disabled'}>
+      <span>${esc(d.label)}<b>${esc(money(PRICES[t][d.id]))}</b>${
+        mieści(d) ? '' : '<em class="dur-no">nie zmieści się przed zamknięciem</em>'}</span>
+    </label>`).join('');
+
+  /* Gdy wybrany czas przestał się mieścić, przeskakujemy na pierwszy pasujący —
+     inaczej formularz zostałby z zaznaczeniem, którego nie da się zapisać. */
+  if (!DURATIONS.filter(mieści).some(d => d.id === wybrany)) {
+    const pierwszy = DURATIONS.find(mieści);
+    const el = pierwszy && $(`#wiDurations input[value="${pierwszy.id}"]`);
+    if (el) el.checked = true;
+  }
+  $$('#wiDurations input[name=wiDur]').forEach(r => r.onchange = wiDurationChanged);
+}
+
+/* Cennik składany z tych samych tabel, z których liczy się cena. */
+function wiRenderCennik() {
+  const wiersz = t => DURATIONS
+    .map(d => `${d.id === 'open' ? 'bez limitu' : d.label.replace(' godzina', ' h').replace(' godziny', ' h')} — ${money(PRICES[t][d.id])}`)
+    .join(' &nbsp;·&nbsp; ');
+  $('#wiCennik').innerHTML =
+    `<b>Poniedziałek – czwartek:</b> ${wiersz('weekday')}<br>
+     <b>Piątek – niedziela i święta:</b> ${wiersz('weekend')}<br>
+     <b>Zniżki:</b> ${esc(AGE_TIERS.free.label)} — za darmo &nbsp;·&nbsp;
+     ${esc(AGE_TIERS.half.label)} — 50% &nbsp;·&nbsp;
+     rodzeństwo — −${Math.round(SIBLING_DISCOUNT * 100)}%`;
+}
+
+/* --------------------------------------------------------- dzieci wierszami
+   Jedno wejście to często rodzeństwo — brat z siostrą płacą według tej samej
+   taryfy, ale każde ma swój próg wiekowy. Dlatego zamiast jednego pola
+   „imiona po przecinku" mamy wiersz na dziecko: imię + data urodzenia. */
+function wiKidRow(kid = {}) {
+  const row = document.createElement('div');
+  row.className = 'wi-kid';
+  row.innerHTML = `
+    <div><span class="hint">Imię</span>
+      <input class="control wi-kid-name" placeholder="np. Zosia" value="${esc(kid.name || '')}"></div>
+    <div class="wi-kid-dob"><span class="hint">Data urodzenia</span>
+      <input class="control wi-kid-dob-input" type="date" max="${todayISO()}" value="${esc(kid.dob || '')}"></div>
+    <button type="button" class="wi-kid-del" aria-label="Usuń dziecko">×</button>`;
+  row.querySelector('.wi-kid-del').onclick = () => { row.remove(); wiSyncKids(); };
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', wiQuoteRender));
+  return row;
+}
+
+/** Ostatniego wiersza nie da się usunąć — wejście bez dziecka nie ma sensu. */
+function wiSyncKids() {
+  const rows = $$('#wiKids .wi-kid');
+  if (!rows.length) $('#wiKids').appendChild(wiKidRow());
+  $$('#wiKids .wi-kid-del').forEach((b, _, all) => { b.disabled = all.length <= 1; });
+  wiQuoteRender();
+}
+
+const wiKids = () => $$('#wiKids .wi-kid').map(r => ({
+  name: r.querySelector('.wi-kid-name').value.trim(),
+  dob:  r.querySelector('.wi-kid-dob-input').value
+}));
+
+$('#wiAddKid').onclick = () => {
+  $('#wiKids').appendChild(wiKidRow());
+  wiSyncKids();
+  const ostatnie = $$('#wiKids .wi-kid-name').pop();
+  if (ostatnie) ostatnie.focus();
+};
+
+/* ------------------------------------------------------------------ wycena
+   Ten sam rachunek, co w formularzu klienta: taryfa dnia (weekend i święta
+   drożej), progi wiekowe i zniżka rodzeństwa od dwojga dzieci. */
+function wiQuote() {
+  return quote({
+    date: todayISO(),
+    duration: wiDuration(),
+    children: wiKids().filter(k => k.name || k.dob)
+  });
+}
+
+function wiQuoteRender() {
+  const kids = wiKids().filter(k => k.name || k.dob);
+  const box = $('#wiQuote');
+  if (!kids.length) {
+    box.innerHTML = `<div class="wi-quote-head"><span>Do zapłaty</span><b>${esc(money(0))}</b></div>
+      <div class="wi-quote-tariff">Dopisz dziecko, żeby zobaczyć cenę.</div>`;
+    return;
+  }
+  const q = wiQuote();
+  const zniżki = discountSummary(q);
+  box.innerHTML =
+    `<div class="wi-quote-head"><span>Do zapłaty</span><b>${esc(money(q.total))}</b></div>
+     <div class="wi-quote-tariff">${esc(tariffLabel(todayISO()))} · ${esc(money(q.base))} za dziecko</div>
+     <ul class="wi-quote-lines">${q.lines.map(l => `
+       <li><span>${esc(l.name || 'dziecko bez imienia')}${
+         l.tier !== 'full' ? ` <span class="zniz">(${esc(AGE_TIERS_SHORT[l.tier] || '')})</span>` : ''}${
+         l.siblingDiscount > 0 ? ' <span class="zniz">(rodzeństwo −20%)</span>' : ''}</span>
+         <span>${esc(money(l.price))}</span></li>`).join('')}</ul>
+     ${zniżki.length ? `<div class="wi-quote-tariff" style="margin-top:6px">${esc(zniżki.join(' · '))}</div>` : ''}`;
+}
+
+/* Krótkie podpisy progów wiekowych — pełne nazwy nie mieszczą się w wierszu. */
+const AGE_TIERS_SHORT = { free: 'gratis do 6 m-cy', half: '−50% do 1 roku' };
+
+/* Zmiana czasu pobytu przestawia godzinę wyjścia i cenę naraz. */
+function wiDurationChanged() {
+  const d = DURATIONS.find(x => x.id === wiDuration());
+  const od = toMin($('#wiFrom').value);
+  /* „Bez limitu" znaczy „do zamknięcia" — godzina zamknięcia zależy od dnia
+     (w piątek bawialnia kończy wcześniej), więc bierzemy ją z ustawień. */
+  const doMin = d && d.minutes ? od + d.minutes : closingMinFor(todayISO());
+  $('#wiTo').value = fmtMin(Math.min(Math.max(doMin, od + 15), 23 * 60 + 59));
+  wiQuoteRender();
+}
+/* Przesunięcie godziny wejścia może wykluczyć dłuższy pobyt — kafelki
+   przeliczamy od nowa, a dopiero potem godzinę wyjścia i cenę. */
+$('#wiFrom').addEventListener('input', () => { wiRenderDurations(); wiDurationChanged(); });
+
+/* ------------------------------------------------- niezapisane zmiany
+   Ta sama zasada, co przy zajęciach: jedno kliknięcie obok formularza nie
+   może wyrzucić wpisanych danych bez słowa. Pytamy tylko wtedy, gdy naprawdę
+   jest co stracić. */
+let wiSnapshot = null, wiAsking = false;
+
+const wiFormMap = () => {
+  const out = {};
+  $$('#wiForm input, #wiForm select').forEach((el, i) => {
+    out[el.id || `pole-${i}`] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  return out;
+};
+const wiChanged = () => {
+  if (!wiSnapshot) return [];
+  const teraz = wiFormMap(), klucze = new Set([...Object.keys(teraz), ...Object.keys(wiSnapshot)]);
+  const nazwy = [];
+  klucze.forEach(k => {
+    if (teraz[k] === wiSnapshot[k]) return;
+    const el = document.getElementById(k);
+    const lab = el && (document.querySelector(`#wiForm label[for="${k}"]`) ||
+                       el.closest('.wi-kid')?.querySelector('.hint'));
+    const nazwa = lab ? lab.textContent.replace('*', '').trim()
+                      : (el && el.placeholder) || 'Dzieci';
+    if (nazwa && !nazwy.includes(nazwa)) nazwy.push(nazwa);
+  });
+  return nazwy;
+};
+
+function wiShut() {
+  wiModal.classList.remove('is-open');
+  wiSnapshot = null;
+}
+
+async function wiCloseM(force) {
+  if (force === true || !wiSnapshot || !wiChanged().length) return wiShut();
+  if (wiAsking) return;
+  wiAsking = true;
+  const zmiany = wiChanged();
+  const answer = await askSaveOrDiscard({
+    title: 'Masz niezapisane dane',
+    text: zmiany.length === 1
+      ? 'Wypełniłeś jedno pole i wejście nie zostało jeszcze dodane. Co z nim zrobić?'
+      : `Wypełniłeś ${zmiany.length} pola i wejście nie zostało jeszcze dodane. Co z nimi zrobić?`,
+    changes: zmiany,
+    saveLabel: 'Dodaj do bawialni',
+    discardLabel: 'Odrzuć i zamknij',
+    stayLabel: 'Wróć do formularza'
+  });
+  wiAsking = false;
+  if (answer === 'save')    { $('#wiForm').requestSubmit(); return; }
+  if (answer === 'discard') wiShut();
+}
 
 $('#plAdd').onclick = () => {
   const now = Math.floor(nowMinFloat());
   $('#wiFrom').value = fmtMin(now);
   $('#wiTo').value   = fmtMin(Math.min(now + 60, 23 * 60 + 59));
-  $('#wiNames').value = '';
-  $('#wiQty').value = 1;
+  wiRenderDurations();
+  wiRenderCennik();
+  $('#wiKids').innerHTML = '';
+  $('#wiKids').appendChild(wiKidRow());
   $('#wiPhone').value = '';
+  $('#wiPay').selectedIndex = 0;
   $('#wiPaid').checked = false;
   $('#wiMsg').innerHTML = '';
+  wiSyncKids();
   wiModal.classList.add('is-open');
-  $('#wiNames').focus();
+  wiSnapshot = wiFormMap();
+  const pierwsze = $('#wiKids .wi-kid-name');
+  if (pierwsze) pierwsze.focus();
 };
-$('#wiClose').onclick = $('#wiCancel').onclick = wiCloseM;
+
+/* Bez opakowania w strzałkę przeglądarka podałaby tu obiekt zdarzenia,
+   który trafiłby na miejsce `force` i zamknął okno bez pytania. */
+$('#wiClose').onclick = () => wiCloseM();
+$('#wiCancel').onclick = () => wiCloseM();
 wiModal.addEventListener('click', e => { if (e.target === wiModal) wiCloseM(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && wiModal.classList.contains('is-open')) wiCloseM();
+});
 
 const wiBad = text => { $('#wiMsg').innerHTML = `<div class="alert alert-bad">${esc(text)}</div>`; };
 
 $('#wiForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const names = $('#wiNames').value.split(',').map(x => x.trim()).filter(Boolean);
+  const kids = wiKids().filter(k => k.name || k.dob);
   const from = $('#wiFrom').value, to = $('#wiTo').value;
-  if (!names.length)            return wiBad('Podaj imię przynajmniej jednego dziecka.');
+  if (!kids.length)             return wiBad('Podaj imię przynajmniej jednego dziecka.');
   if (!from || !to)             return wiBad('Podaj godziny od i do.');
   if (toMin(to) <= toMin(from)) return wiBad('Godzina wyjścia musi być późniejsza niż wejścia.');
 
   $('#wiSave').disabled = true;
   try {
     const b = await createWalkin({
-      names,
-      qty: Number($('#wiQty').value) || names.length,
+      children: kids,
       start: from, stayUntil: to,
+      duration: wiDuration(),
+      paymentMethod: $('#wiPay').value,
       phone: $('#wiPhone').value,
       paid: $('#wiPaid').checked
     });
@@ -2125,8 +2524,8 @@ $('#wiForm').addEventListener('submit', async e => {
     }
     invalidateFinanceData();
     await refreshPresence();
-    toast('Dodano do bawialni.');
-    wiCloseM();
+    toast(`Dodano do bawialni: ${plDzieci(kids.length)} · ${money(b.total)}.`);
+    wiShut();
   } catch (err) {
     wiBad(err.message || 'Nie udało się dodać.');
   } finally { $('#wiSave').disabled = false; }
