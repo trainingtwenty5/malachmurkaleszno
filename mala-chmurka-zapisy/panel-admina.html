@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=5">
+<link rel="stylesheet" href="assets/mc-common.css?v=6">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -207,17 +207,11 @@
   .wi-quote-lines .zniz{color:var(--ok);font-size:.79rem}
   /* ---- powtarzanie zajęć ---- */
   .rep-main{margin-bottom:10px}
-  .rep-days{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0}
-  .rep-days button{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);
-    background:var(--white);font-family:var(--font-head);font-weight:700;color:var(--navy-deep)}
-  .rep-days button[aria-pressed="true"]{background:var(--brand-deep);color:#fff;border-color:var(--brand-deep)}
-  .rep-days button:hover{border-color:var(--brand)}
-  .rep-end{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;margin-top:8px}
-  .rep-end .check{margin:0}
+  /* `.rep-days` i `.rep-end` siedzą w mc-common.css — używa ich też okienko
+     „Powiel" w zarządzaniu zajęciami. */
   @media (max-width:560px){
     .wi-kid{grid-template-columns:1fr 38px}
     .wi-kid .wi-kid-dob{grid-column:1}
-    .rep-end{grid-template-columns:1fr}
   }
 
   /* ---- zakładka 7: finanse ----
@@ -1425,6 +1419,10 @@ function repRender() {
   if (!c.on) { $('#fRepeatInfo').textContent = ''; return; }
   const start = $('#fDate').value;
   if (!start) { $('#fRepeatInfo').textContent = 'Najpierw podaj datę pierwszych zajęć.'; return; }
+  /* Przy nowych zajęciach data końca jest pusta, więc podpowiedź mówiłaby
+     „nie powstanie żaden termin", zanim ktokolwiek cokolwiek źle ustawił.
+     Proponujemy osiem tygodni — do zmiany jednym kliknięciem. */
+  if (!$('#fRepeatUntil').value) $('#fRepeatUntil').value = isoDate(addDays(parseDateISO(start), 56));
   const daty = repDates(start);
   $('#fRepeatInfo').textContent = daty.length
     ? `Powstanie ${daty.length} kolejnych terminów, ostatni ${shortDate(daty[daty.length - 1])}. `
@@ -2061,8 +2059,22 @@ async function decide(id, status) {
   const b = findBooking(id);
   let note = '';
   if (status === 'rejected') {
-    note = prompt('Powód odmowy (zobaczy go klient — możesz zostawić puste):',
-                  'Tego dnia mamy komplet.') ?? null;
+    /* Powód zobaczy klient w historii zamówień, więc pytamy o niego własnym
+       okienkiem: systemowy `prompt()` wygląda inaczej na każdej przeglądarce,
+       pokazuje w nagłówku adres strony i nie ma gdzie wyjaśnić, komu ten tekst
+       się wyświetli. */
+    const kto = `${b?.parentFirstName || ''} ${b?.parentLastName || ''}`.trim();
+    note = await askText({
+      title: 'Odrzucić rezerwację?',
+      text: kto ? `Rezerwacja: ${kto}, ${shortDate(b.date)}, godz. ${b.start}.`
+                : 'Klient zobaczy tę odpowiedź w historii zamówień.',
+      label: 'Powód odmowy (zobaczy go klient)',
+      value: 'Tego dnia mamy komplet.',
+      placeholder: 'np. Tego dnia mamy komplet.',
+      hint: 'Możesz zostawić puste — wtedy klient zobaczy samą informację o odmowie.',
+      confirmLabel: 'Odrzuć rezerwację',
+      cancelLabel: 'Zostaw bez zmian'
+    });
     if (note === null) return;             // Anuluj
   }
   try {

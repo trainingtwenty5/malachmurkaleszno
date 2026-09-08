@@ -337,6 +337,18 @@ nie zrobiło setek terminów.
 Same daty liczy czysta funkcja `seriesDates` z `mc-common.js` — bez przeglądarki, więc
 da się ją sprawdzić testem (`node tools/test-zapisy.mjs`).
 
+**To samo jest w „Zarządzaniu zajęciami"** (`admin.html`) — ta strona ma własną kopię okna
+zajęć, więc sekcja powtarzania musiała trafić w oba miejsca. Dodatkowo w wierszu tabeli
+obok „Duplikuj" stoi **„Powiel"**:
+
+* **Duplikuj** — jedna kopia na wskazany dzień;
+* **Powiel** — cała seria; okienko (`askSeries`) pyta o dni tygodnia i koniec serii,
+  tak samo jak sekcja w formularzu, i pokazuje na żywo, ile terminów powstanie.
+
+**Odrzucenie rezerwacji** pyta o powód własnym okienkiem (`askText`), a nie systemowym
+`prompt()`. Powód zobaczy klient w historii zamówień, więc okienko pokazuje, czyjej
+rezerwacji dotyczy, i mówi wprost, że pole można zostawić puste.
+
 ---
 
 ## Zdjęcia zajęć
