@@ -369,6 +369,10 @@ table.tbl tbody tr:hover{background:var(--cream)}
     /* `dvh`, nie `vh`: na telefonie `100vh` liczy się razem z paskiem adresu,
        więc dolne pozycje menu potrafiły wylądować pod krawędzią ekranu. */
     max-height:100dvh;overflow-y:auto;z-index:-1;
+    -webkit-overflow-scrolling:touch;
+    /* Bez tego przewijanie wewnatrz menu przelewa sie na strone pod spodem
+       i po dojechaniu do konca listy widok odbija w gore. */
+    overscroll-behavior:contain;
     border-radius:0 0 var(--radius-lg) var(--radius-lg)}
   .nav.is-open{transform:translateY(0);z-index:2}
   .nav ul{flex-direction:column;align-items:stretch;gap:2px}
@@ -377,9 +381,17 @@ table.tbl tbody tr:hover{background:var(--cream)}
   /* Przyciemnienie pod menu. Bez niego nie było wiadomo, że wystarczy
      dotknąć obok, żeby zamknąć — a samo menu wisiało nad przewijającą się
      stroną i wyglądało, jakby panel się zaciął. */
-  .nav-backdrop{position:fixed;inset:0;z-index:0;background:rgba(42,65,89,.38);
+  .nav-backdrop{position:fixed;inset:0;z-index:250;background:rgba(42,65,89,.38);
     backdrop-filter:blur(2px);opacity:0;transition:opacity .3s var(--ease)}
   body.nav-open .nav-backdrop{opacity:1}
+  /* Rozwiniete menu przechodzi nad wszystko — ta sama zasada, co na stronie
+     glownej, gdzie nad naglowkiem stoi jeszcze baner ciasteczek. */
+  body.nav-open .site-header{z-index:300}
+  /* Krzyzyk dostaje na czas otwarcia wlasne tlo w kolorze menu. Tla naglowka
+     uzyc sie nie da: menu jest jego dzieckiem, wiec maluje sie NAD nim —
+     bez tej podkladki przewijane pozycje przejezdzalyby tuz przy przycisku. */
+  body.nav-open .nav-toggle{background:var(--cream);border-radius:12px;
+    box-shadow:0 0 0 8px var(--cream)}
   /* Blokada przewijania przy otwartym menu. Samo `body` nie wystarczało:
      elementem przewijanym jest `html`, więc strona jechała pod menu i wtedy
      naprawdę trudno było trafić z powrotem na dół. */

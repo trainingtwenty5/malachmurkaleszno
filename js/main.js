@@ -55,19 +55,39 @@
   var navToggle = document.getElementById('navToggle');
   var navMenu = document.getElementById('navMenu');
 
-  function closeNav() {
-    if (!navToggle || !navMenu) return;
-    navToggle.setAttribute('aria-expanded', 'false');
-    navMenu.classList.remove('is-open');
-    document.body.classList.remove('nav-open');
+  /* Przyciemnienie pod rozwiniętym menu. Wisi na <body>, a nie w nagłówku:
+     nagłówek ma własny kontekst układania, więc przyciemnienie zamknęłoby się
+     w wysokości samego paska zamiast przykryć ekran. */
+  var navBackdrop = null;
+  if (navToggle && navMenu) {
+    navBackdrop = document.createElement('div');
+    navBackdrop.className = 'nav-backdrop';
+    navBackdrop.hidden = true;
+    document.body.appendChild(navBackdrop);
+    navBackdrop.addEventListener('click', function () { closeNav(); });
   }
+
+  /* Jedno miejsce, które ustawia stan menu — wcześniej otwieranie i zamykanie
+     robiły to osobno i potrafiły się rozjechać. Klasa ląduje i na <body>,
+     i na <html>: elementem przewijanym jest <html>, więc blokada tylko na
+     <body> nie powstrzymywała strony przed jazdą pod otwartym menu. */
+  function setNav(open) {
+    if (!navToggle || !navMenu) return;
+    navToggle.setAttribute('aria-expanded', String(open));
+    navMenu.classList.toggle('is-open', open);
+    document.body.classList.toggle('nav-open', open);
+    document.documentElement.classList.toggle('nav-open', open);
+    if (navBackdrop) navBackdrop.hidden = !open;
+    /* Menu otwiera się zawsze od góry listy — bez tego zostawała pozycja
+       z poprzedniego otwarcia i wyglądało to jak ucięta lista. */
+    if (open) navMenu.scrollTop = 0;
+  }
+
+  function closeNav() { setNav(false); }
 
   if (navToggle && navMenu) {
     navToggle.addEventListener('click', function () {
-      var open = navToggle.getAttribute('aria-expanded') === 'true';
-      navToggle.setAttribute('aria-expanded', String(!open));
-      navMenu.classList.toggle('is-open', !open);
-      document.body.classList.toggle('nav-open', !open);
+      setNav(navToggle.getAttribute('aria-expanded') !== 'true');
     });
 
     // Zamknij po kliknięciu w link

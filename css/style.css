@@ -1097,18 +1097,31 @@ body.cookie-open { overflow: hidden; }
 @media (max-width: 860px) {
   html { scroll-padding-top: 78px; }
 
-  .nav-toggle { display: flex; }
+  /* Przycisk musi zostać NAD rozwiniętym menu — inaczej menu zasłania własny
+     krzyżyk i nie ma czym go zamknąć. */
+  .nav-toggle { display: flex; position: relative; z-index: 3; }
 
   .nav {
     position: fixed;
     inset: 0 0 auto 0;
+    z-index: 2;
     background: var(--cream);
     box-shadow: var(--shadow-lg);
     padding: 88px 24px 32px;
     transform: translateY(-104%);
     transition: transform .38s var(--ease);
-    max-height: 100vh;
+    /* `dvh`, nie `vh`: `100vh` liczy się razem z paskiem adresu przeglądarki,
+       więc menu było wyższe niż to, co faktycznie widać — dolne pozycje
+       lądowały pod krawędzią ekranu i nie dało się do nich dojechać.
+       Przy `dvh` menu kończy się tam, gdzie kończy się widok, a nadmiar
+       treści zaczyna się normalnie przewijać. */
+    max-height: 100dvh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Bez tego przewijanie wewnątrz menu „przelewa się" na stronę pod spodem
+       i po dojechaniu do końca listy widok odbija w górę. */
+    overscroll-behavior: contain;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
   .nav.is-open { transform: translateY(0); }
   .nav ul { flex-direction: column; align-items: stretch; gap: 2px; }
@@ -1116,7 +1129,31 @@ body.cookie-open { overflow: hidden; }
   .nav a:hover, .nav a.is-current { background: var(--sky-pale); }
   .nav .nav-cta { margin: 10px 0 0; text-align: center; }
 
-  body.nav-open { overflow: hidden; }
+  /* Przyciemnienie pod menu — widać, że wystarczy dotknąć obok, żeby zamknąć. */
+  .nav-backdrop {
+    position: fixed; inset: 0; z-index: 250;
+    background: rgba(42, 65, 89, .38); backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity .3s var(--ease);
+  }
+  body.nav-open .nav-backdrop { opacity: 1; }
+
+  /* Rozwinięte menu przechodzi nad wszystko, także nad baner ciasteczek
+     (z-index 200), który dotąd zasłaniał jego dolną połowę. */
+  body.nav-open .site-header { z-index: 300; }
+
+  /* Krzyżyk dostaje na czas otwarcia własne tło w kolorze menu. Tła nagłówka
+     użyć się nie da: menu jest jego dzieckiem, więc maluje się NAD nim —
+     bez tej podkładki przewijane pozycje przejeżdżałyby tuż przy przycisku. */
+  body.nav-open .nav-toggle {
+    background: var(--cream);
+    border-radius: 12px;
+    box-shadow: 0 0 0 8px var(--cream);
+  }
+
+  /* Blokada przewijania strony pod menu. Samo `body` nie wystarcza —
+     elementem przewijanym jest `html`, więc strona jechała pod spodem
+     i wyglądało to jak odbijanie widoku. */
+  html.nav-open, body.nav-open { overflow: hidden; overscroll-behavior: none; }
 
   .split { grid-template-columns: 1fr; }
   .split-reverse .split-text,
