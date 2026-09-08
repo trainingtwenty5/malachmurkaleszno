@@ -346,6 +346,18 @@ table.tbl tbody tr:hover{background:var(--cream)}
   padding:26px 24px;box-shadow:var(--shadow-lg);transform:translateY(10px);
   transition:transform .16s var(--ease)}
 .ask-back.is-on .ask{transform:none}
+/* Okienko z wyborem dni tygodnia potrzebuje wiecej miejsca niz zwykle pytanie. */
+.ask-wide{max-width:470px}
+
+/* ---- wybor dni tygodnia i konca serii (okno zajec oraz okienko „Powiel") ---- */
+.rep-days{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0}
+.rep-days button{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);
+  background:var(--white);font-family:var(--font-head);font-weight:700;color:var(--navy-deep)}
+.rep-days button[aria-pressed="true"]{background:var(--brand-deep);color:#fff;border-color:var(--brand-deep)}
+.rep-days button:hover{border-color:var(--brand)}
+.rep-end{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;margin-top:8px}
+.rep-end .check{margin:0}
+@media (max-width:560px){ .rep-end{grid-template-columns:1fr} }
 .ask h2{font-size:1.15rem;margin:0 0 6px}
 .ask p{margin:0 0 18px;color:var(--muted);font-size:.94rem;line-height:1.55}
 .ask-changes{background:var(--warn-pale);border-radius:12px;padding:11px 14px;margin:0 0 18px}

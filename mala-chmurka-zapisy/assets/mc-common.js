@@ -356,6 +356,105 @@ export function askSaveOrDiscard({
  * było wklepać „RRRR-MM-DD" z palca.
  * @returns {Promise<string|null>} data w formacie ISO albo null (anulowano)
  */
+/**
+ * Okienko do rozpisania serii terminów: dni tygodnia i koniec serii.
+ * Ten sam zestaw pytań, co sekcja „Powtarzanie" w oknie zajęć, tylko wywołany
+ * osobno — z listy zajęć, dla czegoś, co już istnieje.
+ *
+ * @param {string} o.startISO  data pierwszego (istniejącego) terminu
+ * @returns {Promise<string[]|null>} daty kolejnych terminów albo `null`
+ */
+export function askSeries({
+  title = 'Powiel zajęcia',
+  text = '',
+  startISO = '',
+  confirmLabel = 'Powiel',
+  cancelLabel = 'Anuluj'
+} = {}) {
+  return new Promise(resolve => {
+    const dni = new Set();
+    const box = document.createElement('div');
+    box.className = 'ask-back';
+    box.innerHTML = `
+      <div class="ask ask-wide" role="dialog" aria-modal="true" aria-labelledby="askSeriesTitle">
+        <h2 id="askSeriesTitle">${esc(title)}</h2>
+        ${text ? `<p>${esc(text)}</p>` : ''}
+        <span class="lbl">Powtarzaj w</span>
+        <div class="rep-days" id="asDays" role="group" aria-label="Dni tygodnia">
+          ${DAY_SHORT.map((d, i) => `<button type="button" data-day="${i}" aria-pressed="false"
+              title="${esc(DAY_NAMES[i])}">${esc(d[0].toUpperCase())}</button>`).join('')}
+        </div>
+        <p class="hint" style="margin:6px 0 12px">Nic nie zaznaczone = co tydzień w ten sam
+          dzień, co pierwszy termin.</p>
+
+        <span class="lbl">Kończy się</span>
+        <div class="rep-end">
+          <label class="check"><input type="radio" name="asEnd" id="asEndDate" value="date" checked><span>W dniu</span></label>
+          <input class="control" id="asUntil" type="date" aria-label="Ostatni dzień serii">
+        </div>
+        <div class="rep-end">
+          <label class="check"><input type="radio" name="asEnd" id="asEndCount" value="count"><span>Po wystąpieniu</span></label>
+          <input class="control" id="asCount" type="number" min="2" max="120" value="8" aria-label="Ile wystąpień">
+        </div>
+
+        <p class="hint" id="asInfo" style="margin:10px 0 0"></p>
+        <div class="ask-acts">
+          <button class="btn btn-primary btn-block" data-a="ok">${esc(confirmLabel)}</button>
+          <button class="btn btn-soft btn-block" data-a="no">${esc(cancelLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    const q = sel => box.querySelector(sel);
+    q('#asUntil').value = startISO ? isoDate(addDays(parseDate(startISO), 7 * 8)) : '';
+
+    const daty = () => seriesDates({
+      startISO,
+      weekdays: [...dni],
+      endMode: q('#asEndCount').checked ? 'count' : 'date',
+      endDate: q('#asUntil').value,
+      count: Number(q('#asCount').value) || 2
+    });
+
+    const odswiez = () => {
+      box.querySelectorAll('#asDays button').forEach(b =>
+        b.setAttribute('aria-pressed', String(dni.has(Number(b.dataset.day)))));
+      const naDate = !q('#asEndCount').checked;
+      q('#asUntil').disabled = !naDate;
+      q('#asCount').disabled = naDate;
+      const d = daty();
+      q('#asInfo').textContent = d.length
+        ? `Powstanie ${d.length} kolejnych terminów, ostatni ${shortDate(d[d.length - 1])}.`
+        : 'Przy tych ustawieniach nie powstanie żaden dodatkowy termin.';
+      q('[data-a="ok"]').disabled = !d.length;
+    };
+
+    box.querySelectorAll('#asDays button').forEach(b => b.onclick = () => {
+      const i = Number(b.dataset.day);
+      if (dni.has(i)) dni.delete(i); else dni.add(i);
+      odswiez();
+    });
+    ['#asEndDate', '#asEndCount', '#asUntil', '#asCount'].forEach(sel =>
+      q(sel).addEventListener('change', odswiez));
+    q('#asCount').addEventListener('input', odswiez);
+    odswiez();
+
+    const done = answer => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const onKey = e => { if (e.key === 'Escape') done(null); };
+
+    q('[data-a="ok"]').onclick = () => { const d = daty(); done(d.length ? d : null); };
+    q('[data-a="no"]').onclick = () => done(null);
+    box.addEventListener('click', e => { if (e.target === box) done(null); });
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 export function askDate({
   title = 'Wybierz datę',
   text = '',
