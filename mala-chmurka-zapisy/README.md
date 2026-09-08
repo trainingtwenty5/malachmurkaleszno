@@ -39,6 +39,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 98 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
+| `tools/test-importy.mjs` | Pilnuje, że każda wołana funkcja ma swój import — sam Node. |
 | `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
@@ -344,6 +345,13 @@ obok „Duplikuj" stoi **„Powiel"**:
 * **Duplikuj** — jedna kopia na wskazany dzień;
 * **Powiel** — cała seria; okienko (`askSeries`) pyta o dni tygodnia i koniec serii,
   tak samo jak sekcja w formularzu, i pokazuje na żywo, ile terminów powstanie.
+
+**Brakujący import to najgroźniejsza literówka w tym projekcie.** Strona wczytuje się
+normalnie, `node --check` przechodzi (składnia jest poprawna) i dopiero **kliknięcie**
+przycisku rzuca `ReferenceError` — a dla obsługi wygląda to tak, jakby przycisk po
+prostu nic nie robił. Dokładnie tak zniknęło okienko z powodem odmowy przy „Odrzuć":
+kod wołał `askText`, którego nie było na liście importów. Pilnuje tego teraz
+`tools/test-importy.mjs` — sprawdza wszystkie podstrony, bez przeglądarki.
 
 **Żadne okienko w panelu nie jest już systemowe.** `confirm()` i `prompt()` zastąpiły
 `askConfirm`, `askText` i `askSeries` z `mc-common.js`. Nie chodzi tylko o wygląd:
