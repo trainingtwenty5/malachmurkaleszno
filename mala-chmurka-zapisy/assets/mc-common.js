@@ -205,6 +205,9 @@ export function mountChrome(opts = {}) {
     document.body.classList.toggle('nav-open', open);
     document.documentElement.classList.toggle('nav-open', open);
     backdrop.hidden = !open;
+    /* Menu otwiera sie zawsze od gory listy — bez tego zostawalaby pozycja
+       z poprzedniego otwarcia i wygladaloby to jak ucieta lista. */
+    if (open) nav.scrollTop = 0;
   };
   const navOpen = () => btn.getAttribute('aria-expanded') === 'true';
 

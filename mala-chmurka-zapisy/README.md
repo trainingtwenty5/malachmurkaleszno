@@ -772,6 +772,14 @@ same wykresy — łapała gest przewijania i nie dało się zejść na dół str
   jest `html`, więc wcześniej strona jechała pod otwartym menu.
 * Menu mierzy wysokość w `dvh`, a nie `vh`: `100vh` liczy się razem z paskiem
   adresu przeglądarki, przez co dolne pozycje lądowały pod krawędzią ekranu.
+  Gdy pozycji jest więcej niż mieści ekran, menu **przewija się w środku**,
+  a `overscroll-behavior: contain` pilnuje, żeby gest nie przelewał się na
+  stronę pod spodem (to od tego widok „odbijał" w górę).
+
+**To samo menu jest na stronie głównej** (`css/style.css` + `js/main.js`) —
+ma własną kopię kodu, więc każdą z tych poprawek trzeba było wprowadzić
+w obu miejscach. Po zmianie w `css/style.css` albo `js/main.js` **podbij `?v=`
+w `index.html`**, inaczej wracający goście dostaną starą wersję z cache.
 * Filtry w zakładce Finanse układają się w dwie kolumny zamiast czterech
   osobnych rzędów.
 
