@@ -345,9 +345,21 @@ obok „Duplikuj" stoi **„Powiel"**:
 * **Powiel** — cała seria; okienko (`askSeries`) pyta o dni tygodnia i koniec serii,
   tak samo jak sekcja w formularzu, i pokazuje na żywo, ile terminów powstanie.
 
-**Odrzucenie rezerwacji** pyta o powód własnym okienkiem (`askText`), a nie systemowym
-`prompt()`. Powód zobaczy klient w historii zamówień, więc okienko pokazuje, czyjej
-rezerwacji dotyczy, i mówi wprost, że pole można zostawić puste.
+**Żadne okienko w panelu nie jest już systemowe.** `confirm()` i `prompt()` zastąpiły
+`askConfirm`, `askText` i `askSeries` z `mc-common.js`. Nie chodzi tylko o wygląd:
+przeglądarki po kilku systemowych okienkach z rzędu proponują „zablokuj kolejne
+komunikaty z tej strony", a po zaznaczeniu tego pola **każde następne `confirm()`
+i `prompt()` po cichu zwraca „nie"** — przycisk przestaje działać i nic tego nie
+tłumaczy. Własne okienka nie dają się w ten sposób wyłączyć.
+
+Dotyczy to: akceptacji i odrzucenia rezerwacji, usunięcia rezerwacji i zapisu,
+przedłużania i skracania pobytu, zakończenia pobytu oraz zdjęcia z listy bawialni.
+Każde okienko wypisuje skutki, zamiast samego „na pewno?" — przy akceptacji na
+przykład, że dzieci wejdą do licznika, a licznik odwiedzin podbije się raz.
+
+**Odrzucenie rezerwacji** pyta o powód (`askText`). Powód zobaczy klient w historii
+zamówień, więc okienko pokazuje, czyjej rezerwacji dotyczy, i mówi wprost, że pole
+można zostawić puste.
 
 ---
 

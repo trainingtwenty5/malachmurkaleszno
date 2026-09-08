@@ -1662,7 +1662,18 @@ $('#regRows').addEventListener('click', async e => {
   if (!e.target.classList.contains('del')) return;
   const tr = e.target.closest('tr');
   const reg = REGS.find(r => r.id === tr.dataset.id); if (!reg) return;
-  if (!confirm('Usunąć ten zapis na stałe?')) return;
+  const ok = await askConfirm({
+    title: 'Usunąć ten zapis?',
+    /* Bez `esc` — `askConfirm` sam ucieka znaki, podwójne dałoby „&amp;”. */
+    text: `${kidsOf(reg).join(', ')} · ${reg.eventTitle || 'zajęcia'} · ${shortDate(reg.eventDate || todayISO())}.`,
+    details: [
+      'Zapis zniknie z panelu i z historii zamówień klienta',
+      ...(reg.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : []),
+      'Tej operacji nie da się cofnąć'
+    ],
+    confirmLabel: 'Usuń zapis'
+  });
+  if (!ok) return;
   if (reg.countedInRanking) await applyVisitToRanking(reg, -1).catch(() => {});
   await deleteRegistration(reg.id);
   invalidateFinanceData();
@@ -2058,6 +2069,30 @@ function wireBookingCards() {
 async function decide(id, status) {
   const b = findBooking(id);
   let note = '';
+
+  if (status === 'accepted') {
+    /* Akceptacja robi więcej, niż widać na kafelku: dzieci wchodzą do licznika
+       na stronie głównej, podbija się licznik odwiedzin, a opłacona rezerwacja
+       trafia do rankingu. Warto o tym powiedzieć, zanim się kliknie. */
+    const kto = `${b?.parentFirstName || ''} ${b?.parentLastName || ''}`.trim();
+    const ok = await askConfirm({
+      title: 'Zaakceptować rezerwację?',
+      text: b ? `${kto || 'Rezerwacja'} · ${shortDate(b.date)}, godz. ${b.start} · ${plDzieci(b.qty || 1)}.`
+              : 'Klient zobaczy „Status zaakceptowany, zapraszamy do bawialni".',
+      details: [
+        'Klient zobaczy potwierdzenie w historii zamówień',
+        'Dzieci wejdą do licznika na stronie głównej — do godziny wyjścia',
+        'Licznik odwiedzin podbije się o liczbę dzieci (tylko raz)',
+        ...(b && b.paid ? ['Wizyta dopisze się do rankingu — rezerwacja jest opłacona']
+                        : ['Do rankingu trafi dopiero po odhaczeniu „Opłacone"'])
+      ],
+      confirmLabel: 'Akceptuj',
+      cancelLabel: 'Jeszcze nie',
+      danger: false
+    });
+    if (!ok) return;
+  }
+
   if (status === 'rejected') {
     /* Powód zobaczy klient w historii zamówień, więc pytamy o niego własnym
        okienkiem: systemowy `prompt()` wygląda inaczej na każdej przeglądarce,
@@ -2151,8 +2186,20 @@ async function setUntil(id, hhmm) {
 }
 
 async function removeBooking(id) {
-  if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;
   const b = findBooking(id);
+  const kto = `${b?.parentFirstName || ''} ${b?.parentLastName || ''}`.trim();
+  const ok = await askConfirm({
+    title: 'Usunąć rezerwację?',
+    text: b ? `${kto || 'Rezerwacja'} · ${shortDate(b.date)}, godz. ${b.start} · ${plDzieci(b.qty || 1)}.`
+            : 'Rezerwacja zniknie z panelu i z historii klienta.',
+    details: [
+      'Klient przestanie ją widzieć w historii zamówień',
+      ...(b && b.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : []),
+      'Tej operacji nie da się cofnąć'
+    ],
+    confirmLabel: 'Usuń rezerwację'
+  });
+  if (!ok) return;
   try {
     if (b && b.countedInRanking) await applyBookingToRanking(b, -1).catch(() => {});
     await deleteBooking(id);
@@ -2329,10 +2376,18 @@ async function addMinutes(id, minutes) {
   const end = fmtMin(target);
   if (target === row.endMin) return toast('Godzina wyjścia bez zmian.');
 
-  const pyt = minutes > 0
-    ? `Przedłużyć pobyt (${whoOf(row)}) o ${minutes} min — do ${end}?`
-    : `Skrócić pobyt (${whoOf(row)}) o ${Math.abs(minutes)} min — do ${end}?`;
-  if (!confirm(pyt)) return;
+  const ok = await askConfirm({
+    title: minutes > 0 ? 'Przedłużyć pobyt?' : 'Skrócić pobyt?',
+    text: `${whoOf(row)} · teraz do ${fmtMin(row.endMin)}.`,
+    details: [
+      minutes > 0 ? `Przedłużamy o ${minutes} min — do ${end}`
+                  : `Skracamy o ${Math.abs(minutes)} min — do ${end}`,
+      'Licznik na stronie głównej zaktualizuje się od razu'
+    ],
+    confirmLabel: minutes > 0 ? 'Przedłuż' : 'Skróć',
+    danger: false
+  });
+  if (!ok) return;
 
   try {
     await saveEnd(id, end);
@@ -2344,8 +2399,15 @@ async function addAnyMinutes(id) {
   const found = rawOf(id);
   if (!found) return;
   const { row } = found;
-  const raw = prompt(`O ile minut zmienić pobyt (${whoOf(row)})?\n\n` +
-    `Teraz do ${fmtMin(row.endMin)}. Liczba dodatnia przedłuża, ujemna skraca.`, '30');
+  const raw = await askText({
+    title: 'O ile minut zmienić pobyt?',
+    text: `${whoOf(row)} · teraz do ${fmtMin(row.endMin)}.`,
+    label: 'Liczba minut',
+    value: '30',
+    placeholder: 'np. 30',
+    hint: 'Liczba dodatnia przedłuża, ujemna skraca — np. −15 skróci pobyt o kwadrans.',
+    confirmLabel: 'Zmień godzinę'
+  });
   if (raw === null) return;
   const minutes = Math.round(Number(String(raw).replace(',', '.')));
   if (!Number.isFinite(minutes) || minutes === 0) return toast('Podaj liczbę minut.');
@@ -2357,7 +2419,17 @@ async function endNow(id) {
   if (!found) return;
   const { row } = found;
   const hhmm = fmtMin(Math.floor(nowMinFloat()));
-  if (!confirm(`Zakończyć pobyt (${whoOf(row)}) o ${hhmm}?`)) return;
+  const ok = await askConfirm({
+    title: 'Zakończyć pobyt?',
+    text: `${whoOf(row)} · godzina wyjścia zmieni się na ${hhmm}.`,
+    details: [
+      'Dzieci znikną z licznika na stronie głównej',
+      'Wpis zostaje na liście — możesz go jeszcze przedłużyć'
+    ],
+    confirmLabel: `Zakończ o ${hhmm}`,
+    danger: false
+  });
+  if (!ok) return;
   try { await saveEnd(id, hhmm); toast(`Pobyt zakończony o ${hhmm}.`); }
   catch (err) { toast('Nie udało się zakończyć: ' + (err.message || '')); }
 }
@@ -2369,9 +2441,18 @@ async function removeRow(id) {
   const { row, doc } = found;
 
   if (row.source === 'classes') {
-    if (!confirm(`Zdjąć z listy bawialni: ${whoOf(row)}?\n\n` +
-                 'Zapis na zajęcia zostaje — odznaczamy tylko obecność, ' +
-                 'więc dziecko znika z licznika i z czasu zabawy.')) return;
+    const ok = await askConfirm({
+      title: 'Zdjąć z listy bawialni?',
+      text: `${whoOf(row)} — zapis na zajęcia zostaje, odznaczamy tylko obecność.`,
+      details: [
+        'Dziecko zniknie z licznika i z czasu zabawy',
+        'Zapis zostaje w zakładce „2 · Zapisani" — możesz odhaczyć obecność z powrotem',
+        ...(doc.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : [])
+      ],
+      confirmLabel: 'Zdejmij z listy',
+      danger: false
+    });
+    if (!ok) return;
     try {
       if (doc.countedInRanking) {
         await applyVisitToRanking(doc, -1).catch(() => {});
@@ -2384,7 +2465,17 @@ async function removeRow(id) {
     return;
   }
 
-  if (!confirm(`Usunąć wpis na dobre: ${whoOf(row)}?\n\nTej operacji nie da się cofnąć.`)) return;
+  const ok = await askConfirm({
+    title: 'Usunąć wpis na dobre?',
+    text: `${whoOf(row)} · ${fmtMin(row.startMin)}–${fmtMin(row.endMin)}.`,
+    details: [
+      'Rezerwacja zniknie z panelu i z historii klienta',
+      ...(doc.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : []),
+      'Tej operacji nie da się cofnąć'
+    ],
+    confirmLabel: 'Usuń wpis'
+  });
+  if (!ok) return;
   try {
     if (doc.countedInRanking) await applyBookingToRanking(doc, -1).catch(() => {});
     await deleteBooking(id);
