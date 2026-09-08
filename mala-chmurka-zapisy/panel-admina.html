@@ -19,6 +19,27 @@
   .admin-tabs button{padding:.6em 1.1em;border-radius:12px;font-family:var(--font-head);font-weight:600;
     font-size:.94rem;color:var(--navy-deep);white-space:nowrap}
   .admin-tabs button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+  /* Na telefonie siedem zakładek zawijało się w cztery rzędy i zjadało
+     ćwierć ekranu — zanim obsługa doszła do treści, musiała przewinąć.
+     Teraz to jeden pasek przewijany w bok; aktywna zakładka sama wjeżdża
+     w pole widzenia po każdym przełączeniu. */
+  @media (max-width:760px){
+    /* Bez `scroll-snap`: przyciąganie walczyło i z płynnym przewijaniem
+       w kodzie, i z palcem — pasek sam wracał do najbliższej zakładki. */
+    .admin-tabs{flex-wrap:nowrap;overflow-x:auto;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;margin:12px 0 16px;
+      /* cień przy krawędziach mówi, że pasek jedzie dalej */
+      background-image:linear-gradient(to right,var(--cream-deep),transparent 12px),
+                       linear-gradient(to left,var(--cream-deep),transparent 12px),
+                       linear-gradient(to right,rgba(42,65,89,.13),transparent 8px),
+                       linear-gradient(to left,rgba(42,65,89,.13),transparent 8px);
+      background-position:left center,right center,left center,right center;
+      background-repeat:no-repeat;
+      background-size:26px 100%,26px 100%,10px 100%,10px 100%;
+      background-attachment:local,local,scroll,scroll}
+    .admin-tabs::-webkit-scrollbar{display:none}
+    .admin-tabs button{flex:none}
+  }
   .panel{display:none}
   .panel.is-on{display:block}
   .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -203,10 +224,18 @@
   .fin-guide{stroke:var(--brand);stroke-width:1;stroke-dasharray:3 3}
   .fin-hover{transition:opacity .12s var(--ease)}
   @media (max-width:760px){
+    /* Pasek filtrów rozpadał się na cztery osobne rzędy. Dwa przyciski wyboru
+       dostają po pół szerokości, a zakres dat i akcje mieszczą się pod nimi. */
+    .fin-filters{gap:8px}
+    .fin-pick{flex:1 1 calc(50% - 4px);min-width:0}
+    .fin-chip{width:100%;justify-content:space-between;padding-inline:.8em}
+    .fin-chip span:not(.fin-caret){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .fin-range{flex:1 1 100%;text-align:center}
+    .fin-filters .btn{flex:1 1 calc(50% - 4px)}
     /* Na telefonie dwa kalendarze obok siebie nie mają szans — zostaje jeden,
        a okienko przykleja się do lewej krawędzi ekranu. */
     .fin-pop{position:fixed;left:8px;right:8px;top:auto;flex-direction:column;
-      max-height:78vh;overflow-y:auto}
+      max-height:78dvh;overflow-y:auto}
     .fin-pop-side{width:auto;border-right:0;border-bottom:1px solid var(--line);max-height:none}
     .fin-cals{flex-direction:column;gap:14px}
     .fin-cal{width:100%}
@@ -830,6 +859,7 @@
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
+         centerScrollLeft,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
          askConfirm, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
@@ -939,6 +969,17 @@ function openTabFromUrl() {
 $$('.admin-tabs button').forEach(b => b.onclick = () => {
   $$('.admin-tabs button').forEach(x => x.classList.toggle('is-on', x === b));
   $$('.panel').forEach(p => p.classList.toggle('is-on', p.id === 'tab-' + b.dataset.tab));
+  /* Na telefonie pasek zakładek przewija się w bok — po przełączeniu wciągamy
+     wybraną z powrotem na środek, żeby było widać, gdzie się jest. Przewijamy
+     sam pasek, nie stronę: `scrollIntoView` ruszyłoby też oknem. */
+  const bar = b.parentElement;
+  if (bar.scrollWidth > bar.clientWidth) {
+    /* Bez `behavior:'smooth'` — animowane przewijanie kontenera bywa po cichu
+       porzucane (pasek zostawał tam, gdzie był). Skok jest natychmiastowy
+       i zawsze trafia tam, gdzie trzeba. */
+    bar.scrollLeft = centerScrollLeft(b.offsetLeft, b.offsetWidth,
+                                      bar.clientWidth, bar.scrollWidth - bar.clientWidth);
+  }
   if (b.dataset.tab === 'rank') loadRanking();
   if (b.dataset.tab === 'book') renderBookings();
   if (b.dataset.tab === 'play') { renderPlaytime(); startPlayClock(); } else stopPlayClock();
@@ -2537,15 +2578,14 @@ addEventListener('resize', () => {
 });
 
 /* ------------------------------------------------------------- eksport -- */
+/* Arkusz ma służyć do rozliczeń, nie tylko do podejrzenia sumy — dlatego
+   idzie do niego komplet danych o każdym zgłoszeniu (23 kolumny, od godzin
+   i telefonu po uwagi rodzica). Układ kolumn siedzi w mc-finanse.js, żeby
+   dało się go przetestować bez przeglądarki. */
 $('#finExport').onclick = () => {
   if (!FIN_DATA) return;
   const now = FIN_RANGE;
-  const rows = [['Data', 'Źródło', 'Pozycja', 'Dzieci', 'Kwota', 'Opłacone'],
-    ...FIN.inRange(FIN_DATA.txs, now).map(t => [
-      t.date,
-      t.source === 'zajecia' ? 'zajęcia' : t.source === 'wejscie' ? 'wejście z ulicy' : 'bawialnia',
-      t.label, t.qty, t.total.toFixed(2).replace('.', ','), t.paid ? 'tak' : 'nie'
-    ])];
+  const rows = FIN.csvTable(FIN_DATA.txs, now);
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
@@ -2553,6 +2593,7 @@ $('#finExport').onclick = () => {
   a.download = `finanse-mala-chmurka-${now.from}_${now.to}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+  toast(`Pobrano ${rows.length - 1} pozycji z okresu ${shortDate(now.from)} – ${shortDate(now.to)}.`);
 };
 
 </script>

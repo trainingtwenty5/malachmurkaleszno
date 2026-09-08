@@ -182,21 +182,44 @@ export function mountChrome(opts = {}) {
   document.body.prepend(header);
   document.body.append(footer);
 
+  /* ---------------------------------------------------------------- MENU
+     Menu na telefonie ma jeden stan i pięć sposobów zamknięcia: przycisk,
+     link, dotknięcie obok, Escape i powiększenie okna do wersji desktopowej.
+     Wcześniej działały tylko dwa pierwsze — kto otworzył menu i dotknął obok,
+     zostawał z zablokowanym przewijaniem i bez widocznego wyjścia. */
   const btn = header.querySelector('#mcNavToggle');
   const nav = header.querySelector('#mcNav');
-  btn.addEventListener('click', () => {
-    const open = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!open));
-    nav.classList.toggle('is-open', !open);
-    document.body.classList.toggle('nav-open', !open);
+
+  /* Przyciemnienie pod menu — element tylko dla oka, klik obsługujemy niżej.
+     Wisi na <body>, a nie w nagłówku: nagłówek ma `backdrop-filter`, a ten
+     tworzy blok zawierający dla `position:fixed` i zamknąłby przyciemnienie
+     w wysokości samego paska. */
+  const backdrop = document.createElement('div');
+  backdrop.className = 'nav-backdrop';
+  backdrop.hidden = true;
+  document.body.appendChild(backdrop);
+
+  const setNav = open => {
+    btn.setAttribute('aria-expanded', String(open));
+    nav.classList.toggle('is-open', open);
+    document.body.classList.toggle('nav-open', open);
+    document.documentElement.classList.toggle('nav-open', open);
+    backdrop.hidden = !open;
+  };
+  const navOpen = () => btn.getAttribute('aria-expanded') === 'true';
+
+  btn.addEventListener('click', e => { e.stopPropagation(); setNav(!navOpen()); });
+  nav.addEventListener('click', e => { if (e.target.tagName === 'A') setNav(false); });
+  backdrop.addEventListener('click', () => setNav(false));
+  /* Dotknięcie czegokolwiek poza menu zamyka je — tak zachowuje się każde
+     menu, którego ludzie używają na co dzień. */
+  document.addEventListener('click', e => {
+    if (navOpen() && !nav.contains(e.target) && e.target !== btn) setNav(false);
   });
-  nav.addEventListener('click', e => {
-    if (e.target.tagName === 'A') {
-      btn.setAttribute('aria-expanded', 'false');
-      nav.classList.remove('is-open');
-      document.body.classList.remove('nav-open');
-    }
-  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && navOpen()) setNav(false); });
+  /* Obrót telefonu albo powiększenie okna: menu mobilne znika z układu,
+     ale klasa blokująca przewijanie zostałaby na `html` i `body`. */
+  addEventListener('resize', () => { if (navOpen() && innerWidth > 860) setNav(false); });
 
   /* Menu wie, czy ktoś jest zalogowany. Firebase dociągamy dynamicznie i bez
      blokowania — gdyby się nie wczytał, w menu zostają zwykłe linki do konta. */
@@ -669,6 +692,23 @@ export function normPhone(p) {
 }
 
 export const params = () => new URLSearchParams(location.search);
+
+/**
+ * Dokąd przewinąć pasek przewijany w bok, żeby wskazany element wylądował
+ * na środku. Liczymy sami, zamiast wołać `scrollIntoView` — ta ostatnia
+ * przy `behavior:'smooth'` bywa przerywana przez każdą inną zmianę układu
+ * i potrafiła zostawić pasek tam, gdzie był.
+ *
+ * @param {number} itemLeft   pozycja elementu wewnątrz paska (offsetLeft)
+ * @param {number} itemWidth  szerokość elementu
+ * @param {number} viewWidth  widoczna szerokość paska (clientWidth)
+ * @param {number} scrollMax  scrollWidth - clientWidth
+ * @returns {number} docelowy scrollLeft, przycięty do zakresu paska
+ */
+export function centerScrollLeft(itemLeft, itemWidth, viewWidth, scrollMax) {
+  const target = itemLeft - (viewWidth - itemWidth) / 2;
+  return Math.round(Math.min(Math.max(0, target), Math.max(0, scrollMax)));
+}
 
 /**
  * Numer rezerwacji pokazywany klientowi i wyszukiwany przez obsługę.

@@ -38,13 +38,13 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-rules.mjs` | 80 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
-| `tools/test-zapisy.mjs` | 77 testów: terminy, godziny otwarcia, numer rezerwacji — sam Node. |
+| `tools/test-zapisy.mjs` | 83 testy: terminy, godziny otwarcia, numer rezerwacji — sam Node. |
 | `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
-| `tools/test-finanse.mjs` | 154 testy zakładki „Finanse” (przychód, okresy, kalendarz) — sam Node. |
+| `tools/test-finanse.mjs` | 201 testów zakładki „Finanse” (przychód, okresy, arkusz CSV) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -262,7 +262,7 @@ node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
-node tools/test-finanse.mjs # 154 testy: przychód, okresy, kalendarz, dymki na wykresach
+node tools/test-finanse.mjs # 201 testów: przychód, okresy, kalendarz, arkusz CSV
 ```
 
 ### Czego panel *nie* chroni
@@ -719,6 +719,28 @@ Drugi przycisk ustawia **jaśniejszą linię** na wykresach:
 Kreskę zobaczysz też wtedy, gdy okres porównawczy był pusty — z zera nie da się
 urosnąć o żaden sensowny procent.
 
+### Arkusz CSV
+
+**Pobierz CSV** zgrywa pozycje z wybranego okresu — ale nie samą kwotę.
+W pliku jest **23 kolumny**, czyli komplet tego, co o zgłoszeniu wiemy:
+
+| | |
+|---|---|
+| Kiedy | data, dzień tygodnia, godzina od i do |
+| Co | źródło (zajęcia / bawialnia / wejście z ulicy), nazwa pozycji, status |
+| Kto | numer rezerwacji, imiona dzieci, rodzic, telefon, e-mail |
+| Za ile | cena za dziecko, kwota, opłacone |
+| Reszta | przyszedł, w rankingu, metoda płatności albo taryfa, czas pobytu, uwagi rodzica, uwagi obsługi, kiedy zgłoszenie powstało |
+
+Po to, żeby arkusz wystarczał do rozliczenia i do obdzwonienia nieopłaconych —
+bez wracania do panelu po każdy telefon.
+
+Zakres wierszy jest **ten sam, co na wykresach**: odrzucone rezerwacje pominięte,
+więc suma kolumny „Kwota" po odfiltrowaniu opłaconych zgadza się z kafelkiem
+„Sprzedaż". Kwoty mają przecinek dziesiętny, a plik zaczyna się znacznikiem BOM,
+więc polski Excel otwiera go poprawnie dwuklikiem. Uwagi wieloliniowe
+spłaszczamy do jednej linii, żeby nie rozjechały wiersza.
+
 ### Dymek pod kursorem
 
 Najedź na dowolny wykres (także na iskierkę w kafelku), a zobaczysz **dokładne
@@ -727,7 +749,30 @@ porównawczego, każdą przy kropce w kolorze swojej linii. Pionowa prowadnica
 i kropki na liniach pokazują, o który dzień chodzi. Na wykresie dnia tygodnia
 dymek podaje nazwę dnia i kwotę.
 
-Działa też dotykiem — panel bywa obsługiwany z tabletu przy ladzie.
+Na telefonie i tablecie działa **dotknięciem**, nie przeciągnięciem: przesunięcie
+palcem po wykresie przewija stronę (`touch-action: pan-y`), a dymek pokazuje się
+dopiero po dotknięciu i znika przy przewijaniu. Bez tego zakładka Finanse — prawie
+same wykresy — łapała gest przewijania i nie dało się zejść na dół strony.
+
+---
+
+## Panel na telefonie
+
+* **Pasek zakładek** to jeden rząd przewijany w bok. Siedem zakładek zawijało się
+  wcześniej w cztery rzędy i zjadało ćwierć ekranu, zanim pokazała się treść.
+  Po przełączeniu wybrana zakładka sama wjeżdża na środek paska.
+* **Menu strony** ma pięć sposobów zamknięcia: przycisk, link, dotknięcie obok,
+  Escape i powiększenie okna do wersji desktopowej. Wcześniej działały dwa
+  pierwsze — kto otworzył menu i dotknął obok, zostawał z zablokowanym
+  przewijaniem i bez widocznego wyjścia.
+* Pod otwartym menu jest **przyciemnienie**, a przycisk zamykania (krzyżyk)
+  zostaje nad menu, więc widać, jak wrócić.
+* Blokada przewijania obejmuje `html`, nie tylko `body` — elementem przewijanym
+  jest `html`, więc wcześniej strona jechała pod otwartym menu.
+* Menu mierzy wysokość w `dvh`, a nie `vh`: `100vh` liczy się razem z paskiem
+  adresu przeglądarki, przez co dolne pozycje lądowały pod krawędzią ekranu.
+* Filtry w zakładce Finanse układają się w dwie kolumny zamiast czterech
+  osobnych rzędów.
 
 **Nowi klienci** liczą się z całej bazy, a nie z okresu: stały bywalec nie może
 zrobić się „nowy" tylko dlatego, że zmieniliśmy filtr dat. Rodzica rozpoznajemy

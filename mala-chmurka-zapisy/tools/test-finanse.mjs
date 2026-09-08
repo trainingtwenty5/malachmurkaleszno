@@ -21,7 +21,8 @@ import {
   settlement, changePct, fmtPct, pctTone, summary, niceTicks, pickLabels,
   quarterOf, quarterRange, monthRange, presetRange, ALL_PRESETS, PRESET_GROUPS,
   normalizeRange, rangeLabel, shortDatePl, dayLabelPl, sameRangeYearAgo,
-  comparisonRange, monthGrid, shiftMonth, hitIndex
+  comparisonRange, monthGrid, shiftMonth, hitIndex,
+  CSV_HEADERS, csvRow, csvTable, childNames, stampToText
 } from '../assets/mc-finanse.js';
 
 let pass = 0, fail = 0;
@@ -407,6 +408,115 @@ console.log('\n=== TRAFIENIE KURSOREM W PUNKT WYKRESU ===');
   eq('ostatni słupek', hitIndex(245, g), 6);
   eq('kursor tuż za prawą krawędzią nie wypada poza listę', hitIndex(251, g), 6);
 }
+
+/* ====================================================== EKSPORT CSV ==== */
+console.log('\n=== ARKUSZ: KOMPLET DANYCH O ZGŁOSZENIU ===');
+{
+  const t = txFromRegistration(reg({
+    id: 'abc12345xyz', eventStart: '10:00', eventEnd: '11:00', stayUntil: '',
+    attended: true, countedInRanking: true, paymentMethod: 'Przelew bankowy',
+    note: 'alergia\n  na orzechy', status: 'confirmed',
+    children: [{ firstName: 'Zosia', lastName: 'K' }, { firstName: 'Antek', lastName: 'K' }]
+  }));
+  const row = csvRow(t);
+  const at = name => row[CSV_HEADERS.indexOf(name)];
+
+  eq('nagłówek i wiersz mają tyle samo kolumn', row.length, CSV_HEADERS.length);
+  ok('arkusz niesie znacznie więcej niż samą kwotę (23 kolumny)', CSV_HEADERS.length >= 23,
+     `kolumn: ${CSV_HEADERS.length}`);
+  eq('data', at('Data'), '2026-09-10');
+  eq('dzień tygodnia liczy się z daty', at('Dzień tygodnia'), 'czwartek');
+  eq('godzina od', at('Od'), '10:00');
+  eq('godzina do', at('Do'), '11:00');
+  eq('źródło', at('Źródło'), 'zajęcia');
+  eq('numer rezerwacji — ten sam, co klient dostał', at('Nr rezerwacji'), 'ABC12345');
+  eq('nazwa zajęć', at('Pozycja'), 'Logosensoryka');
+  eq('status po polsku', at('Status'), 'potwierdzony');
+  eq('liczba dzieci', at('Liczba dzieci'), 2);
+  eq('imiona dzieci w jednej komórce', at('Dzieci'), 'Zosia K, Antek K');
+  eq('rodzic', at('Rodzic'), '');
+  eq('telefon — po to obsługa otwiera ten plik', at('Telefon'), '505 849 404');
+  eq('e-mail', at('E-mail'), 'daniel@example.com');
+  eq('cena za dziecko z przecinkiem, żeby Excel widział liczbę', at('Cena za dziecko'), '45,00');
+  eq('kwota', at('Kwota'), '90,00');
+  eq('opłacone', at('Opłacone'), 'tak');
+  eq('przyszedł', at('Przyszedł'), 'tak');
+  eq('w rankingu', at('W rankingu'), 'tak');
+  eq('metoda płatności', at('Płatność / taryfa'), 'Przelew bankowy');
+  /* Uwagi rodzica bywają wieloliniowe — w CSV łamana linia rozwaliłaby wiersz. */
+  eq('uwagi rodzica spłaszczone do jednej linii', at('Uwagi rodzica'), 'alergia na orzechy');
+}
+{
+  const t = txFromBooking(bkg({
+    id: 'zzz99999abc', start: '10:00', stayUntil: '13:30', durationLabel: '2 godziny',
+    tariff: 'weekend', status: 'accepted', countedInRanking: false,
+    adminNote: 'przyjdą z babcią', children: [{ name: 'Ala' }, { name: 'Ola' }, { name: 'Iga' }]
+  }));
+  const row = csvRow(t);
+  const at = name => row[CSV_HEADERS.indexOf(name)];
+  eq('rezerwacja: źródło', at('Źródło'), 'bawialnia');
+  eq('rezerwacja: godzina wyjścia bierze ręcznie ustawioną', at('Do'), '13:30');
+  eq('rezerwacja: dzieci z pola `name`', at('Dzieci'), 'Ala, Ola, Iga');
+  eq('rezerwacja: cena za dziecko liczona z kwoty', at('Cena za dziecko'), '20,00');
+  eq('rezerwacja: taryfa zamiast metody płatności', at('Płatność / taryfa'), 'weekend');
+  eq('rezerwacja: czas pobytu', at('Czas pobytu'), '2 godziny');
+  eq('rezerwacja: uwagi obsługi', at('Uwagi obsługi'), 'przyjdą z babcią');
+  /* Przy wstępie do bawialni „przyszedł" nie ma sensu — akceptacja to załatwia. */
+  eq('rezerwacja: „przyszedł" nie dotyczy wstępu', at('Przyszedł'), '—');
+}
+{
+  /* Rezerwacja bez `stayUntil` — godzinę wyjścia trzeba wyliczyć z czasu pobytu. */
+  const row = csvRow(txFromBooking(bkg({ start: '10:00', duration: '2h', stayUntil: '' })));
+  eq('brak godziny wyjścia liczy się z czasu pobytu',
+     row[CSV_HEADERS.indexOf('Do')], '12:00');
+}
+eq('wejście z ulicy ma własną etykietę w arkuszu',
+   csvRow(txFromBooking(bkg({ source: 'walkin' })))[CSV_HEADERS.indexOf('Pozycja')],
+   'Wejście z ulicy');
+
+console.log('\n=== IMIONA DZIECI: NOWY I STARY KSZTAŁT ZAPISU ===');
+eq('nowy kształt (children[])',
+   childNames({ children: [{ firstName: 'Zosia', lastName: 'Kowalska' }] }), 'Zosia Kowalska');
+eq('rezerwacja (children[].name)', childNames({ children: [{ name: 'Ala' }] }), 'Ala');
+eq('archiwalny zapis bez tablicy',
+   childNames({ childFirstName: 'Antek', childLastName: 'Nowak' }), 'Antek Nowak');
+eq('puste imiona nie zostawiają przecinków',
+   childNames({ children: [{ name: 'Ala' }, { name: '' }, { name: 'Iga' }] }), 'Ala, Iga');
+eq('brak danych o dzieciach', childNames({}), '');
+
+console.log('\n=== ZNACZNIK CZASU Z BAZY ===');
+eq('Timestamp z Firestore (ma toDate)',
+   stampToText({ toDate: () => new Date(2026, 8, 7, 14, 30) }), '2026-09-07 14:30');
+eq('zwykła data', stampToText(new Date(2026, 0, 2, 9, 5)), '2026-01-02 09:05');
+eq('starsze zgłoszenie bez znacznika', stampToText(null), '');
+eq('śmieć zamiast daty nie wysypuje eksportu', stampToText('nie-data'), '');
+
+console.log('\n=== ARKUSZ JAKO CAŁOŚĆ ===');
+{
+  const txs = toTransactions({
+    regs: [
+      reg({ id: 'r1', eventDate: '2026-09-10', eventStart: '14:00' }),
+      reg({ id: 'r2', eventDate: '2026-09-10', eventStart: '09:00' }),
+      reg({ id: 'r3', eventDate: '2026-08-01' })
+    ],
+    bookings: [
+      bkg({ id: 'b1', date: '2026-09-11' }),
+      bkg({ id: 'b2', date: '2026-09-12', status: 'rejected' })
+    ]
+  });
+  const table = csvTable(txs, { from: '2026-09-01', to: '2026-09-30' });
+  eq('pierwszy wiersz to nagłówek', table[0], CSV_HEADERS);
+  eq('sierpniowy zapis wypada poza okresem', table.length - 1, 3);
+  eq('odrzucona rezerwacja nie trafia do arkusza — tak jak nie trafia na wykres',
+     table.slice(1).some(r => r[CSV_HEADERS.indexOf('Nr rezerwacji')] === 'B2'), false);
+  eq('wiersze idą po dacie, a w obrębie dnia po godzinie',
+     table.slice(1).map(r => `${r[0]} ${r[2]}`),
+     ['2026-09-10 09:00', '2026-09-10 14:00', '2026-09-11 10:00']);
+  eq('każdy wiersz ma komplet kolumn',
+     table.every(r => r.length === CSV_HEADERS.length), true);
+}
+eq('pusty okres daje sam nagłówek',
+   csvTable(toTransactions({ regs: [reg()] }), { from: '2020-01-01', to: '2020-01-31' }).length, 1);
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

@@ -11,7 +11,8 @@
    ========================================================================== */
 
 import { signupClosed, seatState, SIGNUP_CLOSED_TEXT, slotInPast, nextQuarter, fmtMin,
-         openingFor, withinOpening, closingMinFor, bookingEndMin, orderRef, matchesRef }
+         openingFor, withinOpening, closingMinFor, bookingEndMin, orderRef, matchesRef,
+         centerScrollLeft }
   from '../assets/mc-common.js';
 import { mergeChildren, childKey, childLabel, normChild, knownChildren }
   from '../assets/mc-dzieci.js';
@@ -214,6 +215,25 @@ ok('brak uprawnień nie wywala podpowiedzi — zostaje pamięć przeglądarki',
   Array.isArray(afterFail) && afterFail.length >= 1);
 ok('bez zalogowania też coś zwraca (pamięć lokalna)',
   Array.isArray(await knownChildren(null, io)));
+
+/* ==========================================================================
+   PASEK ZAKŁADEK PRZEWIJANY W BOK (telefon)
+   Siedem zakładek panelu nie mieści się na ekranie telefonu, więc po
+   przełączeniu trzeba wciągnąć wybraną z powrotem na środek. Tu sprawdzamy
+   samą arytmetykę — przede wszystkim przycięcie do końców paska, bo bez niego
+   pierwsza i ostatnia zakładka wyjeżdżałyby poza zakres przewijania.
+   ========================================================================== */
+console.log('\n=== CENTROWANIE ZAKŁADKI W PASKU ===');
+/* pasek: widoczne 343 px, cała szerokość 1048 px → maksymalny scroll 705 */
+eq('zakładka ze środka ląduje na środku', centerScrollLeft(400, 100, 343, 705), 279);
+eq('pierwsza zakładka nie schodzi poniżej zera', centerScrollLeft(0, 100, 343, 705), 0);
+eq('ostatnia zakładka przycięta do końca paska', centerScrollLeft(1000, 100, 343, 705), 705);
+eq('gdy pasek mieści się w całości, nie ma czego przewijać',
+   centerScrollLeft(10, 100, 343, 0), 0);
+eq('szeroka zakładka też liczy się od swojego środka',
+   centerScrollLeft(500, 200, 343, 705), 429);
+eq('wynik jest liczbą całkowitą — scrollLeft nie lubi ułamków',
+   Number.isInteger(centerScrollLeft(401, 99, 343, 705)), true);
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);
