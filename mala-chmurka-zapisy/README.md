@@ -671,11 +671,19 @@ Jedno zgłoszenie na czworo dzieci to **czworo dzieci**, nie jedno. Kafelki
 Po upływie ostatniej godziny wyjścia licznik sam wraca do zera.
 
 **Maksimum (mianownik).** Osobna karta **„Maksimum miejsc”** w zakładce 3 —
-ustawiasz, ile dzieci mieści się jednocześnie, i klikasz „Zapisz maksimum”.
+ustawiasz, ile dzieci mieści się jednocześnie, i klikasz „Zapisz maksimum”
+(przycisk stoi pod polem, bo pole jest wąskie i przycisk rozciągnięty na pół karty
+wyglądałby na ważniejszy niż samo ustawienie).
 Obowiązuje w obu trybach i nie resetuje się przy odświeżaniu licznika.
 
 **Ręcznie:** zakładka **3 · Licznik w bawialni** — wpisujesz liczbę dzieci i godzinę.
-Przycisk „Wróć do trybu automatycznego” oddaje sterowanie checkboxom.
+
+Tryb przełącza **suwak „Tryb automatyczny”**, domyślnie włączony. Po wyłączeniu podpis
+zmienia się na „Tryb ręczny”, a pod spodem widać, co to znaczy dla strony. Tryb jest
+**stanem, nie czynnością**, więc suwak zamiast przycisku „Wróć do trybu automatycznego”:
+od razu widać, co jest włączone. Stan przychodzi z bazy, więc dwa panele otwarte obok
+siebie pokazują to samo. Samo przełączenie w tryb ręczny nie zmienia liczby na liczniku —
+przepisuje to, co już na nim jest.
 
 **Licznik odwiedzin** („Odwiedziło nas już 266 dzieci”) rośnie o **liczbę zapisanych
 dzieci**, a nie o liczbę zgłoszeń — jeden zapis na 2 miejsca podbija go o 2.
@@ -686,6 +694,15 @@ w rezerwacji, i tylko raz (pilnuje tego pole `countedInVisits`).
 Przycisk **„Przelicz z bazy”** sumuje dzieci ze wszystkich zapisów na zajęcia
 i z zaakceptowanych rezerwacji — **nie rekordy**. Zgłoszenie na czworo dzieci
 liczy się jako cztery.
+
+**Trzy przyciski pytają przed wykonaniem** — „Wyzeruj licznik”, „Zapisz licznik
+odwiedzin” i „Przelicz z bazy zapisów”. Każdy z nich zmienia to, co widzą wszyscy
+odwiedzający stronę, a żadnego nie da się cofnąć jednym kliknięciem. Okienko
+(`askConfirm` z `mc-common.js`) mówi wprost, co się stanie, i wypisuje skutki:
+przy zerowaniu na przykład, że licznik przejdzie w tryb ręczny, a dzieci zostaną
+w zakładce 6. Kliknięcie w tło i Escape zawsze znaczą „nie”, a przy zerowaniu
+focus siada na „Anuluj” — Enter odruchowo wciśnięty po otwarciu okienka niczego
+nie skasuje.
 
 ## Ranking wizyt (zakładka 4)
 
