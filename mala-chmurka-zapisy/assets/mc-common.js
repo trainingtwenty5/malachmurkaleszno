@@ -199,6 +199,27 @@ export function mountChrome(opts = {}) {
   backdrop.hidden = true;
   document.body.appendChild(backdrop);
 
+  /* Blokada przewijania strony pod otwartym menu.
+     NIE robimy tego przez `overflow:hidden` na <html>. Na telefonach (przede
+     wszystkim iOS) taka blokada bywa nieskuteczna, a przy okazji potrafi
+     przesunac elementy `position:fixed` — menu otwarte w polowie strony
+     ladowalo wtedy poza ekranem, a strona byla zablokowana, wiec nie dalo sie
+     do niego dojechac. Zamiast tego unieruchamiamy <body> i przesuwamy je
+     o dotychczasowe przewiniecie: strona stoi, menu trzyma sie okna,
+     a po zamknieciu wracamy dokladnie tam, gdzie uzytkownik byl. */
+  let scrollPrzedMenu = 0;
+  const blokujPrzewijanie = wlacz => {
+    const b = document.body;
+    if (wlacz) {
+      scrollPrzedMenu = window.pageYOffset || document.documentElement.scrollTop || 0;
+      Object.assign(b.style, { position: 'fixed', top: `${-scrollPrzedMenu}px`,
+                               left: '0', right: '0', width: '100%' });
+    } else {
+      Object.assign(b.style, { position: '', top: '', left: '', right: '', width: '' });
+      window.scrollTo({ top: scrollPrzedMenu, left: 0, behavior: 'instant' });
+    }
+  };
+
   const setNav = open => {
     btn.setAttribute('aria-expanded', String(open));
     nav.classList.toggle('is-open', open);
@@ -208,6 +229,7 @@ export function mountChrome(opts = {}) {
     /* Menu otwiera sie zawsze od gory listy — bez tego zostawalaby pozycja
        z poprzedniego otwarcia i wygladaloby to jak ucieta lista. */
     if (open) nav.scrollTop = 0;
+    blokujPrzewijanie(open);
   };
   const navOpen = () => btn.getAttribute('aria-expanded') === 'true';
 

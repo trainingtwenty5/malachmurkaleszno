@@ -1141,6 +1141,17 @@ body.cookie-open { overflow: hidden; }
      (z-index 200), który dotąd zasłaniał jego dolną połowę. */
   body.nav-open .site-header { z-index: 300; }
 
+  /* NAJWAŻNIEJSZE W TYM BLOKU.
+     Nagłówek po przewinięciu dostaje `backdrop-filter`, a każdy filtr tworzy
+     BLOK ZAWIERAJĄCY dla potomków `position:fixed`. Menu jest dzieckiem
+     nagłówka, więc od tego momentu przestawało być przypięte do okna,
+     a zaczynało do paska nagłówka — i otwarte w połowie strony potrafiło
+     wylądować poza ekranem. Na czas otwarcia zdejmujemy filtr: menu wraca
+     do okna i zachowuje się tak samo niezależnie od tego, jak daleko
+     użytkownik przewinął. Rozmycia i tak nie widać, bo menu przykrywa
+     nagłówek prawie nieprzezroczystym tłem. */
+  body.nav-open .site-header { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
   /* Krzyżyk dostaje na czas otwarcia własne tło w kolorze menu. Tła nagłówka
      użyć się nie da: menu jest jego dzieckiem, więc maluje się NAD nim —
      bez tej podkładki przewijane pozycje przejeżdżałyby tuż przy przycisku. */
@@ -1150,10 +1161,11 @@ body.cookie-open { overflow: hidden; }
     box-shadow: 0 0 0 8px var(--cream);
   }
 
-  /* Blokada przewijania strony pod menu. Samo `body` nie wystarcza —
-     elementem przewijanym jest `html`, więc strona jechała pod spodem
-     i wyglądało to jak odbijanie widoku. */
-  html.nav-open, body.nav-open { overflow: hidden; overscroll-behavior: none; }
+  /* Blokadę przewijania robi JavaScript (unieruchomienie <body> z zapamiętaną
+     pozycją) — `overflow:hidden` na <html> bywało na telefonach nieskuteczne
+     i przesuwało menu poza ekran. Tu zostaje tylko wyciszenie „gumowego"
+     odbicia na krawędziach. */
+  html.nav-open, body.nav-open { overscroll-behavior: none; }
 
   .split { grid-template-columns: 1fr; }
   .split-reverse .split-text,
