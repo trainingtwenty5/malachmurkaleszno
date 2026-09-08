@@ -790,12 +790,17 @@ bez tego jego przypięcie zależałoby od tego, czy strona jest przewinięta.
 ma własną kopię kodu, więc każdą z tych poprawek trzeba wprowadzić w obu
 miejscach.
 
-**Pasek „Powrót do…" przykleja się pod nagłówkiem na podstawie zmierzonej
-wysokości nagłówka**, a nie liczby wpisanej na sztywno. `mc-common.js` mierzy
-nagłówek (przy starcie, przy każdej zmianie rozmiaru i po wczytaniu fontów)
-i zapisuje wynik w `--mc-header-h`, z którego korzysta `.backbar`. Wpisane
-wcześniej na sztywno 56 px na telefonie i 60 px na komputerze nie trafiały
-w rzeczywiste 65 px, więc przycisk był przycinany od góry o kilka pikseli.
+**Nagłówek i pasek „Powrót do…" przyklejają się do góry razem**, jako jeden
+blok `.mc-chrome` (tworzy go `mc-common.js`). Wcześniej każdy przyklejał się
+osobno i pasek musiał znać wysokość nagłówka — a każda liczba wpisana na sztywno
+(56 px na telefonie, 60 px na komputerze) rozjeżdżała się z rzeczywistymi 65 px
+i przycisk był przycinany od góry. Teraz nie ma czego dopasowywać: oba leżą
+jeden pod drugim w normalnym przepływie, więc **nie mają jak na siebie nachodzić**
+niezależnie od wysokości nagłówka, kroju pisma i szerokości ekranu.
+
+`position:sticky` na samym nagłówku i pasku zostaje w arkuszu jako zapas —
+działa, gdyby przeglądarka miała jeszcze zapamiętany stary `mc-common.js`
+(arkusz ma wersję w adresie, skrypt nie).
 
 **Po zmianie arkuszy podbij `?v=`**: w `index.html` przy `style.css`, `main.js`
 i `cookies.js`, a w podstronach zapisów przy `assets/mc-common.css`. Bez tego
