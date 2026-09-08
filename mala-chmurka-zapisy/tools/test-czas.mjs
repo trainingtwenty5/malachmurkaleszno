@@ -162,5 +162,25 @@ console.log('\n=== ODLICZANIE W PANELU RODZICA ===');
                     todayISO: DZIS, atMin: at(11) }).label, 'kończy się za 7:00:00');
 }
 
+/* ==========================================================================
+   STAN OPŁATY W WIERSZU
+   --------------------------------------------------------------------------
+   Checkbox „Opłacone" w tabeli czasu zabawy czyta to pole, więc musi trafiać
+   w rzeczywisty stan rekordu — inaczej obsługa odhaczałaby coś, co i tak
+   jest już opłacone, albo odwrotnie.
+   ========================================================================== */
+console.log('\n=== OPŁATA W WIERSZU ===');
+eq('nieopłacona rezerwacja',
+   playtimeRows({ bookings: [bkg({ paid: false })], dateISO: DZIS, atMin: at(11, 30) })[0].paid, false);
+eq('opłacona rezerwacja',
+   playtimeRows({ bookings: [bkg({ paid: true })], dateISO: DZIS, atMin: at(11, 30) })[0].paid, true);
+/* Zapis na zajęcia trafia na listę dopiero jako „przyszedł + opłacone",
+   więc w tej tabeli jest zawsze opłacony — i dlatego checkbox przy zajęciach
+   jest wyłączony, a opłatę zmienia się w zakładce 2. */
+eq('zapis na zajęcia jest tu zawsze opłacony',
+   playtimeRows({ regs: [reg()], dateISO: DZIS, atMin: at(11, 30) })[0].paid, true);
+eq('brak pola `paid` czyta się jako nieopłacone, nie jako `undefined`',
+   playtimeRows({ bookings: [bkg({ paid: undefined })], dateISO: DZIS, atMin: at(11, 30) })[0].paid, false);
+
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

@@ -42,7 +42,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
-| `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
+| `tools/test-czas.mjs` | 58 testów zakładki „Czas zabawy” (odliczanie, opłata) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
 | `tools/test-finanse.mjs` | 214 testów zakładki „Finanse” (przychód, wejścia, arkusz CSV) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
@@ -260,7 +260,7 @@ node tools/test-zapisy.mjs  # 77 testów: terminy, godziny otwarcia, numer rezer
 node tools/test-licznik.mjs # 33 testy: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
-node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
+node tools/test-czas.mjs    # 58 testów: czas zabawy, odliczanie, stan opłaty
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
 node tools/test-finanse.mjs # 214 testów: przychód, okresy, wejścia przy drzwiach, CSV
 ```
@@ -564,7 +564,19 @@ ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekund�
   jak każdy inny — dziecko może przecież zostać dłużej.
 * Lista dotyczy **dzisiejszego dnia**; jutro zaczyna się od nowa, bez sprzątania ręką.
 * **Wyszukiwarka** po imieniu, telefonie, źródle i godzinach; **Pobierz CSV** zgrywa to,
-  co aktualnie widać.
+  co aktualnie widać (razem z kolumną „Opłacone”).
+* **Kolumna „Opłacone”** — odhaczasz wprost w wierszu, bez szukania tego samego pobytu
+  w innej zakładce. Ranking i Finanse aktualizują się od razu. Przy zapisie na zajęcia
+  checkbox jest wyłączony: taki zapis trafia tu dopiero jako „przyszedł + opłacone”,
+  więc odznaczenie zabrałoby go z listy w tej samej sekundzie — opłatę zmienia się
+  w zakładce **2 · Zapisani**.
+* **Edycja pobytu** — kliknij w imię dziecka albo w przycisk **Edytuj**. Rezerwacje
+  i wejścia otwierają się w tym samym okienku, w którym się je dodaje: te same pola,
+  ta sama wycena, ta sama walidacja. Cena przelicza się od nowa, więc dopisanie dziecka
+  albo zmiana czasu pobytu od razu daje właściwą kwotę. Pola, których to okienko nie
+  obsługuje (rodzic, e-mail, uwagi klienta), zostają nietknięte.
+  Zapisu na zajęcia nie da się tu sensownie edytować — ma własne pola, więc przycisk
+  przenosi do zakładki **2 · Zapisani** z wpisanym numerem rezerwacji.
 * Akcje w każdym wierszu: **+15 min**, **+ minuty**, **Zakończ**, **Usuń**. Każda pyta
   o potwierdzenie — przy ladzie łatwo o kliknięcie w biegu, a te operacje ruszają licznik
   na stronie i ranking.

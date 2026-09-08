@@ -1081,7 +1081,10 @@ export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
       startMin: toMin(r.eventStart),
       endMin: toMin(r.stayUntil || r.eventEnd),
       phone: r.phone || '',
-      title: r.eventTitle || ''
+      title: r.eventTitle || '',
+      /* Stan opłaty pokazujemy wprost w tabeli, żeby obsługa nie musiała
+         szukać tego samego pobytu w dwóch innych zakładkach. */
+      paid: !!r.paid
     });
   });
 
@@ -1095,7 +1098,8 @@ export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
       startMin: toMin(b.start),
       endMin: bookingEndMin(b, dayEnd),
       phone: b.phone || '',
-      title: b.durationLabel || ''
+      title: b.durationLabel || '',
+      paid: !!b.paid
     });
   });
 
