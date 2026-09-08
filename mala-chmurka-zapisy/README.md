@@ -776,10 +776,27 @@ same wykresy — łapała gest przewijania i nie dało się zejść na dół str
   a `overscroll-behavior: contain` pilnuje, żeby gest nie przelewał się na
   stronę pod spodem (to od tego widok „odbijał" w górę).
 
+**Blokadę przewijania robi JavaScript, nie CSS.** `overflow:hidden` na `<html>`
+bywa na telefonach nieskuteczne, a przy okazji potrafi przesunąć elementy
+`position:fixed` — menu otwarte w połowie strony lądowało wtedy poza ekranem,
+przy zablokowanej stronie, więc nie dało się do niego dojechać. Zamiast tego
+unieruchamiamy `<body>` (`position:fixed` z ujemnym `top`) i po zamknięciu
+przywracamy dokładną pozycję przewinięcia.
+
+**Nagłówek traci `backdrop-filter` na czas otwarcia menu.** Każdy filtr tworzy
+blok zawierający dla potomków `position:fixed`, a menu jest dzieckiem nagłówka —
+bez tego jego przypięcie zależałoby od tego, czy strona jest przewinięta.
+
 **To samo menu jest na stronie głównej** (`css/style.css` + `js/main.js`) —
-ma własną kopię kodu, więc każdą z tych poprawek trzeba było wprowadzić
-w obu miejscach. Po zmianie w `css/style.css` albo `js/main.js` **podbij `?v=`
-w `index.html`**, inaczej wracający goście dostaną starą wersję z cache.
+ma własną kopię kodu, więc każdą z tych poprawek trzeba wprowadzić w obu
+miejscach.
+
+**Po zmianie arkuszy podbij `?v=`**: w `index.html` przy `style.css`, `main.js`
+i `cookies.js`, a w podstronach zapisów przy `assets/mc-common.css`. Bez tego
+wracający goście dostają starą wersję z cache — i wygląda to jak „poprawka
+działa u jednych, u drugich nie". `mc-common.js` celowo nie ma wersji: importuje
+go kilkanaście modułów i wystarczy pominąć jedno miejsce, żeby przeglądarka
+wczytała moduł dwa razy pod dwoma adresami.
 * Filtry w zakładce Finanse układają się w dwie kolumny zamiast czterech
   osobnych rzędów.
 

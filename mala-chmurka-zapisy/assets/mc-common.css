@@ -387,6 +387,13 @@ table.tbl tbody tr:hover{background:var(--cream)}
   /* Rozwiniete menu przechodzi nad wszystko — ta sama zasada, co na stronie
      glownej, gdzie nad naglowkiem stoi jeszcze baner ciasteczek. */
   body.nav-open .site-header{z-index:300}
+  /* NAJWAZNIEJSZA REGULA W TYM BLOKU.
+     Naglowek ma `backdrop-filter`, a kazdy filtr tworzy BLOK ZAWIERAJACY dla
+     potomkow `position:fixed`. Menu jest dzieckiem naglowka, wiec bylo
+     przypiete do paska naglowka zamiast do okna — otwarte w polowie strony
+     potrafilo wyladowac poza ekranem. Na czas otwarcia zdejmujemy filtr:
+     menu wraca do okna i zachowuje sie tak samo przy kazdym przewinieciu. */
+  body.nav-open .site-header{backdrop-filter:none;-webkit-backdrop-filter:none}
   /* Krzyzyk dostaje na czas otwarcia wlasne tlo w kolorze menu. Tla naglowka
      uzyc sie nie da: menu jest jego dzieckiem, wiec maluje sie NAD nim —
      bez tej podkladki przewijane pozycje przejezdzalyby tuz przy przycisku. */
@@ -395,7 +402,10 @@ table.tbl tbody tr:hover{background:var(--cream)}
   /* Blokada przewijania przy otwartym menu. Samo `body` nie wystarczało:
      elementem przewijanym jest `html`, więc strona jechała pod menu i wtedy
      naprawdę trudno było trafić z powrotem na dół. */
-  html.nav-open,body.nav-open{overflow:hidden;overscroll-behavior:none}
+  /* Blokade przewijania robi JavaScript (unieruchomienie <body> z zapamietana
+     pozycja) — `overflow:hidden` na <html> bywalo na telefonach nieskuteczne
+     i przesuwalo menu poza ekran. Tu zostaje samo wyciszenie odbicia. */
+  html.nav-open,body.nav-open{overscroll-behavior:none}
   .container{padding-inline:16px}
   .backbar{top:56px}
 
