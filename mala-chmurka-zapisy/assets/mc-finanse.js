@@ -13,7 +13,8 @@
    (`node tools/test-finanse.mjs`).
    ========================================================================== */
 
-import { isoDate, parseDate, addDays, normPhone } from './mc-common.js';
+import { isoDate, parseDate, addDays, normPhone, DAY_NAMES, fmtMin,
+         bookingEndMin, orderRef } from './mc-common.js';
 
 /* Kolory wykresów — z palety strony, nie z niczego nowego.
    `now` to okres wybrany w filtrze, `prev` to ten sam okres cofnięty wstecz. */
@@ -74,7 +75,11 @@ export function txFromRegistration(r) {
        jednostkową, więc mnożymy ją w locie zamiast pokazywać zero. */
     total:  Number(r.total) || (Number(r.unitPrice) || 0) * qty,
     paid:   !!r.paid,
-    client: clientKey(r)
+    client: clientKey(r),
+    /* Referencja do rekordu z bazy. Wykresom wystarczają pola wyżej, ale
+       eksport do CSV ma dać obsłudze WSZYSTKO, co o zgłoszeniu wiemy —
+       telefon, uwagi, godziny. Trzymamy wskaźnik, nie kopię. */
+    raw:    r
   };
 }
 
@@ -93,7 +98,8 @@ export function txFromBooking(b) {
     qty:    Math.max(1, Number(b.qty) || 1),
     total:  Number(b.total) || 0,
     paid:   !!b.paid,
-    client: clientKey(b)
+    client: clientKey(b),
+    raw:    b
   };
 }
 
@@ -516,6 +522,115 @@ export function summary(all, r) {
 }
 
 /* ==========================================================================
+   EKSPORT DO CSV
+   --------------------------------------------------------------------------
+   Panel pokazuje sumy, a arkusz służy do rozliczeń: obsługa dzwoni do rodzica,
+   sprawdza, kto nie zapłacił, wystawia rachunek. Dlatego do pliku idzie
+   wszystko, co o zgłoszeniu wiemy — nie tylko kwota, ale i telefon, godziny,
+   uwagi i to, czy wizyta weszła do rankingu.
+
+   Zakres wierszy jest ten sam, co na wykresach (odrzucone rezerwacje
+   pominięte), żeby suma z arkusza zgadzała się z kafelkiem „Sprzedaż".
+   ========================================================================== */
+
+export const CSV_HEADERS = [
+  'Data', 'Dzień tygodnia', 'Od', 'Do', 'Źródło', 'Nr rezerwacji', 'Pozycja',
+  'Status', 'Liczba dzieci', 'Dzieci', 'Rodzic', 'Telefon', 'E-mail',
+  'Cena za dziecko', 'Kwota', 'Opłacone', 'Przyszedł', 'W rankingu',
+  'Płatność / taryfa', 'Czas pobytu', 'Uwagi rodzica', 'Uwagi obsługi',
+  'Zgłoszenie utworzono'
+];
+
+const SOURCE_LABEL = { zajecia: 'zajęcia', bawialnia: 'bawialnia', wejscie: 'wejście z ulicy' };
+const STATUS_LABEL = {
+  pending: 'oczekuje', accepted: 'zaakceptowana', rejected: 'odrzucona',
+  new: 'nowy', confirmed: 'potwierdzony'
+};
+
+/** Liczba w formacie, który polski Excel przyjmuje jako liczbę, nie tekst. */
+const csvNum = n => (Number(n) || 0).toFixed(2).replace('.', ',');
+const yesNo  = v => (v ? 'tak' : 'nie');
+
+/**
+ * Znacznik czasu z Firestore → '2026-09-07 14:30'.
+ * Rekordy bywają w trzech postaciach: Timestamp z `toDate()`, zwykła data
+ * i nic (starsze zgłoszenia). Każdą trzeba znieść bez wyjątku.
+ */
+export function stampToText(v) {
+  if (!v) return '';
+  const d = typeof v.toDate === 'function' ? v.toDate()
+          : v instanceof Date ? v
+          : (typeof v === 'string' || typeof v === 'number') ? new Date(v) : null;
+  if (!d || isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Imiona dzieci ze zgłoszenia — obie postacie, nowa i archiwalna. */
+export function childNames(r) {
+  if (Array.isArray(r.children) && r.children.length) {
+    return r.children
+      .map(c => (c.name || `${c.firstName || ''} ${c.lastName || ''}`).trim())
+      .filter(Boolean).join(', ');
+  }
+  return `${r.childFirstName || ''} ${r.childLastName || ''}`.trim();
+}
+
+/** Godzina wyjścia — ręcznie ustawiona ma pierwszeństwo nad wyliczoną. */
+function endTime(t) {
+  const r = t.raw || {};
+  if (r.stayUntil) return r.stayUntil;
+  if (t.source === 'zajecia') return r.eventEnd || '';
+  return r.start ? fmtMin(bookingEndMin(r)) : '';
+}
+
+/** Jeden wiersz arkusza. Kolejność musi zgadzać się z `CSV_HEADERS`. */
+export function csvRow(t) {
+  const r = t.raw || {};
+  const zajecia = t.source === 'zajecia';
+  const unit = zajecia
+    ? (Number(r.unitPrice) || (t.qty ? t.total / t.qty : 0))
+    : (t.qty ? t.total / t.qty : 0);
+  return [
+    t.date,
+    t.date ? DAY_NAMES[(parseDate(t.date).getDay() + 6) % 7] : '',
+    (zajecia ? r.eventStart : r.start) || '',
+    endTime(t),
+    SOURCE_LABEL[t.source] || t.source,
+    orderRef(t.id),
+    t.label,
+    STATUS_LABEL[r.status] || r.status || '',
+    t.qty,
+    childNames(r),
+    `${r.parentFirstName || ''} ${r.parentLastName || ''}`.trim(),
+    r.phone || '',
+    r.email || '',
+    csvNum(unit),
+    csvNum(t.total),
+    yesNo(t.paid),
+    /* „Przyszedł" istnieje tylko przy zajęciach — przy wstępie do bawialni
+       samo bycie zaakceptowanym znaczy, że dziecko przyszło. */
+    zajecia ? yesNo(r.attended) : '—',
+    yesNo(r.countedInRanking),
+    zajecia ? (r.paymentMethod || '') : (r.tariff === 'weekend' ? 'weekend' : 'dzień powszedni'),
+    zajecia ? '' : (r.durationLabel || r.duration || ''),
+    (r.note || '').replace(/\s*\n\s*/g, ' '),
+    (r.adminNote || '').replace(/\s*\n\s*/g, ' '),
+    stampToText(r.createdAt)
+  ];
+}
+
+/** Nagłówek + wiersze dla wybranego okresu, gotowe do sklejenia w plik. */
+export function csvTable(txs, range) {
+  return [CSV_HEADERS, ...inRange(txs, range)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date)
+                 || String((a.raw || {}).start || (a.raw || {}).eventStart || '')
+                    .localeCompare(String((b.raw || {}).start || (b.raw || {}).eventStart || '')))
+    .map(csvRow)];
+}
+
+/* ==========================================================================
    4. RYSOWANIE
    --------------------------------------------------------------------------
    Wykresy są ręcznie robionym SVG, bez żadnej biblioteki z sieci — panel ma
@@ -680,6 +795,14 @@ function tip() {
     tipEl.className = 'fin-tip';
     tipEl.hidden = true;
     document.body.appendChild(tipEl);
+
+    /* Palec nie wywołuje `pointerleave`, więc dymek postawiony dotknięciem
+       zostałby na ekranie na zawsze. Chowamy go przy przewijaniu i przy
+       dotknięciu czegokolwiek poza wykresem. */
+    addEventListener('scroll', hideTip, { passive: true });
+    document.addEventListener('pointerdown', ev => {
+      if (!ev.target.closest || !ev.target.closest('.fin-chart')) hideTip();
+    }, true);
   }
   return tipEl;
 }
@@ -728,12 +851,20 @@ function attachHover(svg, cfg, geom) {
   });
   svg.appendChild(layer);
 
+  /* `touch-action:pan-y` jest tu najważniejsze: przesunięcie palcem w pionie
+     zawsze przewija stronę, a nie „rysuje" po wykresie. Bez tego na telefonie
+     zakładka Finanse — prawie same wykresy — łapała gest przewijania. */
   const catcher = el('rect', { x: padL, y: padT, width: iw, height: ih,
-                               fill: 'transparent', style: 'cursor:crosshair' });
+                               fill: 'transparent',
+                               style: 'cursor:crosshair;touch-action:pan-y' });
   svg.appendChild(catcher);
 
   let last = -1;
   const move = ev => {
+    /* Mysz reaguje na samo najechanie. Palec — dopiero na dotknięcie:
+       przy przewijaniu `pointermove` sypie się dziesiątkami zdarzeń i dymek
+       biegałby za palcem zamiast pozwolić przewinąć stronę. */
+    if (ev.pointerType !== 'mouse' && ev.type === 'pointermove') return;
     const box = svg.getBoundingClientRect();
     /* SVG bywa przeskalowany względem swojego viewBoxa (wąskie okno),
        więc przeliczamy piksele ekranu na współrzędne rysunku. */

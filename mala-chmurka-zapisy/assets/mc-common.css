@@ -361,15 +361,29 @@ table.tbl tbody tr:hover{background:var(--cream)}
   .footer-brand{grid-column:1/-1}
 }
 @media (max-width:860px){
-  .nav-toggle{display:flex}
+  /* Przycisk musi zostać NAD rozwiniętym menu — inaczej menu zasłania własny
+     przycisk zamykania (krzyżyk) i jedynym wyjściem jest kliknięcie w link. */
+  .nav-toggle{display:flex;position:relative;z-index:3}
   .nav{position:fixed;inset:0 0 auto 0;background:var(--cream);box-shadow:var(--shadow-lg);
     padding:76px 20px 26px;transform:translateY(-104%);transition:transform .38s var(--ease);
-    max-height:100vh;overflow-y:auto;z-index:-1}
-  .nav.is-open{transform:translateY(0);z-index:1}
+    /* `dvh`, nie `vh`: na telefonie `100vh` liczy się razem z paskiem adresu,
+       więc dolne pozycje menu potrafiły wylądować pod krawędzią ekranu. */
+    max-height:100dvh;overflow-y:auto;z-index:-1;
+    border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+  .nav.is-open{transform:translateY(0);z-index:2}
   .nav ul{flex-direction:column;align-items:stretch;gap:2px}
   .nav a{padding:.85em 1em;font-size:1.05rem;border-radius:var(--radius)}
   .nav .nav-cta{margin:10px 0 0;text-align:center}
-  body.nav-open{overflow:hidden}
+  /* Przyciemnienie pod menu. Bez niego nie było wiadomo, że wystarczy
+     dotknąć obok, żeby zamknąć — a samo menu wisiało nad przewijającą się
+     stroną i wyglądało, jakby panel się zaciął. */
+  .nav-backdrop{position:fixed;inset:0;z-index:0;background:rgba(42,65,89,.38);
+    backdrop-filter:blur(2px);opacity:0;transition:opacity .3s var(--ease)}
+  body.nav-open .nav-backdrop{opacity:1}
+  /* Blokada przewijania przy otwartym menu. Samo `body` nie wystarczało:
+     elementem przewijanym jest `html`, więc strona jechała pod menu i wtedy
+     naprawdę trudno było trafić z powrotem na dół. */
+  html.nav-open,body.nav-open{overflow:hidden;overscroll-behavior:none}
   .container{padding-inline:16px}
   .backbar{top:56px}
 
