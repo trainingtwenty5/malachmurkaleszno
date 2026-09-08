@@ -144,6 +144,14 @@
   .pl-acts button{font-size:.78rem;padding:.3em .7em;border-radius:8px;font-family:var(--font-head);
     font-weight:600;border:1px solid var(--line);background:var(--white);color:var(--navy-deep)}
   .pl-acts button:hover{background:var(--cream-deep)}
+  /* Imię jest klikalne — otwiera edycję tego samego pobytu. Wygląda jak zwykły
+     tekst, dopiero podkreślenie przy najechaniu mówi, że da się w nie kliknąć. */
+  .pl-name{font:inherit;font-weight:700;font-family:var(--font-head);color:var(--navy-deep);
+    text-align:left;padding:0;background:none}
+  .pl-name:hover{text-decoration:underline;text-underline-offset:3px;color:var(--brand-deep)}
+  .pl-paid{display:grid;place-items:center}
+  .pl-paid input{width:22px;height:22px;accent-color:var(--ok);cursor:pointer}
+  .pl-paid input:disabled{cursor:not-allowed;opacity:.5}
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
 
@@ -617,7 +625,7 @@
           <table class="tbl">
             <thead><tr>
               <th>Dzieci</th><th>Skąd</th><th>Od</th><th>Do</th>
-              <th>Pozostało</th><th>Telefon</th><th></th>
+              <th>Pozostało</th><th>Telefon</th><th>Opłacone</th><th></th>
             </tr></thead>
             <tbody id="plRows"></tbody>
           </table>
@@ -793,7 +801,7 @@
     </div>
     <form id="wiForm">
       <div id="wiMsg"></div>
-      <p class="hint" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz dzieci i godziny —
+      <p class="hint" id="wiIntro" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz dzieci i godziny —
         wejdą od razu do licznika na stronie i na listę czasu zabawy. Cena liczy się
         sama, tym samym cennikiem co rezerwacja ze strony.</p>
 
@@ -2110,7 +2118,7 @@ function renderPlaytime() {
 
   const rows = playRows();
   if (!rows.length) {
-    $('#plRows').innerHTML = `<tr><td colspan="7"><div class="empty">${
+    $('#plRows').innerHTML = `<tr><td colspan="8"><div class="empty">${
       all.length ? 'Nic nie pasuje do wyszukiwania.'
                  : 'Dziś nikogo jeszcze nie ma w bawialni. Kliknij „+ Nowe wejście”, żeby dodać wejście bez zapisu.'
     }</div></td></tr>`;
@@ -2119,6 +2127,11 @@ function renderPlaytime() {
   }
 
   $('#plRows').innerHTML = rows.map(r => {
+    /* Kliknięta wartość ma pierwszeństwo, dopóki baza jej nie potwierdzi. */
+    if (plPendingPaid.has(r.id)) {
+      if (plPendingPaid.get(r.id) === r.paid) plPendingPaid.delete(r.id);
+      else r = { ...r, paid: plPendingPaid.get(r.id) };
+    }
     const cls = r.frozen ? 'frozen'
               : r.state === 'overtime' ? 'over'
               : r.state === 'waiting' ? 'waiting'
@@ -2130,7 +2143,9 @@ function renderPlaytime() {
                : fmtCountdown(r.shown);
 
     return `<tr class="pl-row ${cls}">
-      <td><strong>${esc(r.names.join(', ') || '—')}</strong>${
+      <td><button type="button" class="pl-name" data-edit="${esc(r.id)}"
+            data-src="${esc(r.source)}" title="Kliknij, żeby edytować ten pobyt"
+          >${esc(r.names.join(', ') || '—')}</button>${
         r.qty > 1 ? `<br><span class="hint">${esc(plDzieci(r.qty))}</span>` : ''}</td>
       <td><span class="pl-src">${esc(r.sourceLabel)}</span>${
         r.title ? `<br><span class="hint">${esc(r.title)}</span>` : ''}</td>
@@ -2138,7 +2153,15 @@ function renderPlaytime() {
       <td class="num">${esc(fmtMin(r.endMin))}</td>
       <td class="pl-left">${esc(left)}</td>
       <td>${r.phone ? `<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : '—'}</td>
+      <td class="pl-paid"><input type="checkbox" data-paid="${esc(r.id)}"
+            data-src="${esc(r.source)}" ${r.paid ? 'checked' : ''}
+            aria-label="Opłacone"${
+            /* Zapis na zajęcia trafia tu dopiero jako „przyszedł + opłacone",
+               więc odznaczenie zabrałoby go z listy w tej samej sekundzie.
+               Opłatę przy zajęciach zmienia się w zakładce 2. */
+            r.source === 'classes' ? ' disabled title="Opłatę przy zajęciach zmienisz w zakładce 2 · Zapisani"' : ''}></td>
       <td><div class="pl-acts">
+        <button data-edit2="${r.id}" data-src="${esc(r.source)}">Edytuj</button>
         <button data-plus="${r.id}">+15 min</button>
         <button data-any="${r.id}">+ minuty</button>
         <button data-stop="${r.id}">Zakończ</button>
@@ -2147,6 +2170,9 @@ function renderPlaytime() {
     </tr>`;
   }).join('');
 
+  $$('#plRows [data-edit]').forEach(el => el.onclick = () => plEdit(el.dataset.edit, el.dataset.src));
+  $$('#plRows [data-edit2]').forEach(el => el.onclick = () => plEdit(el.dataset.edit2, el.dataset.src));
+  $$('#plRows [data-paid]').forEach(el => el.onchange = () => plSetPaid(el.dataset.paid, el.dataset.src, el.checked));
   $$('#plRows [data-plus]').forEach(el => el.onclick = () => addMinutes(el.dataset.plus, 15));
   $$('#plRows [data-any]').forEach(el => el.onclick  = () => addAnyMinutes(el.dataset.any));
   $$('#plRows [data-stop]').forEach(el => el.onclick = () => endNow(el.dataset.stop));
@@ -2448,6 +2474,7 @@ const wiChanged = () => {
 function wiShut() {
   wiModal.classList.remove('is-open');
   wiSnapshot = null;
+  wiEditing = null;
 }
 
 async function wiCloseM(force) {
@@ -2458,10 +2485,10 @@ async function wiCloseM(force) {
   const answer = await askSaveOrDiscard({
     title: 'Masz niezapisane dane',
     text: zmiany.length === 1
-      ? 'Wypełniłeś jedno pole i wejście nie zostało jeszcze dodane. Co z nim zrobić?'
-      : `Wypełniłeś ${zmiany.length} pola i wejście nie zostało jeszcze dodane. Co z nimi zrobić?`,
+      ? 'Zmieniłeś jedno pole i nie zostało jeszcze zapisane. Co z nim zrobić?'
+      : `Zmieniłeś ${zmiany.length} pola i nie zostały jeszcze zapisane. Co z nimi zrobić?`,
     changes: zmiany,
-    saveLabel: 'Dodaj do bawialni',
+    saveLabel: wiEditing ? 'Zapisz zmiany' : 'Dodaj do bawialni',
     discardLabel: 'Odrzuć i zamknij',
     stayLabel: 'Wróć do formularza'
   });
@@ -2470,24 +2497,45 @@ async function wiCloseM(force) {
   if (answer === 'discard') wiShut();
 }
 
-$('#plAdd').onclick = () => {
+/* `null` = nowe wejście, obiekt rezerwacji = edycja istniejącego pobytu.
+   Jedno okienko w obu rolach: te same pola, ta sama wycena, ta sama walidacja. */
+let wiEditing = null;
+
+function wiOpen(b = null) {
+  wiEditing = b;
   const now = Math.floor(nowMinFloat());
-  $('#wiFrom').value = fmtMin(now);
-  $('#wiTo').value   = fmtMin(Math.min(now + 60, 23 * 60 + 59));
+
+  $('#wiTitle').textContent = b ? 'Edytuj pobyt' : 'Nowe wejście';
+  $('#wiSave').textContent  = b ? 'Zapisz zmiany' : 'Dodaj do bawialni';
+  $('#wiIntro').hidden = !!b;
+
+  $('#wiFrom').value = b ? (b.start || fmtMin(now)) : fmtMin(now);
+  $('#wiTo').value   = b ? (b.stayUntil || fmtMin(bookingEndMin(b)))
+                         : fmtMin(Math.min(now + 60, 23 * 60 + 59));
   wiRenderDurations();
+  if (b && b.duration) {
+    const el = $(`#wiDurations input[value="${b.duration}"]`);
+    if (el && !el.disabled) el.checked = true;
+  }
   wiRenderCennik();
+
   $('#wiKids').innerHTML = '';
-  $('#wiKids').appendChild(wiKidRow());
-  $('#wiPhone').value = '';
-  $('#wiPay').selectedIndex = 0;
-  $('#wiPaid').checked = false;
+  const kids = (b && (b.children || []).length) ? b.children : [{}];
+  kids.forEach(k => $('#wiKids').appendChild(wiKidRow(k)));
+
+  $('#wiPhone').value = b ? (b.phone || '') : '';
+  $('#wiPay').value = (b && b.paymentMethod) || $('#wiPay').options[0].value;
+  $('#wiPaid').checked = b ? !!b.paid : false;
   $('#wiMsg').innerHTML = '';
+
   wiSyncKids();
   wiModal.classList.add('is-open');
   wiSnapshot = wiFormMap();
   const pierwsze = $('#wiKids .wi-kid-name');
   if (pierwsze) pierwsze.focus();
-};
+}
+
+$('#plAdd').onclick = () => wiOpen();
 
 /* Bez opakowania w strzałkę przeglądarka podałaby tu obiekt zdarzenia,
    który trafiłby na miejsce `force` i zamknął okno bez pytania. */
@@ -2510,6 +2558,43 @@ $('#wiForm').addEventListener('submit', async e => {
 
   $('#wiSave').disabled = true;
   try {
+    if (wiEditing) {
+      /* Edycja. Cenę przeliczamy od nowa tym samym cennikiem — inaczej zmiana
+         czasu pobytu albo dopisanie dziecka zostawiłoby starą kwotę.
+         Pola, których to okienko nie obsługuje (rodzic, e-mail, uwagi klienta),
+         zostają nietknięte, bo `updateBooking` scala tylko to, co podamy. */
+      const q = quote({ date: todayISO(), duration: wiDuration(), children: kids });
+      const przed = wiEditing;
+      const patch = {
+        children: q.lines.map(l => ({ name: l.name, dob: l.dob, tier: l.tier, price: l.price })),
+        qty: kids.length,
+        start: from, stayUntil: to,
+        duration: wiDuration(),
+        durationLabel: (DURATIONS.find(d => d.id === wiDuration()) || {}).label || '',
+        tariff: q.tariff, base: q.base, total: q.total, siblingApplies: q.siblingApplies,
+        paymentMethod: $('#wiPay').value,
+        phone: $('#wiPhone').value.trim(),
+        paid: $('#wiPaid').checked
+      };
+      /* Wizyta w rankingu liczy czas pobytu, więc przy zmianie godzin trzeba ją
+         przeliczyć — najpierw cofamy starą, potem dopisujemy nową. */
+      if (przed.countedInRanking) await applyBookingToRanking(przed, -1).catch(() => {});
+      await updateBooking(przed.id, patch);
+      const po = { ...przed, ...patch };
+      if (przed.countedInRanking && po.status === 'accepted' && po.paid) {
+        await applyBookingToRanking(po, +1).catch(() => {});
+      } else if (przed.countedInRanking) {
+        await updateBooking(przed.id, { countedInRanking: false }).catch(() => {});
+      } else {
+        await syncBookingRanking(po, { paid: po.paid, status: po.status }).catch(() => {});
+      }
+      invalidateFinanceData();
+      await refreshPresence();
+      toast(`Zapisano zmiany: ${plDzieci(kids.length)} · ${money(q.total)}.`);
+      wiShut();
+      return;
+    }
+
     const b = await createWalkin({
       children: kids,
       start: from, stayUntil: to,
@@ -2527,18 +2612,68 @@ $('#wiForm').addEventListener('submit', async e => {
     toast(`Dodano do bawialni: ${plDzieci(kids.length)} · ${money(b.total)}.`);
     wiShut();
   } catch (err) {
-    wiBad(err.message || 'Nie udało się dodać.');
+    wiBad(err.message || 'Nie udało się zapisać.');
   } finally { $('#wiSave').disabled = false; }
 });
 
+/* ==========================================================================
+   OPŁATA I EDYCJA WPROST Z LISTY CZASU ZABAWY
+   --------------------------------------------------------------------------
+   Przy ladzie liczy się jedno kliknięcie. Odhaczenie opłaty i poprawka
+   godzin nie powinny wymagać szukania tego samego pobytu w innej zakładce.
+   ========================================================================== */
+
+/* Tabela przerysowuje się co sekundę (odliczanie), a zapis do bazy trwa
+   dłużej. Bez tego checkbox wracałby na chwilę do starego stanu — trzymamy
+   więc świeżo kliknięte wartości, dopóki baza ich nie potwierdzi. */
+const plPendingPaid = new Map();
+
+/** Odhaczenie opłaty prosto w wierszu. Ranking pilnuje `syncBookingRanking`. */
+async function plSetPaid(id, source, paid) {
+  if (source === 'classes') return;            // zapis na zajęcia — zakładka 2
+  const b = findBooking(id);
+  if (!b) return toast('Nie znalazłem tej rezerwacji — odśwież panel.');
+  plPendingPaid.set(id, !!paid);
+  try {
+    await updateBooking(id, { paid: !!paid });
+    await syncBookingRanking(b, { paid });
+    invalidateFinanceData();
+    toast(paid ? 'Oznaczone jako opłacone.' : 'Zdjęto oznaczenie opłaty.');
+  } catch (err) {
+    plPendingPaid.delete(id);                  // wracamy do stanu z bazy
+    toast('Nie udało się zapisać: ' + (err.message || ''));
+    renderPlaytime();
+  }
+}
+
+/**
+ * Edycja pobytu. Rezerwacje i wejścia otwieramy w tym samym okienku, w którym
+ * się je dodaje. Zapisu na zajęcia nie da się tu sensownie edytować — ma
+ * własne pola (termin zajęć, liczba miejsc), więc przenosimy obsługę do
+ * zakładki 2 z wpisanym numerem, zamiast pokazywać formularz, który
+ * połowy danych nie zapisze.
+ */
+function plEdit(id, source) {
+  if (source === 'classes') {
+    $('#q').value = orderRef(id);
+    document.querySelector('.admin-tabs button[data-tab="regs"]').click();
+    renderRegs();
+    toast('Zapis na zajęcia edytujesz w zakładce „2 · Zapisani”.');
+    return;
+  }
+  const b = findBooking(id);
+  if (!b) return toast('Nie znalazłem tej rezerwacji — odśwież panel.');
+  wiOpen(b);
+}
+
 /* ------------------------------------------------------------- eksport -- */
 $('#plExport').onclick = () => {
-  const rows = [['Dzieci', 'Liczba dzieci', 'Skąd', 'Od', 'Do', 'Pozostało', 'Stan', 'Telefon'],
+  const rows = [['Dzieci', 'Liczba dzieci', 'Skąd', 'Od', 'Do', 'Pozostało', 'Stan', 'Telefon', 'Opłacone'],
     ...playRows().map(r => [
       r.names.join(', '), r.qty, r.sourceLabel,
       fmtMin(r.startMin), fmtMin(r.endMin), fmtCountdown(r.remaining),
       r.state === 'over' ? 'po czasie' : r.state === 'waiting' ? 'jeszcze nie zaczął' : 'w bawialni',
-      r.phone
+      r.phone, r.paid ? 'tak' : 'nie'
     ])];
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
