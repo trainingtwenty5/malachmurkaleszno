@@ -155,6 +155,18 @@
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
 
+  /* ---- przełącznik trybu licznika ---- */
+  .sw{display:inline-flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+  .sw input{position:absolute;opacity:0;width:0;height:0}
+  .sw-track{position:relative;width:52px;height:30px;flex:none;border-radius:999px;
+    background:var(--line);transition:background-color .22s var(--ease)}
+  .sw-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+    background:var(--white);box-shadow:var(--shadow-sm);transition:transform .22s var(--ease)}
+  .sw input:checked + .sw-track{background:var(--brand-deep)}
+  .sw input:checked + .sw-track .sw-knob{transform:translateX(22px)}
+  .sw input:focus-visible + .sw-track{outline:3px solid var(--brand);outline-offset:2px}
+  .sw-label{font-family:var(--font-head);font-weight:600;color:var(--navy-deep)}
+
   /* ---- nowe wejście: kafelki czasu pobytu (jak w formularzu klienta) ---- */
   .durations{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   .dur{position:relative}
@@ -476,9 +488,17 @@
               <input class="control" id="mCap" type="number" min="1" max="99" value="6">
             </div>
           </div>
+          <!-- Tryb to stan, nie czynność — dlatego przełącznik, a nie przycisk
+               „wróć do trybu automatycznego". Od razu widać, co jest włączone. -->
+          <label class="sw" for="autoMode">
+            <input type="checkbox" id="autoMode" checked>
+            <span class="sw-track" aria-hidden="true"><span class="sw-knob"></span></span>
+            <span class="sw-label" id="autoModeLabel">Tryb automatyczny</span>
+          </label>
+          <p class="hint" id="autoModeHint" style="margin:6px 0 14px"></p>
+
           <div class="bar">
             <button class="btn btn-primary btn-auto" id="saveManual">Zapisz ręczne ustawienie</button>
-            <button class="btn btn-outline btn-auto" id="autoMode">Wróć do trybu automatycznego</button>
             <button class="btn btn-soft btn-auto" id="zero">Wyzeruj licznik</button>
           </div>
           <p class="hint" style="margin:10px 0 0">Licznik automatyczny sumuje <strong>dzieci</strong>
@@ -491,15 +511,14 @@
           <h2 style="font-size:1.1rem">Maksimum miejsc</h2>
           <p class="hint">Mianownik licznika na stronie głównej — „2 os. / <strong>6</strong>".
             Obowiązuje w obu trybach i nie resetuje się przy odświeżaniu licznika.</p>
-          <div class="row2">
-            <div class="field">
-              <label for="capOnly">Ile dzieci mieści się jednocześnie</label>
-              <input class="control" id="capOnly" type="number" min="1" max="99" value="6">
-            </div>
-            <div class="field" style="display:flex;align-items:flex-end">
-              <button class="btn btn-primary btn-block" id="saveCap">Zapisz maksimum</button>
-            </div>
+          <!-- Przycisk pod polem, nie obok: pole jest wąskie (jedna liczba),
+               a przycisk rozciągnięty na pół karty wyglądał na ważniejszy
+               niż samo ustawienie. -->
+          <div class="field" style="max-width:320px">
+            <label for="capOnly">Ile dzieci mieści się jednocześnie</label>
+            <input class="control" id="capOnly" type="number" min="1" max="99" value="6">
           </div>
+          <button class="btn btn-primary btn-sm btn-auto" id="saveCap">Zapisz maksimum</button>
         </div>
 
         <div class="card" style="margin-top:18px">
@@ -1125,6 +1144,7 @@ function start() {
     $('#cNow').textContent   = `${p.count ?? 0} / ${p.capacity ?? SETTINGS.capacity}`;
     $('#cUntil').textContent = p.until || '—';
     $('#cMode').textContent  = p.manual ? 'ręczny' : 'automatyczny';
+    autoModePaint(!p.manual);
     $('#mCount').value = p.count ?? 0;
     if (p.until) $('#mUntil').value = p.until;
     const cap = p.capacity ?? SETTINGS.capacity;
@@ -1696,11 +1716,51 @@ $('#saveManual').onclick = async () => {
     toast('Licznik ustawiony ręcznie.');
   } catch (e) { toast('Błąd: ' + e.message); }
 };
-$('#autoMode').onclick = async () => {
-  try { await clearPresenceManual(); await refreshPresence({ force: true }); toast('Licznik znów liczy się automatycznie.'); }
-  catch (e) { toast('Błąd: ' + e.message); }
+/* Podpis i opis przełącznika trzymamy w jednym miejscu — stan przychodzi
+   z bazy (`watchPresence`), więc dwa panele otwarte obok siebie pokazują to
+   samo, a nie to, co ostatnio kliknięto w każdym z osobna. */
+function autoModePaint(auto) {
+  $('#autoMode').checked = auto;
+  $('#autoModeLabel').textContent = auto ? 'Tryb automatyczny' : 'Tryb ręczny';
+  $('#autoModeHint').textContent = auto
+    ? 'Licznik liczy się sam z zapisów i rezerwacji. Ustawienia niżej nie mają wtedy wpływu na stronę.'
+    : 'Licznik pokazuje to, co ustawisz niżej. Sam się nie zaktualizuje, dopóki nie wrócisz do trybu automatycznego.';
+}
+autoModePaint(true);
+
+$('#autoMode').onchange = async () => {
+  const auto = $('#autoMode').checked;
+  try {
+    if (auto) {
+      await clearPresenceManual();
+      await refreshPresence({ force: true });
+      toast('Licznik znów liczy się automatycznie.');
+    } else {
+      /* Wejście w tryb ręczny nie zmienia liczby — przepisujemy to, co jest
+         teraz na liczniku, żeby przełączenie samo w sobie niczego nie zepsuło. */
+      await setPresenceManual(Number($('#mCount').value) || 0, $('#mUntil').value,
+                              Number($('#mCap').value) || SETTINGS.capacity);
+      toast('Tryb ręczny. Licznik pokazuje to, co ustawisz niżej.');
+    }
+    autoModePaint(auto);
+  } catch (e) {
+    toast('Błąd: ' + e.message);
+    autoModePaint(!auto);                 // wracamy do stanu sprzed kliknięcia
+  }
 };
+
 $('#zero').onclick = async () => {
+  const ok = await askConfirm({
+    title: 'Wyzerować licznik?',
+    text: 'Na stronie głównej od razu pojawi się „0 osób". Licznik przejdzie w tryb ręczny.',
+    details: [
+      'Licznik przestanie liczyć się sam, dopóki nie wrócisz do trybu automatycznego',
+      'Dzieci, które są w bawialni, zostają w zakładce „6 · Czas zabawy" — to tylko licznik na stronie'
+    ],
+    confirmLabel: 'Tak, wyzeruj',
+    danger: true
+  });
+  if (!ok) return;
   try { await setPresenceManual(0, '', Number($('#mCap').value) || SETTINGS.capacity); toast('Licznik wyzerowany.'); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
@@ -1713,6 +1773,18 @@ $('#saveCap').onclick = async () => {
   } catch (e) { toast('Błąd: ' + e.message); }
 };
 $('#recountVisits').onclick = async () => {
+  const ok = await askConfirm({
+    title: 'Przeliczyć licznik odwiedzin z bazy?',
+    text: 'Policzymy od nowa wszystkie dzieci z zapisów na zajęcia i z zaakceptowanych rezerwacji.',
+    details: [
+      'Pole „Doliczone zapisy" zostanie nadpisane wynikiem',
+      'Wartość startowa zostaje bez zmian',
+      'Liczba na stronie głównej może się przez to zmienić'
+    ],
+    confirmLabel: 'Przelicz',
+    danger: false
+  });
+  if (!ok) return;
   const btn = $('#recountVisits');
   btn.disabled = true;
   try {
@@ -1723,7 +1795,20 @@ $('#recountVisits').onclick = async () => {
   finally { btn.disabled = false; }
 };
 $('#saveVisits').onclick = async () => {
-  try { await setVisitsBase(Number($('#vBase').value) || 0, Number($('#vCount').value) || 0); toast('Licznik odwiedzin zapisany.'); }
+  const base = Number($('#vBase').value) || 0, count = Number($('#vCount').value) || 0;
+  const ok = await askConfirm({
+    title: 'Zapisać licznik odwiedzin?',
+    text: `Na stronie głównej pojawi się „odwiedziło nas już ${base + count}".`,
+    details: [
+      `Wartość startowa: ${base}`,
+      `Doliczone zapisy: ${count}`,
+      'Zmiana jest widoczna od razu dla wszystkich odwiedzających'
+    ],
+    confirmLabel: 'Zapisz',
+    danger: false
+  });
+  if (!ok) return;
+  try { await setVisitsBase(base, count); toast('Licznik odwiedzin zapisany.'); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
 
