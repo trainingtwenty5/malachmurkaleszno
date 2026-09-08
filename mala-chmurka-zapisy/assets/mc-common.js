@@ -178,8 +178,12 @@ export function mountChrome(opts = {}) {
     });
   }
 
-  document.body.prepend(backbar);
-  document.body.prepend(header);
+  /* Nagłówek i pasek powrotu w jednym przyklejanym bloku — patrz `.mc-chrome`
+     w mc-common.css. Dzięki temu pasek nie może wjechać pod nagłówek. */
+  const chrome = document.createElement('div');
+  chrome.className = 'mc-chrome';
+  chrome.append(header, backbar);
+  document.body.prepend(chrome);
   document.body.append(footer);
 
   /* ---------------------------------------------------------------- MENU

@@ -46,6 +46,20 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ---------------------------------------------------------------- NAGŁÓWEK */
+/* Nagłówek i pasek powrotu przyklejają się do góry RAZEM, jako jeden blok
+   (`.mc-chrome`, tworzony w mc-common.js). Wcześniej każdy przyklejał się
+   osobno, a pasek powrotu musiał znać wysokość nagłówka, żeby się pod nim nie
+   schować — przy każdej zmianie tej wysokości (inny ekran, inny font, dłuższa
+   nazwa podstrony) przycisk „Powrót do…" wjeżdżał pod nagłówek. Teraz nie ma
+   czego dopasowywać: oba leżą jeden pod drugim w normalnym przepływie i nie
+   mają jak na siebie nachodzić.
+
+   Reguły niżej działają w obu układach: z opakowaniem i bez niego (gdyby
+   przeglądarka miała jeszcze stary, zapamiętany mc-common.js — arkusz ma
+   wersję w adresie, skrypt nie). */
+.mc-chrome{position:sticky;top:0;z-index:100}
+.mc-chrome .site-header,
+.mc-chrome .backbar{position:relative;top:auto;z-index:auto}
 .site-header{
   position:sticky;top:0;z-index:100;
   background:rgba(251,247,241,.95);backdrop-filter:blur(10px);
@@ -82,7 +96,9 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 
 /* ------------------------------------- PASEK „POWRÓT DO STRONY GŁÓWNEJ" --- */
 .backbar{
-  position:sticky;top:60px;z-index:90;
+  /* Przyklejaniem zajmuje sie `.mc-chrome`. To `sticky` zostaje wylacznie jako
+     zapas na wypadek braku opakowania — patrz komentarz przy `.mc-chrome`. */
+  position:sticky;top:var(--mc-header-h,65px);z-index:90;
   background:var(--cream);border-bottom:1px solid var(--line);
   padding:8px 0;
 }
@@ -386,7 +402,10 @@ table.tbl tbody tr:hover{background:var(--cream)}
   body.nav-open .nav-backdrop{opacity:1}
   /* Rozwiniete menu przechodzi nad wszystko — ta sama zasada, co na stronie
      glownej, gdzie nad naglowkiem stoi jeszcze baner ciasteczek. */
-  body.nav-open .site-header{z-index:300}
+  /* Rozwiniete menu nad wszystkim. Podnosimy caly przyklejony blok, bo to on
+     tworzy kontekst ukladania — podniesienie samego naglowka zostawiloby menu
+     pod przyciemnieniem. */
+  body.nav-open .mc-chrome{z-index:300}
   /* NAJWAZNIEJSZA REGULA W TYM BLOKU.
      Naglowek ma `backdrop-filter`, a kazdy filtr tworzy BLOK ZAWIERAJACY dla
      potomkow `position:fixed`. Menu jest dzieckiem naglowka, wiec bylo
@@ -407,7 +426,6 @@ table.tbl tbody tr:hover{background:var(--cream)}
      i przesuwalo menu poza ekran. Tu zostaje samo wyciszenie odbicia. */
   html.nav-open,body.nav-open{overscroll-behavior:none}
   .container{padding-inline:16px}
-  .backbar{top:56px}
 
   /* kalendarz: siatka znika, pokazujemy czytelną agendę */
   .cal-scroll{display:none}
