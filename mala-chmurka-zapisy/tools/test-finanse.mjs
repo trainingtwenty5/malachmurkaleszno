@@ -24,6 +24,9 @@ import {
   comparisonRange, monthGrid, shiftMonth, hitIndex,
   CSV_HEADERS, csvRow, csvTable, childNames, stampToText
 } from '../assets/mc-finanse.js';
+/* Wejście przy drzwiach wycenia `createWalkin` tym samym cennikiem, co
+   rezerwacja ze strony — tu liczymy nim to samo, żeby sprawdzić całą drogę. */
+import { quote as wycena } from '../assets/mc-cennik.js';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, dump = '') => {
@@ -520,6 +523,66 @@ console.log('\n=== ARKUSZ JAKO CAŁOŚĆ ===');
 }
 eq('pusty okres daje sam nagłówek',
    csvTable(toTransactions({ regs: [reg()] }), { from: '2020-01-01', to: '2020-01-31' }).length, 1);
+
+/* ==========================================================================
+   WEJŚCIE PRZY DRZWIACH TRAFIA DO FINANSÓW
+   --------------------------------------------------------------------------
+   Wejście bez zapisu długo zapisywało się z ceną zero i przez to znikało
+   z przychodu. Tu pilnujemy całej drogi: cennik → rekord rezerwacji →
+   sprzedaż w zakładce Finanse → rozbicie na pozycje → arkusz CSV.
+   ========================================================================== */
+console.log('\n=== WEJŚCIE PRZY DRZWIACH W FINANSACH ===');
+{
+  const date = '2026-09-10';                       // czwartek — taryfa zwykła
+  const dzieci = [{ name: 'Zosia', dob: '' }, { name: 'Antek', dob: '' }];
+  /* Dokładnie ten rachunek robi `createWalkin`. */
+  const q = wycena({ date, duration: '2h', children: dzieci });
+
+  const wejscie = {
+    id: 'w1', date, start: '12:00', stayUntil: '14:00', duration: '2h',
+    source: 'walkin', status: 'accepted', paid: true, qty: dzieci.length,
+    children: q.lines.map(l => ({ name: l.name, dob: l.dob, tier: l.tier, price: l.price })),
+    tariff: q.tariff, base: q.base, total: q.total,
+    paymentMethod: 'Płatność na miejscu', phone: '726 431 978', email: ''
+  };
+  const txs = toTransactions({ bookings: [wejscie] });
+  const zakres = { from: '2026-09-01', to: '2026-09-30' };
+
+  eq('dwoje dzieci na 2 h ze zniżką rodzeństwa', q.total, 64);
+  eq('kwota z cennika trafia do sprzedaży', summary(txs, zakres).revenue, 64);
+  eq('liczy się dwoje dzieci, nie jedno zgłoszenie', summary(txs, zakres).kids, 2);
+  eq('wejście widać w rozbiciu na pozycje — nie znika już przy zerowej cenie',
+     revenueByLabel(txs).map(r => [r.label, r.total, r.kids]),
+     [['Wejście z ulicy', 64, 2]]);
+  eq('opłacone wejście nie zostaje w „do zainkasowania"',
+     settlement(txs).unpaid, 0);
+
+  const wiersz = csvTable(txs, zakres)[1];
+  const kol = n => wiersz[CSV_HEADERS.indexOf(n)];
+  eq('arkusz: kwota', kol('Kwota'), '64,00');
+  eq('arkusz: oba imiona w jednej komórce', kol('Dzieci'), 'Zosia, Antek');
+  eq('arkusz: wybrana forma płatności', kol('Płatność / taryfa'), 'Płatność na miejscu');
+  eq('arkusz: liczba dzieci', kol('Liczba dzieci'), 2);
+}
+{
+  /* Niemowlę wchodzi za darmo, więc płaci tylko starsze dziecko — i tyle
+     powinno wpłynąć do przychodu. */
+  const date = '2026-09-12';                       // sobota — taryfa weekendowa
+  const q = wycena({ date, duration: '1h',
+                     children: [{ name: 'Tosia', dob: '2026-07-01' }, { name: 'Jaś', dob: '2020-01-01' }] });
+  const txs = toTransactions({ bookings: [{
+    id: 'w2', date, source: 'walkin', status: 'accepted', paid: true, qty: 2,
+    total: q.total, base: q.base, tariff: q.tariff, phone: '600 100 200'
+  }] });
+  eq('weekend: stawka wyższa niż w tygodniu', q.base, 30);
+  /* Niemowlę wchodzi gratis, ale nadal LICZY SIĘ jako drugie dziecko, więc
+     starszemu należy się zniżka rodzeństwa: 30 zł − 20% = 24 zł. Tak działa
+     cennik od początku — zapisujemy to, żeby nikt nie „poprawił" tego
+     przypadkiem przy okazji innej zmiany. */
+  eq('niemowlę gratis, ale starszy dostaje zniżkę rodzeństwa', q.total, 24);
+  eq('tyle właśnie wpływa do przychodu',
+     summary(txs, { from: '2026-09-01', to: '2026-09-30' }).revenue, 24);
+}
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

@@ -44,7 +44,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
-| `tools/test-finanse.mjs` | 202 testy zakładki „Finanse” (przychód, okresy, arkusz CSV) — sam Node. |
+| `tools/test-finanse.mjs` | 214 testów zakładki „Finanse” (przychód, wejścia, arkusz CSV) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -262,7 +262,7 @@ node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
-node tools/test-finanse.mjs # 202 testy: przychód, okresy, kalendarz, arkusz CSV
+node tools/test-finanse.mjs # 214 testów: przychód, okresy, wejścia przy drzwiach, CSV
 ```
 
 ### Czego panel *nie* chroni
@@ -587,8 +587,14 @@ bez zapisu:
   (weekend i święta drożej), progi wiekowe (do 6. miesiąca gratis, do 1. roku połowa)
   i zniżka rodzeństwa −20% od dwojga dzieci. Wycena przelicza się przy każdej zmianie,
   z rozpisaniem na poszczególne dzieci — obsługa widzi, skąd wzięła się kwota.
-* **Czas pobytu** (1 h / 2 h / bez limitu) przestawia i cenę, i godzinę wyjścia.
-  „Bez limitu” ustawia godzinę zamknięcia właściwą dla danego dnia.
+* **Czas pobytu** to trzy kafelki z ceną — te same, co w formularzu klienta.
+  Cena na kafelku zależy od taryfy dnia, więc w weekend od razu widać wyższe stawki.
+  Wybór przestawia i cenę, i godzinę wyjścia; „bez limitu” ustawia godzinę zamknięcia
+  właściwą dla danego dnia. Pobyt, który nie zmieści się przed zamknięciem, jest
+  wyłączony z podpisem — a jeśli przestał się mieścić po zmianie godziny wejścia,
+  zaznaczenie samo przeskakuje na pierwszy pasujący.
+* Pod wyceną jest zwijany **cennik wstępu** — składany z tych samych tabel,
+  z których liczy się cena, więc nie ma jak rozjechać się z rzeczywistością.
 * **Forma płatności** z listy `SETTINGS.paymentMethods` — trafia do rekordu, na kafelek
   w zakładce 5 i do kolumny „Płatność / taryfa” w arkuszu CSV.
 * **Zamknięcie z wpisanymi danymi pyta**, dokładnie tak samo jak przy zajęciach: wylicza,

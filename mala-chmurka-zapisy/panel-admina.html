@@ -147,6 +147,28 @@
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
 
+  /* ---- nowe wejście: kafelki czasu pobytu (jak w formularzu klienta) ---- */
+  .durations{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .dur{position:relative}
+  .dur input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+  .dur span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px;
+    border:2px solid var(--line);border-radius:16px;background:var(--white);text-align:center;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);transition:.18s var(--ease)}
+  .dur b{font-size:1.3rem;color:var(--brand-deep);line-height:1.1}
+  .dur input:checked + span{border-color:var(--brand-deep);background:var(--brand-pale);
+    box-shadow:var(--shadow-sm)}
+  .dur input:focus-visible + span{outline:3px solid var(--brand);outline-offset:2px}
+  .dur input:disabled + span{opacity:.45;background:var(--cream-deep);cursor:not-allowed}
+  .dur .dur-no{display:block;font-style:normal;font-size:.72rem;font-weight:600;
+    color:var(--bad);line-height:1.25;margin-top:2px}
+  .wi-cennik{border:1px solid var(--line);border-radius:var(--radius);background:var(--cream);
+    padding:10px 14px;margin-bottom:16px}
+  .wi-cennik summary{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    cursor:pointer;font-size:.92rem}
+  .wi-cennik .pricelist{font-size:.85rem;line-height:1.75;color:var(--muted);margin-top:8px}
+  .wi-cennik .pricelist b{color:var(--navy-deep)}
+  @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
+
   /* ---- nowe wejście: dzieci wierszami + wycena na żywo ---- */
   .wi-kid{display:grid;grid-template-columns:1fr 150px 38px;gap:8px;align-items:end;margin-bottom:8px}
   .wi-kid .hint{font-size:.78rem;margin:0 0 3px}
@@ -784,18 +806,28 @@
         <button type="button" class="day-add" id="wiAddKid">+ Dodaj kolejne dziecko</button>
       </div>
 
-      <div class="row3">
+      <div class="row2">
         <div class="field"><label for="wiFrom">Od godziny *</label><input class="control" id="wiFrom" type="time" required></div>
-        <div class="field">
-          <label for="wiDuration">Czas pobytu</label>
-          <select class="control" id="wiDuration"></select>
-        </div>
         <div class="field"><label for="wiTo">Do godziny *</label><input class="control" id="wiTo" type="time" required></div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Czas pobytu</span>
+        <!-- Kafelki z ceną, dokładnie jak w formularzu klienta — obsługa widzi
+             stawkę, zanim wybierze, i nie musi jej pamiętać z cennika. -->
+        <div class="durations" id="wiDurations"></div>
       </div>
 
       <!-- Wycena przelicza się przy każdej zmianie: taryfa dnia, progi wiekowe,
            zniżka rodzeństwa. To ten sam rachunek, co po stronie klienta. -->
       <div class="wi-quote" id="wiQuote"></div>
+
+      <!-- Pełny cennik pod ręką. Składany z tych samych tabel, z których liczy
+           się cena, więc nie ma jak rozjechać się z rzeczywistością. -->
+      <details class="wi-cennik">
+        <summary>Cennik wstępu</summary>
+        <div class="pricelist" id="wiCennik"></div>
+      </details>
 
       <div class="row2">
         <div class="field">
@@ -940,7 +972,7 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
          askConfirm, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN,
-         seriesDates, closingMinFor } from './assets/mc-common.js';
+         seriesDates, closingMinFor, openingFor } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
@@ -955,7 +987,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
          updateBooking, applyBookingToRanking, createWalkin, extendBooking,
          listRegistrations, listBookings, repeatOnDates } from './assets/mc-data.js';
-import { quote, discountSummary, DURATIONS, tariffLabel } from './assets/mc-cennik.js';
+import { quote, discountSummary, DURATIONS, tariffLabel, tariffFor, PRICES,
+         AGE_TIERS, SIBLING_DISCOUNT } from './assets/mc-cennik.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -2242,13 +2275,59 @@ $('#plQ').oninput = renderPlaytime;
 /* ---------------------------------------------------- dziecko z ulicy --- */
 const wiModal = $('#wiModal');
 
-/* Wybór czasu pobytu i formy płatności bierzemy z jednego źródła: cennika
-   i ustawień lokalu. Dopisanie metody płatności w firebase-config.js pojawi
-   się tu samo, bez ruszania panelu. */
-$('#wiDuration').innerHTML = DURATIONS
-  .map(d => `<option value="${esc(d.id)}">${esc(d.label)}</option>`).join('');
+/* Formy płatności bierzemy z ustawień lokalu — dopisanie metody
+   w firebase-config.js pojawi się tu samo, bez ruszania panelu. */
 $('#wiPay').innerHTML = (SETTINGS.paymentMethods || ['Płatność na miejscu'])
   .map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+
+/* --------------------------------------------------------- czas pobytu
+   Kafelki z ceną zamiast listy rozwijanej — te same, co w formularzu klienta.
+   Cena na kafelku zależy od taryfy dnia, więc w weekend widać od razu wyższe
+   stawki i nie trzeba ich sprawdzać w cenniku. */
+const wiDuration = () =>
+  ($$('#wiDurations input[name=wiDur]').find(r => r.checked) || {}).value || '1h';
+
+function wiRenderDurations() {
+  const date = todayISO();
+  const t = tariffFor(date);
+  const wybrany = wiDuration();
+  /* Pobyt nie może wyjść poza godzinę zamknięcia: przy wejściu o 18:00 w dzień
+     do 19:00 dwie godziny się nie zmieszczą. „Bez limitu" mieści się zawsze —
+     kończy się razem z zamknięciem. */
+  const o = openingFor(date);
+  const od = toMin($('#wiFrom').value || '0:00');
+  const mieści = d => !o || d.minutes === null || od + d.minutes <= o.closeMin;
+
+  $('#wiDurations').innerHTML = DURATIONS.map(d => `
+    <label class="dur">
+      <input type="radio" name="wiDur" value="${esc(d.id)}"
+             ${d.id === wybrany ? 'checked' : ''} ${mieści(d) ? '' : 'disabled'}>
+      <span>${esc(d.label)}<b>${esc(money(PRICES[t][d.id]))}</b>${
+        mieści(d) ? '' : '<em class="dur-no">nie zmieści się przed zamknięciem</em>'}</span>
+    </label>`).join('');
+
+  /* Gdy wybrany czas przestał się mieścić, przeskakujemy na pierwszy pasujący —
+     inaczej formularz zostałby z zaznaczeniem, którego nie da się zapisać. */
+  if (!DURATIONS.filter(mieści).some(d => d.id === wybrany)) {
+    const pierwszy = DURATIONS.find(mieści);
+    const el = pierwszy && $(`#wiDurations input[value="${pierwszy.id}"]`);
+    if (el) el.checked = true;
+  }
+  $$('#wiDurations input[name=wiDur]').forEach(r => r.onchange = wiDurationChanged);
+}
+
+/* Cennik składany z tych samych tabel, z których liczy się cena. */
+function wiRenderCennik() {
+  const wiersz = t => DURATIONS
+    .map(d => `${d.id === 'open' ? 'bez limitu' : d.label.replace(' godzina', ' h').replace(' godziny', ' h')} — ${money(PRICES[t][d.id])}`)
+    .join(' &nbsp;·&nbsp; ');
+  $('#wiCennik').innerHTML =
+    `<b>Poniedziałek – czwartek:</b> ${wiersz('weekday')}<br>
+     <b>Piątek – niedziela i święta:</b> ${wiersz('weekend')}<br>
+     <b>Zniżki:</b> ${esc(AGE_TIERS.free.label)} — za darmo &nbsp;·&nbsp;
+     ${esc(AGE_TIERS.half.label)} — 50% &nbsp;·&nbsp;
+     rodzeństwo — −${Math.round(SIBLING_DISCOUNT * 100)}%`;
+}
 
 /* --------------------------------------------------------- dzieci wierszami
    Jedno wejście to często rodzeństwo — brat z siostrą płacą według tej samej
@@ -2294,7 +2373,7 @@ $('#wiAddKid').onclick = () => {
 function wiQuote() {
   return quote({
     date: todayISO(),
-    duration: $('#wiDuration').value,
+    duration: wiDuration(),
     children: wiKids().filter(k => k.name || k.dob)
   });
 }
@@ -2324,16 +2403,18 @@ function wiQuoteRender() {
 const AGE_TIERS_SHORT = { free: 'gratis do 6 m-cy', half: '−50% do 1 roku' };
 
 /* Zmiana czasu pobytu przestawia godzinę wyjścia i cenę naraz. */
-$('#wiDuration').onchange = () => {
-  const d = DURATIONS.find(x => x.id === $('#wiDuration').value);
+function wiDurationChanged() {
+  const d = DURATIONS.find(x => x.id === wiDuration());
   const od = toMin($('#wiFrom').value);
   /* „Bez limitu" znaczy „do zamknięcia" — godzina zamknięcia zależy od dnia
      (w piątek bawialnia kończy wcześniej), więc bierzemy ją z ustawień. */
   const doMin = d && d.minutes ? od + d.minutes : closingMinFor(todayISO());
   $('#wiTo').value = fmtMin(Math.min(Math.max(doMin, od + 15), 23 * 60 + 59));
   wiQuoteRender();
-};
-$('#wiFrom').addEventListener('input', () => $('#wiDuration').onchange());
+}
+/* Przesunięcie godziny wejścia może wykluczyć dłuższy pobyt — kafelki
+   przeliczamy od nowa, a dopiero potem godzinę wyjścia i cenę. */
+$('#wiFrom').addEventListener('input', () => { wiRenderDurations(); wiDurationChanged(); });
 
 /* ------------------------------------------------- niezapisane zmiany
    Ta sama zasada, co przy zajęciach: jedno kliknięcie obok formularza nie
@@ -2392,8 +2473,9 @@ async function wiCloseM(force) {
 $('#plAdd').onclick = () => {
   const now = Math.floor(nowMinFloat());
   $('#wiFrom').value = fmtMin(now);
-  $('#wiDuration').value = '1h';
   $('#wiTo').value   = fmtMin(Math.min(now + 60, 23 * 60 + 59));
+  wiRenderDurations();
+  wiRenderCennik();
   $('#wiKids').innerHTML = '';
   $('#wiKids').appendChild(wiKidRow());
   $('#wiPhone').value = '';
@@ -2431,7 +2513,7 @@ $('#wiForm').addEventListener('submit', async e => {
     const b = await createWalkin({
       children: kids,
       start: from, stayUntil: to,
-      duration: $('#wiDuration').value,
+      duration: wiDuration(),
       paymentMethod: $('#wiPay').value,
       phone: $('#wiPhone').value,
       paid: $('#wiPaid').checked
