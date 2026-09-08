@@ -41,6 +41,9 @@
 
 import { db, F, PATHS, SETTINGS } from './mc-firebase.js';
 import { toMin, isoDate, normPhone, bookingEndMin } from './mc-common.js';
+/* Wejscie przy drzwiach wycenia sie tym samym cennikiem, co rezerwacja
+   ze strony — inaczej to samo wejscie mialoby dwie ceny. */
+import { quote, DURATIONS } from './mc-cennik.js';
 
 const col = name => F.collection(db, name);
 const ref = (name, id) => F.doc(db, name, id);
@@ -127,19 +130,32 @@ export async function duplicateEvent(id, newDate) {
 }
 
 /** Kopiuje zajęcia na kolejne tygodnie: [{date}] */
-export async function repeatWeekly(id, weeks) {
+export async function repeatOnDates(id, dates) {
   const src = await getEvent(id);
   if (!src) throw new Error('Nie znaleziono zajęć.');
   const made = [];
-  const base = new Date(src.date + 'T00:00:00');
-  for (let i = 1; i <= weeks; i++) {
-    const d = new Date(base); d.setDate(d.getDate() + 7 * i);
+  for (const date of dates) {
+    /* `booked: 0` — kopia zaczyna z pustą listą miejsc, a nie z zajętymi
+       przez oryginał. Znaczniki czasu odcinamy, żeby kopia dostała własne. */
     const { id: _drop, createdAt, updatedAt, ...rest } = src;
-    const kopia = await saveEvent(null, { ...rest, date: isoDate(d), booked: 0 });
+    const kopia = await saveEvent(null, { ...rest, date, booked: 0 });
     await copyEventImages(id, kopia).catch(e => console.warn('copyEventImages:', e.message));
     made.push(kopia);
   }
   return made;
+}
+
+/** Powielenie co tydzień — cienka nakładka na `repeatOnDates`. */
+export async function repeatWeekly(id, weeks) {
+  const src = await getEvent(id);
+  if (!src) throw new Error('Nie znaleziono zajęć.');
+  const base = new Date(src.date + 'T00:00:00');
+  const dates = [];
+  for (let i = 1; i <= weeks; i++) {
+    const d = new Date(base); d.setDate(d.getDate() + 7 * i);
+    dates.push(isoDate(d));
+  }
+  return repeatOnDates(id, dates);
 }
 
 /* ==========================================================================
@@ -682,21 +698,36 @@ export const deleteBooking = id => F.deleteDoc(ref(PATHS.bookings, id));
  * Dzięki temu bez żadnego dodatkowego kodu wchodzi do licznika na stronie,
  * do listy „Czas zabawy" i — po odhaczeniu opłaty — do rankingu.
  */
-export async function createWalkin({ names = [], qty, start, stayUntil, phone = '', paid = false, note = '' }) {
-  const kids = (Array.isArray(names) ? names : String(names).split(','))
-    .map(n => String(n).trim()).filter(Boolean)
-    .map(name => ({ name, dob: '', tier: 'full', price: 0 }));
-  const count = Math.max(1, Math.min(10, Number(qty) || kids.length || 1));
+export async function createWalkin({ children = [], start, stayUntil, duration = 'open',
+                                    paymentMethod = '', phone = '', paid = false, note = '' }) {
+  const date = todayISO();
+  /* Dzieci przychodzą jako pary imię + data urodzenia. Data urodzenia jest
+     opcjonalna, ale to ona decyduje o progu wiekowym w cenniku — bez niej
+     dziecko liczy się jako pełnopłatne. */
+  const kids = (Array.isArray(children) ? children : [])
+    .map(c => ({ name: String(c.name || '').trim(), dob: c.dob || '' }))
+    .filter(c => c.name || c.dob)
+    .slice(0, 10);
+  if (!kids.length) throw new Error('Podaj imię przynajmniej jednego dziecka.');
+
+  /* Ten sam cennik, co w formularzu klienta: taryfa dnia, progi wiekowe
+     i zniżka rodzeństwa. Wejście przy drzwiach nie może kosztować inaczej
+     niż to samo wejście zarezerwowane przez stronę. */
+  const q = quote({ date, duration, children: kids });
 
   const doc = {
-    date:            todayISO(),
+    date,
     start:           start || '',
     stayUntil:       stayUntil || '',
-    duration:        'open',
-    durationLabel:   'wejście z ulicy',
-    children:        kids,
-    qty:             count,
-    tariff:          'weekday', base: 0, total: 0, siblingApplies: false,
+    duration,
+    durationLabel:   (DURATIONS.find(d => d.id === duration) || {}).label || 'wejście z ulicy',
+    children:        q.lines.map(l => ({ name: l.name, dob: l.dob, tier: l.tier, price: l.price })),
+    qty:             kids.length,
+    tariff:          q.tariff,
+    base:            q.base,
+    total:           q.total,
+    siblingApplies:  q.siblingApplies,
+    paymentMethod:   String(paymentMethod || '').trim(),
     parentFirstName: '', parentLastName: '',
     email:           '', phone: String(phone || '').trim(), phoneKey: normPhone(phone),
     note:            String(note || '').trim(),

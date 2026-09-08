@@ -458,7 +458,7 @@ console.log('\n=== ARKUSZ: KOMPLET DANYCH O ZGŁOSZENIU ===');
   eq('rezerwacja: godzina wyjścia bierze ręcznie ustawioną', at('Do'), '13:30');
   eq('rezerwacja: dzieci z pola `name`', at('Dzieci'), 'Ala, Ola, Iga');
   eq('rezerwacja: cena za dziecko liczona z kwoty', at('Cena za dziecko'), '20,00');
-  eq('rezerwacja: taryfa zamiast metody płatności', at('Płatność / taryfa'), 'weekend');
+  eq('rezerwacja bez wybranej metody: zostaje taryfa', at('Płatność / taryfa'), 'weekend');
   eq('rezerwacja: czas pobytu', at('Czas pobytu'), '2 godziny');
   eq('rezerwacja: uwagi obsługi', at('Uwagi obsługi'), 'przyjdą z babcią');
   /* Przy wstępie do bawialni „przyszedł" nie ma sensu — akceptacja to załatwia. */
@@ -470,6 +470,9 @@ console.log('\n=== ARKUSZ: KOMPLET DANYCH O ZGŁOSZENIU ===');
   eq('brak godziny wyjścia liczy się z czasu pobytu',
      row[CSV_HEADERS.indexOf('Do')], '12:00');
 }
+eq('wybrana forma płatności wygrywa z taryfą — po to ją zapisujemy',
+   csvRow(txFromBooking(bkg({ paymentMethod: 'Przelew bankowy', tariff: 'weekend' })))[CSV_HEADERS.indexOf('Płatność / taryfa')],
+   'Przelew bankowy');
 eq('wejście z ulicy ma własną etykietę w arkuszu',
    csvRow(txFromBooking(bkg({ source: 'walkin' })))[CSV_HEADERS.indexOf('Pozycja')],
    'Wejście z ulicy');

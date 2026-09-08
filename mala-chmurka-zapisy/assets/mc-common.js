@@ -720,6 +720,61 @@ export function normPhone(p) {
   return digits.length > 9 ? digits.slice(-9) : digits;
 }
 
+/* ==========================================================================
+   POWTARZAJĄCE SIĘ ZAJĘCIA
+   --------------------------------------------------------------------------
+   Zamiast wpisywać „powiel na 8 tygodni" i liczyć w pamięci, obsługa zaznacza
+   dni tygodnia i mówi, kiedy seria ma się skończyć. Tu zamieniamy to na zwykłą
+   listę dat — funkcja jest czysta, więc daje się sprawdzić bez przeglądarki.
+   ========================================================================== */
+
+/**
+ * Daty KOLEJNYCH wystąpień serii. Pierwsze wystąpienie to sam oryginał
+ * (`startISO`) i celowo nie trafia do wyniku — ono już istnieje.
+ *
+ * @param {object} o
+ * @param {string} o.startISO  data pierwszych zajęć
+ * @param {number[]} [o.weekdays]  dni tygodnia, 0 = poniedziałek … 6 = niedziela.
+ *        Pusta lista znaczy „co tydzień w ten sam dzień, co oryginał".
+ * @param {'date'|'count'} [o.endMode]  czym kończy się seria
+ * @param {string} [o.endDate]  ostatni możliwy dzień (przy endMode 'date')
+ * @param {number} [o.count]  ile wystąpień ŁĄCZNIE z oryginałem (przy 'count')
+ * @param {number} [o.max]  twardy limit — zabezpieczenie przed serią bez końca
+ * @returns {string[]} daty w kolejności rosnącej
+ */
+export function seriesDates({ startISO, weekdays = [], endMode = 'count',
+                              endDate = '', count = 1, max = 120 } = {}) {
+  if (!startISO) return [];
+  /* Bez zaznaczonych dni powtarzamy w ten sam dzień tygodnia, co oryginał —
+     tak działa domyślne „co tydzień" i nie trzeba niczego klikać. */
+  const wanted = weekdays.length
+    ? [...new Set(weekdays.map(Number))].filter(n => n >= 0 && n <= 6)
+    : [(parseDate(startISO).getDay() + 6) % 7];
+  if (!wanted.length) return [];
+
+  const byCount = endMode === 'count';
+  const ile = Math.max(1, Math.min(max, Math.floor(Number(count) || 1)));
+  if (byCount && ile <= 1) return [];
+  if (!byCount && (!endDate || endDate <= startISO)) return [];
+
+  const out = [];
+  let d = parseDate(startISO);
+  /* Oryginał liczy się jako pierwsze wystąpienie. */
+  let wystapien = 1;
+  /* Zapas na dwa lata dziennych kroków — seria dłuższa i tak wpada w `max`. */
+  for (let krok = 0; krok < 366 * 2; krok++) {
+    d = addDays(d, 1);
+    const iso = isoDate(d);
+    if (!byCount && iso > endDate) break;
+    if (!wanted.includes((d.getDay() + 6) % 7)) continue;
+    out.push(iso);
+    wystapien++;
+    if (out.length >= max) break;
+    if (byCount && wystapien >= ile) break;
+  }
+  return out;
+}
+
 export const params = () => new URLSearchParams(location.search);
 
 /**
