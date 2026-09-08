@@ -790,6 +790,13 @@ bez tego jego przypięcie zależałoby od tego, czy strona jest przewinięta.
 ma własną kopię kodu, więc każdą z tych poprawek trzeba wprowadzić w obu
 miejscach.
 
+**Pasek „Powrót do…" przykleja się pod nagłówkiem na podstawie zmierzonej
+wysokości nagłówka**, a nie liczby wpisanej na sztywno. `mc-common.js` mierzy
+nagłówek (przy starcie, przy każdej zmianie rozmiaru i po wczytaniu fontów)
+i zapisuje wynik w `--mc-header-h`, z którego korzysta `.backbar`. Wpisane
+wcześniej na sztywno 56 px na telefonie i 60 px na komputerze nie trafiały
+w rzeczywiste 65 px, więc przycisk był przycinany od góry o kilka pikseli.
+
 **Po zmianie arkuszy podbij `?v=`**: w `index.html` przy `style.css`, `main.js`
 i `cookies.js`, a w podstronach zapisów przy `assets/mc-common.css`. Bez tego
 wracający goście dostają starą wersję z cache — i wygląda to jak „poprawka

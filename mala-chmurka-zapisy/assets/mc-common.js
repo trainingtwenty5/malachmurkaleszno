@@ -182,6 +182,21 @@ export function mountChrome(opts = {}) {
   document.body.prepend(header);
   document.body.append(footer);
 
+  /* Wysokosc naglowka trafia do `--mc-header-h`, zeby pasek „Powrot do..."
+     mogl przykleic sie dokladnie pod nim. Na sztywno nie da sie tego wpisac:
+     naglowek ma inna wysokosc na telefonie i na komputerze, a dodatkowo rosnie
+     po wczytaniu wlasciwych fontow. ResizeObserver lapie kazda taka zmiane,
+     wiec pasek nigdy nie chowa sie pod naglowkiem. */
+  const zmierzNaglowek = () => {
+    const h = Math.round(header.getBoundingClientRect().height);
+    if (h) document.documentElement.style.setProperty('--mc-header-h', `${h}px`);
+  };
+  zmierzNaglowek();
+  if (typeof ResizeObserver === 'function') new ResizeObserver(zmierzNaglowek).observe(header);
+  else addEventListener('resize', zmierzNaglowek);
+  /* Podmiana fontu zmienia wysokosc logo i przyciskow — mierzymy jeszcze raz. */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(zmierzNaglowek).catch(() => {});
+
   /* ---------------------------------------------------------------- MENU
      Menu na telefonie ma jeden stan i pięć sposobów zamknięcia: przycisk,
      link, dotknięcie obok, Escape i powiększenie okna do wersji desktopowej.

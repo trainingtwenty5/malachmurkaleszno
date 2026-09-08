@@ -82,7 +82,13 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 
 /* ------------------------------------- PASEK „POWRÓT DO STRONY GŁÓWNEJ" --- */
 .backbar{
-  position:sticky;top:60px;z-index:90;
+  /* Przykleja sie dokladnie pod naglowkiem. Wysokosc naglowka mierzy
+     mc-common.js i zapisuje w `--mc-header-h`, bo zalezy ona od szerokosci
+     okna, wczytanych fontow i tego, czy widac hamburger. Wpisana na sztywno
+     nie trafiala: pasek wjezdzal 9 px pod naglowek na telefonie i 5 px na
+     komputerze, przez co przycisk „Powrot do..." byl przycinany od gory.
+     Liczba w `var()` to zapas na wypadek, gdyby JavaScript nie wystartowal. */
+  position:sticky;top:var(--mc-header-h,65px);z-index:90;
   background:var(--cream);border-bottom:1px solid var(--line);
   padding:8px 0;
 }
@@ -407,7 +413,6 @@ table.tbl tbody tr:hover{background:var(--cream)}
      i przesuwalo menu poza ekran. Tu zostaje samo wyciszenie odbicia. */
   html.nav-open,body.nav-open{overscroll-behavior:none}
   .container{padding-inline:16px}
-  .backbar{top:56px}
 
   /* kalendarz: siatka znika, pokazujemy czytelną agendę */
   .cal-scroll{display:none}
