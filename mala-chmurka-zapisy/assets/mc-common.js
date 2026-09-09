@@ -993,30 +993,111 @@ export function bookingEndMin(b, dayEnd) {
  * @returns {{count, untilMin, fromClasses, fromBookings}}
  */
 export function computeLivePresence({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
-  let fromClasses = 0, fromBookings = 0, untilMin = 0;
+  const spans = presenceTimeline({ regs, bookings, dateISO, dayEnd });
+  const teraz = spans.filter(s => atMin >= s.from && atMin < s.to);
+  const suma = kind => teraz.reduce((a, s) => a + (s.kind === kind ? s.qty : 0), 0);
+  const fromClasses = suma('class'), fromBookings = suma('booking');
+  return {
+    count: fromClasses + fromBookings,
+    untilMin: teraz.reduce((m, s) => Math.max(m, s.to), 0),
+    fromClasses, fromBookings
+  };
+}
+
+/**
+ * Rozkład godzinowy dnia: kto od której do której minuty jest w bawialni.
+ * To ta sama selekcja danych, z której liczy się `computeLivePresence` — tyle
+ * że bez wybierania jednej chwili. Dzięki temu licznik na stronie głównej
+ * przelicza się sam z upływem czasu, zamiast czekać, aż ktoś kliknie coś
+ * w panelu.
+ *
+ * W wyniku NIE MA żadnych danych osobowych: ani imion, ani telefonów, ani
+ * numerów rekordów — wyłącznie „od minuty, do minuty, ile dzieci". Tyle
+ * trafia do publicznie czytanego dokumentu `settings/presence`.
+ *
+ * Zapisy na zajęcia zaczynają się od minuty 0, a nie od godziny zajęć:
+ * liczą się dopiero po odhaczeniu „przyszedł" + „opłacone", więc w chwili
+ * zaznaczenia dziecko już fizycznie jest w środku.
+ *
+ * @returns {Array<{from:number,to:number,qty:number,kind:'class'|'booking'}>}
+ */
+export function presenceTimeline({ regs, bookings, dateISO, dayEnd } = {}) {
+  const spans = [];
 
   (regs || []).forEach(r => {
     if (r.eventDate !== dateISO) return;
     if (!r.attended || !r.paid) return;              // admin potwierdził obecność
-    const end = toMin(r.stayUntil || r.eventEnd);
-    if (end <= atMin) return;
-    fromClasses += Number(r.qty) || 1;
-    if (end > untilMin) untilMin = end;
+    spans.push({ from: 0, to: toMin(r.stayUntil || r.eventEnd),
+                 qty: Number(r.qty) || 1, kind: 'class' });
   });
 
   (bookings || []).forEach(b => {
     if (b.date !== dateISO) return;
     if (b.status !== 'accepted') return;             // czeka na decyzję albo odrzucona
-    const start = toMin(b.start);
-    const end = bookingEndMin(b, dayEnd);
     /* rezerwacja liczy się dopiero od godziny przyjścia — inaczej wieczorna
        wizyta podbijałaby licznik od rana */
-    if (atMin < start || end <= atMin) return;
-    fromBookings += Number(b.qty) || 1;
-    if (end > untilMin) untilMin = end;
+    spans.push({ from: toMin(b.start), to: bookingEndMin(b, dayEnd),
+                 qty: Number(b.qty) || 1, kind: 'booking' });
   });
 
-  return { count: fromClasses + fromBookings, untilMin, fromClasses, fromBookings };
+  return spans.filter(s => s.to > s.from).sort((a, b) => a.from - b.from || a.to - b.to);
+}
+
+/**
+ * Ile dzieci jest w bawialni o danej minucie, licząc z rozkładu godzinowego.
+ * Strona główna woła to co pół minuty, więc licznik gaśnie i zapala się sam.
+ */
+export function countAtMin(timeline, atMin) {
+  let count = 0, untilMin = 0;
+  (timeline || []).forEach(s => {
+    const from = Number(s.from) || 0, to = Number(s.to) || 0;
+    if (atMin < from || to <= atMin) return;
+    count += Number(s.qty) || 1;
+    if (to > untilMin) untilMin = to;
+  });
+  return { count, untilMin };
+}
+
+/**
+ * Czy ręczne nadpisanie licznika obowiązuje jeszcze dzisiaj.
+ *
+ * Ręczne ustawienie (a także „Wyzeruj licznik") dotyczy JEDNEGO dnia. Bez tego
+ * wieczorne wyzerowanie licznika zostawiało tryb ręczny na stałe i nazajutrz
+ * licznik stał na zeru, dopóki ktoś nie przestawił przełącznika z powrotem.
+ * Data w dokumencie pochodzi z zapisu, więc wraz ze zmianą dnia nadpisanie
+ * wygasa samo i wraca tryb automatyczny.
+ */
+export function manualActive(presence, todayISO) {
+  return !!(presence && presence.manual && presence.date === todayISO);
+}
+
+/**
+ * Co pokazać na stronie głównej w danej chwili — cała decyzja w jednym miejscu,
+ * bez DOM-u i bez bazy, żeby dała się przetestować.
+ *
+ * Kolejność jest ważna:
+ *  1. dokument nie z dzisiaj  → zero (wczorajszy stan nikogo nie interesuje);
+ *  2. ręczne nadpisanie z dziś → liczba wpisana przez administratora, do jego
+ *     godziny; po niej zero;
+ *  3. jest rozkład godzinowy   → liczymy z niego na bieżącą minutę, dzięki czemu
+ *     licznik zmienia się sam, także przy zamkniętym panelu;
+ *  4. dokument sprzed tej zmiany (bez rozkładu) → jak dawniej: zapamiętana
+ *     liczba do zapamiętanej godziny.
+ *
+ * @returns {{count:number, until:string}}  until w formacie "HH:MM" albo ''
+ */
+export function presenceForSite(presence, atMin, todayISOStr) {
+  if (!presence || presence.date !== todayISOStr) return { count: 0, until: '' };
+
+  if (manualActive(presence, todayISOStr) || !Array.isArray(presence.timeline)) {
+    const until = presence.until || '';
+    const wygasl = !!until && atMin >= toMin(until);
+    const count = wygasl ? 0 : (Number(presence.count) || 0);
+    return { count, until: count ? until : '' };
+  }
+
+  const r = countAtMin(presence.timeline, atMin);
+  return { count: r.count, until: r.untilMin ? fmtMin(r.untilMin) : '' };
 }
 
 /** Zgodność wstecz: sam licznik z zapisów na zajęcia. */

@@ -9,7 +9,7 @@
    — skrypt użyje wtedy tego miejsca.
    ========================================================================== */
 import { SETTINGS, appUrl } from './firebase-config.js';
-import { watchPresence, watchStats } from './mc-data.js';
+import { watchPresence, watchStats, presenceForSite } from './mc-data.js';
 
 /* ---------------------------------------------------------------- STYLE --- */
 const css = `
@@ -78,20 +78,23 @@ else {
 const pad = n => String(n).padStart(2, '0');
 const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
-const toMin = t => { const [h, m] = String(t || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 const osoby = n => n === 1 ? '1 os.' : `${n} os.`;
 
 let presence = null;
 
+/* Licznik przelicza się TUTAJ, na stronie, a nie w panelu administratora.
+   Wcześniej strona pokazywała tylko zapamiętaną liczbę, więc zmieniała się
+   dopiero wtedy, gdy ktoś kliknął coś w panelu — przy zamkniętym panelu stała
+   w miejscu przez cały dzień. Teraz w dokumencie leży rozkład godzinowy dnia
+   i `presenceForSite` liczy z niego obłożenie na bieżącą minutę: dziecko
+   zapisane na 15:00 pojawia się o 15:00 samo, a o 17:00 samo znika.
+
+   Cała decyzja siedzi w mc-common.js jako funkcja czysta — tutaj zostaje samo
+   rysowanie. Powtarzamy co pół minuty (setInterval na końcu pliku). */
 function paint() {
   const card = document.getElementById('mcNowCard');
   const cap = (presence && presence.capacity) || SETTINGS.capacity;
-  let count = (presence && Number(presence.count)) || 0;
-  const until = presence && presence.until;
-
-  /* licznik obowiązuje tylko dzisiaj i tylko do ustawionej godziny */
-  if (!presence || presence.date !== todayISO()) count = 0;
-  if (until && nowMin() >= toMin(until)) count = 0;
+  const { count, until } = presenceForSite(presence, nowMin(), todayISO());
 
   document.getElementById('mcNowV').innerHTML = `${osoby(count)} <em>/ ${cap}</em>`;
   document.getElementById('mcNowUntil').textContent =
@@ -109,4 +112,4 @@ watchStats(s => {
 });
 
 paint();
-setInterval(paint, 30000);   // sam wyzeruje się po upływie godziny
+setInterval(paint, 30000);   // licznik sam rośnie i gaśnie z upływem dnia

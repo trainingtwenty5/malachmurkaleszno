@@ -32,6 +32,10 @@
 
    settings/presence        licznik na stronie głównej
      count, until "HH:MM", date "YYYY-MM-DD", capacity, manual, updatedAt
+     timeline [{from,to,qty}]  rozkład godzinowy dnia w minutach — strona
+       główna przelicza z niego licznik co pół minuty, więc liczba dzieci
+       zmienia się sama z upływem czasu, bez otwartego panelu. Bez imion,
+       telefonów i numerów rekordów: sam kształt obłożenia.
 
    settings/stats           licznik wszystkich odwiedzin
      visitsBase, visitsCount            (razem = base + count)
@@ -482,13 +486,14 @@ export function watchStats(cb) {
     err => console.error('watchStats', err));
 }
 
-export { computePresence } from './mc-common.js';
+export { computePresence, presenceTimeline, countAtMin, manualActive, presenceForSite }
+  from './mc-common.js';
 
 /** Zapisuje wyliczony stan do bazy (wywoływane z panelu admina).
     `capacity` podaje się tylko wtedy, gdy ma się zmienić — bez tego zostaje
     to, co administrator ustawił w zakładce „Licznik w bawialni". Wcześniej
     każde odświeżenie licznika cofało maksimum do wartości domyślnej. */
-export async function pushPresence({ count, untilMin, manual = false, capacity }) {
+export async function pushPresence({ count, untilMin, manual = false, capacity, timeline }) {
   const doc = {
     count: Number(count) || 0,
     until: untilMin ? `${String(Math.floor(untilMin/60)).padStart(2,'0')}:${String(untilMin%60).padStart(2,'0')}` : '',
@@ -497,6 +502,16 @@ export async function pushPresence({ count, untilMin, manual = false, capacity }
     updatedAt: F.serverTimestamp()
   };
   if (capacity !== undefined && capacity !== null) doc.capacity = Number(capacity) || SETTINGS.capacity;
+  /* Rozkład godzinowy dnia — z niego strona główna przelicza licznik sama,
+     zamiast czekać na kolejne kliknięcie w panelu. Zapisujemy same liczby:
+     od której minuty, do której i ile dzieci. */
+  if (Array.isArray(timeline)) {
+    doc.timeline = timeline.map(t => ({
+      from: Math.max(0, Math.round(Number(t.from) || 0)),
+      to:   Math.max(0, Math.round(Number(t.to)   || 0)),
+      qty:  Math.max(1, Math.round(Number(t.qty)  || 1))
+    })).filter(t => t.to > t.from);
+  }
   await F.setDoc(presenceRef(), doc, { merge: true });
 }
 
@@ -516,6 +531,10 @@ export async function setPresenceManual(count, untilHHMM, capacity) {
     date: todayISO(),
     capacity: Number(capacity) || SETTINGS.capacity,
     manual: true,
+    /* Ręczne nadpisanie obowiązuje TYLKO w dniu zapisu — decyduje o tym pole
+       `date` (patrz `manualActive`). Rozkład czyścimy, żeby strona nie liczyła
+       sobie po swojemu wbrew liczbie wpisanej ręcznie. */
+    timeline: [],
     updatedAt: F.serverTimestamp()
   }, { merge: true });
 }
