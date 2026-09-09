@@ -567,7 +567,12 @@ export function askText({
   placeholder = '',
   hint = '',
   confirmLabel = 'Dodaj',
-  cancelLabel = 'Anuluj'
+  cancelLabel = 'Anuluj',
+  /* Domyślnie puste pole znaczy „rezygnuję" — tak działa np. pytanie o adres
+     zdjęcia w galerii, gdzie pusty adres nie ma sensu. Bywa jednak odwrotnie:
+     przy powodzie odmowy rezerwacji pusty tekst to poprawna odpowiedź
+     („odrzucam bez uzasadnienia"). Wtedy `allowEmpty: true`. */
+  allowEmpty = false
 } = {}) {
   return new Promise(resolve => {
     const box = document.createElement('div');
@@ -597,7 +602,10 @@ export function askText({
       document.removeEventListener('keydown', onKey);
       resolve(answer);
     };
-    const accept = () => done(input.value.trim() || null);
+    const accept = () => {
+      const v = input.value.trim();
+      done(allowEmpty ? v : (v || null));
+    };
     const onKey = e => {
       if (e.key === 'Escape') done(null);
       if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); accept(); }
