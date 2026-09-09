@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css">
+<link rel="stylesheet" href="assets/mc-common.css?v=6">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -187,6 +187,7 @@
         <a href="panel-admina.html?tab=rank">4 · Ranking wizyt</a>
         <a href="panel-admina.html?tab=book">5 · Rezerwacje</a>
         <a href="panel-admina.html?tab=play">6 · Czas zabawy</a>
+        <a href="panel-admina.html?tab=fin">7 · Finanse</a>
       </nav>
 
       <div class="quick">
@@ -300,8 +301,34 @@
       <div class="row3">
         <div class="field"><label for="fArrive">Przyjdź ile minut wcześniej</label><input class="control" id="fArrive" type="number" min="0" max="90" value="10"></div>
         <div class="field"><label for="fCancel">Bezpłatna rezygnacja (godz. przed)</label><input class="control" id="fCancel" type="number" min="0" max="168" value="24"></div>
-        <div class="field"><label for="fRepeat">Powiel na kolejne tygodnie</label><input class="control" id="fRepeat" type="number" min="0" max="52" value="0"></div>
+
       </div>
+
+      <!-- Powtarzanie: ten sam zestaw pytań, co w pełnym panelu. Dni tygodnia
+           i koniec serii zamiast liczby tygodni „w ciemno". -->
+      <fieldset class="rep">
+        <legend>Powtarzanie</legend>
+        <label class="check" style="margin-bottom:10px"><input type="checkbox" id="fRepeatOn"><span>Powtarza się</span></label>
+
+        <div id="fRepeatBox" hidden>
+          <span class="lbl">Powtarzaj w</span>
+          <div class="rep-days" id="fRepeatDays" role="group" aria-label="Dni tygodnia"></div>
+          <p class="hint" style="margin:6px 0 12px">Nic nie zaznaczone = co tydzień w ten sam
+            dzień, co pierwsze zajęcia.</p>
+
+          <span class="lbl">Kończy się</span>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="fRepeatEnd" id="fRepeatEndDate" value="date" checked><span>W dniu</span></label>
+            <input class="control" id="fRepeatUntil" type="date" aria-label="Ostatni dzień serii">
+          </div>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="fRepeatEnd" id="fRepeatEndCount" value="count"><span>Po wystąpieniu</span></label>
+            <input class="control" id="fRepeatCount" type="number" min="2" max="120" value="8" aria-label="Ile wystąpień">
+          </div>
+
+          <p class="hint" id="fRepeatInfo" style="margin:10px 0 0"></p>
+        </div>
+      </fieldset>
 
       <label class="check"><input type="checkbox" id="fActive" checked><span>Zajęcia widoczne dla klientów</span></label>
 
@@ -317,9 +344,10 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, isoDate,
-         addDays, PALETTE, askSaveOrDiscard, askDate, askConfirm } from './assets/mc-common.js';
+         addDays, PALETTE, askSaveOrDiscard, askDate, askConfirm, askSeries,
+         seriesDates, parseDate, DAY_NAMES, DAY_SHORT } from './assets/mc-common.js';
 import { auth, A, adminStatus, isAdminEmail, authError, ADMIN_EMAILS } from './assets/mc-firebase.js';
-import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
+import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatOnDates,
          EMPTY_EVENT, todayISO, refreshEvent, countEventImages } from './assets/mc-data.js';
 import { mountGallery } from './assets/mc-galeria.js';
 
@@ -551,6 +579,7 @@ function render() {
       <td><div class="ev-actions">
             <button class="btn btn-outline btn-sm" data-edit="${e.id}">Edytuj</button>
             <button class="btn btn-soft btn-sm" data-dup="${e.id}">Duplikuj</button>
+            <button class="btn btn-soft btn-sm" data-rep="${e.id}">Powiel</button>
             <button class="btn btn-danger btn-sm" data-del="${e.id}">Usuń</button>
           </div></td>
     </tr>`;
@@ -558,6 +587,7 @@ function render() {
 
   $$('#rows [data-edit]').forEach(b => b.onclick = () => openModal(b.dataset.edit));
   $$('#rows [data-dup]').forEach(b => b.onclick = () => quickDuplicate(b.dataset.dup));
+  $$('#rows [data-rep]').forEach(b => b.onclick = () => quickRepeat(b.dataset.rep));
   $$('#rows [data-del]').forEach(b => b.onclick = () => remove(b.dataset.del));
 
   $('#count').textContent = `Pokazano ${list.length} z ${EVENTS.length} zajęć.`;
@@ -647,6 +677,62 @@ async function closeM(force) {
   if (answer === 'save')    { $('#evForm').requestSubmit(); return; }
   if (answer === 'discard') shutM();
 }
+/* ==========================================================================
+   POWTARZANIE ZAJĘĆ
+   Ten sam zestaw pytań, co w pełnym panelu: dni tygodnia i koniec serii,
+   zamiast liczby tygodni wpisywanej w ciemno. Daty liczy `seriesDates`.
+   ========================================================================== */
+const repDays = new Set();          // 0 = poniedziałek … 6 = niedziela
+
+$('#fRepeatDays').innerHTML = DAY_SHORT
+  .map((d, i) => `<button type="button" data-day="${i}" aria-pressed="false"
+                    title="${esc(DAY_NAMES[i])}">${esc(d[0].toUpperCase())}</button>`).join('');
+
+$$('#fRepeatDays button').forEach(b => b.onclick = () => {
+  const i = Number(b.dataset.day);
+  if (repDays.has(i)) repDays.delete(i); else repDays.add(i);
+  repRender();
+});
+
+/** Daty kolejnych terminów dla podanego dnia startu (pusto = bez powtarzania). */
+function repDates(startISO) {
+  if (!$('#fRepeatOn').checked || !startISO) return [];
+  return seriesDates({
+    startISO,
+    weekdays: [...repDays],
+    endMode: $('#fRepeatEndCount').checked ? 'count' : 'date',
+    endDate: $('#fRepeatUntil').value,
+    count: Number($('#fRepeatCount').value) || 2
+  });
+}
+
+/** Odświeża wygląd sekcji i podpowiedź „ile terminów powstanie". */
+function repRender() {
+  const on = $('#fRepeatOn').checked;
+  $('#fRepeatBox').hidden = !on;
+  $$('#fRepeatDays button').forEach(b =>
+    b.setAttribute('aria-pressed', String(repDays.has(Number(b.dataset.day)))));
+  const naDate = !$('#fRepeatEndCount').checked;
+  $('#fRepeatUntil').disabled = !naDate;
+  $('#fRepeatCount').disabled = naDate;
+
+  if (!on) { $('#fRepeatInfo').textContent = ''; return; }
+  const start = $('#fDate').value;
+  if (!start) { $('#fRepeatInfo').textContent = 'Najpierw podaj datę pierwszych zajęć.'; return; }
+  /* Przy nowych zajęciach data końca jest pusta — proponujemy osiem tygodni,
+     żeby podpowiedź nie mówiła „nie powstanie żaden termin" na starcie. */
+  if (!$('#fRepeatUntil').value) $('#fRepeatUntil').value = isoDate(addDays(parseDate(start), 56));
+  const daty = repDates(start);
+  $('#fRepeatInfo').textContent = daty.length
+    ? `Powstanie ${daty.length} kolejnych terminów, ostatni ${shortDate(daty[daty.length - 1])}. `
+      + 'Każdy z własną listą zapisów i kompletem zdjęć.'
+    : 'Przy tych ustawieniach nie powstanie żaden dodatkowy termin.';
+}
+
+['#fRepeatOn', '#fRepeatEndDate', '#fRepeatEndCount', '#fRepeatUntil', '#fRepeatCount', '#fDate']
+  .forEach(sel => $(sel).addEventListener('change', repRender));
+$('#fRepeatCount').addEventListener('input', repRender);
+
 $('#evClose').onclick = $('#evCancel').onclick = () => closeM();
 modal.addEventListener('click', e => { if (e.target === modal) closeM(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeM(); });
@@ -670,7 +756,14 @@ function fill(ev) {
   $('#fLoc').value    = ev.location || EMPTY_EVENT.location;
   $('#fArrive').value = ev.arriveMinutes ?? 10;
   $('#fCancel').value = ev.cancelHours ?? 24;
-  $('#fRepeat').value = 0;
+  /* Powtarzanie zawsze startuje wyłączone — przy edycji istniejących zajęć
+     włączenie go zrobiłoby serię z pojedynczego terminu przez przypadek. */
+  $('#fRepeatOn').checked = false;
+  $('#fRepeatEndDate').checked = true;
+  $('#fRepeatCount').value = 8;
+  $('#fRepeatUntil').value = ev.date ? isoDate(addDays(parseDate(ev.date), 56)) : '';
+  repDays.clear();
+  repRender();
   $('#fActive').checked = ev.active !== false;
   const pays = ev.paymentMethods || EMPTY_EVENT.paymentMethods;
   $$('.pay').forEach(c => c.checked = pays.includes(c.value));
@@ -731,9 +824,10 @@ $('#evForm').addEventListener('submit', async e => {
     await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
     /* Zdjęcia PRZED powielaniem — kopie na kolejne tygodnie mają je przejąć. */
     await gal.commit(id);
-    const weeks = Number($('#fRepeat').value) || 0;
-    if (weeks > 0) await repeatWeekly(id, weeks);
-    toast(editingId ? 'Zajęcia zapisane.' : `Zajęcia dodane${weeks ? ` (+${weeks} kolejnych tygodni)` : ''}.`);
+    const seria = repDates(data.date);
+    if (seria.length) await repeatOnDates(id, seria);
+    toast(editingId ? 'Zajęcia zapisane.'
+                    : `Zajęcia dodane${seria.length ? ` (+${seria.length} kolejnych terminów)` : ''}.`);
     closeM(true);
   } catch (err) {
     badge('bad', authError(err));
@@ -792,6 +886,26 @@ async function quickDuplicate(id) {
   if (!d) return;
   try { await duplicateEvent(id, d); toast('Skopiowano na ' + shortDate(d) + '.'); }
   catch (err) { toast(authError(err)); }
+}
+
+/**
+ * „Powiel" — seria kolejnych terminów, w odróżnieniu od „Duplikuj", które
+ * robi jedną kopię na wskazany dzień. Pyta o dni tygodnia i koniec serii.
+ */
+async function quickRepeat(id) {
+  const src = EVENTS.find(e => e.id === id);
+  if (!src) return toast('Nie znalazłem tych zajęć — odśwież stronę.');
+  const daty = await askSeries({
+    title: 'Powiel zajęcia',
+    text: `„${src.title}" z ${shortDate(src.date)}. Każdy nowy termin startuje `
+        + 'z pustą listą zapisanych i kompletem zdjęć oryginału.',
+    startISO: src.date
+  });
+  if (!daty) return;
+  try {
+    await repeatOnDates(id, daty);
+    toast(`Utworzono ${daty.length} kolejnych terminów.`);
+  } catch (err) { toast(authError(err)); }
 }
 
 async function remove(id) {

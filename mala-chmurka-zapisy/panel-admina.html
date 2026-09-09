@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css">
+<link rel="stylesheet" href="assets/mc-common.css?v=6">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -19,6 +19,27 @@
   .admin-tabs button{padding:.6em 1.1em;border-radius:12px;font-family:var(--font-head);font-weight:600;
     font-size:.94rem;color:var(--navy-deep);white-space:nowrap}
   .admin-tabs button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+  /* Na telefonie siedem zakładek zawijało się w cztery rzędy i zjadało
+     ćwierć ekranu — zanim obsługa doszła do treści, musiała przewinąć.
+     Teraz to jeden pasek przewijany w bok; aktywna zakładka sama wjeżdża
+     w pole widzenia po każdym przełączeniu. */
+  @media (max-width:760px){
+    /* Bez `scroll-snap`: przyciąganie walczyło i z płynnym przewijaniem
+       w kodzie, i z palcem — pasek sam wracał do najbliższej zakładki. */
+    .admin-tabs{flex-wrap:nowrap;overflow-x:auto;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;margin:12px 0 16px;
+      /* cień przy krawędziach mówi, że pasek jedzie dalej */
+      background-image:linear-gradient(to right,var(--cream-deep),transparent 12px),
+                       linear-gradient(to left,var(--cream-deep),transparent 12px),
+                       linear-gradient(to right,rgba(42,65,89,.13),transparent 8px),
+                       linear-gradient(to left,rgba(42,65,89,.13),transparent 8px);
+      background-position:left center,right center,left center,right center;
+      background-repeat:no-repeat;
+      background-size:26px 100%,26px 100%,10px 100%,10px 100%;
+      background-attachment:local,local,scroll,scroll}
+    .admin-tabs::-webkit-scrollbar{display:none}
+    .admin-tabs button{flex:none}
+  }
   .panel{display:none}
   .panel.is-on{display:block}
   .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -95,6 +116,16 @@
   .bk-no{background:var(--bad-pale);color:var(--bad);border-color:#F0C9C5}
   .bk-del{background:var(--cream-deep);color:var(--muted)}
   .bk-acts button:hover{filter:brightness(.96)}
+  /* Wyniki wyszukiwarki — płaska siatka kart zamiast siedmiu kolumn dni.
+     Data trafia na kartę, bo wyniki nie są już ułożone po dniach. */
+  .bk-found{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .bk-found .bk-card{margin-bottom:0}
+  .bk-when{font-family:var(--font-head);font-weight:700;font-size:.8rem;color:var(--brand-deep);
+    background:var(--brand-pale);border-radius:7px;padding:.1em .5em;display:inline-block;margin-bottom:5px}
+  /* Kwota w rankingu — te same tabelaryczne cyfry co w finansach, żeby
+     kolumna czytała się z góry na dół jak zestawienie. */
+  .rank-paid{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
   /* ---- zakładka 6: czas zabawy ---- */
   .pl-left{font-family:var(--font-head);font-weight:700;font-size:1.05rem;white-space:nowrap;
     font-variant-numeric:tabular-nums}
@@ -113,8 +144,231 @@
   .pl-acts button{font-size:.78rem;padding:.3em .7em;border-radius:8px;font-family:var(--font-head);
     font-weight:600;border:1px solid var(--line);background:var(--white);color:var(--navy-deep)}
   .pl-acts button:hover{background:var(--cream-deep)}
+  /* Imię jest klikalne — otwiera edycję tego samego pobytu. Wygląda jak zwykły
+     tekst, dopiero podkreślenie przy najechaniu mówi, że da się w nie kliknąć. */
+  .pl-name{font:inherit;font-weight:700;font-family:var(--font-head);color:var(--navy-deep);
+    text-align:left;padding:0;background:none}
+  .pl-name:hover{text-decoration:underline;text-underline-offset:3px;color:var(--brand-deep)}
+  .pl-paid{display:grid;place-items:center}
+  .pl-paid input{width:22px;height:22px;accent-color:var(--ok);cursor:pointer}
+  .pl-paid input:disabled{cursor:not-allowed;opacity:.5}
   @media (max-width:1000px){ .bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:620px){ .bk-grid{grid-template-columns:1fr} }
+
+  /* ---- przełącznik trybu licznika ---- */
+  .sw{display:inline-flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+  .sw input{position:absolute;opacity:0;width:0;height:0}
+  .sw-track{position:relative;width:52px;height:30px;flex:none;border-radius:999px;
+    background:var(--line);transition:background-color .22s var(--ease)}
+  .sw-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+    background:var(--white);box-shadow:var(--shadow-sm);transition:transform .22s var(--ease)}
+  .sw input:checked + .sw-track{background:var(--brand-deep)}
+  .sw input:checked + .sw-track .sw-knob{transform:translateX(22px)}
+  .sw input:focus-visible + .sw-track{outline:3px solid var(--brand);outline-offset:2px}
+  .sw-label{font-family:var(--font-head);font-weight:600;color:var(--navy-deep)}
+
+  /* ---- nowe wejście: kafelki czasu pobytu (jak w formularzu klienta) ---- */
+  .durations{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .dur{position:relative}
+  .dur input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+  .dur span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px;
+    border:2px solid var(--line);border-radius:16px;background:var(--white);text-align:center;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);transition:.18s var(--ease)}
+  .dur b{font-size:1.3rem;color:var(--brand-deep);line-height:1.1}
+  .dur input:checked + span{border-color:var(--brand-deep);background:var(--brand-pale);
+    box-shadow:var(--shadow-sm)}
+  .dur input:focus-visible + span{outline:3px solid var(--brand);outline-offset:2px}
+  .dur input:disabled + span{opacity:.45;background:var(--cream-deep);cursor:not-allowed}
+  .dur .dur-no{display:block;font-style:normal;font-size:.72rem;font-weight:600;
+    color:var(--bad);line-height:1.25;margin-top:2px}
+  .wi-cennik{border:1px solid var(--line);border-radius:var(--radius);background:var(--cream);
+    padding:10px 14px;margin-bottom:16px}
+  .wi-cennik summary{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    cursor:pointer;font-size:.92rem}
+  .wi-cennik .pricelist{font-size:.85rem;line-height:1.75;color:var(--muted);margin-top:8px}
+  .wi-cennik .pricelist b{color:var(--navy-deep)}
+  @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
+
+  /* ---- nowe wejście: dzieci wierszami + wycena na żywo ---- */
+  .wi-kid{display:grid;grid-template-columns:1fr 150px 38px;gap:8px;align-items:end;margin-bottom:8px}
+  .wi-kid .hint{font-size:.78rem;margin:0 0 3px}
+  .wi-kid-del{width:38px;height:44px;border-radius:11px;color:var(--bad);
+    background:var(--bad-pale);border:1px solid rgba(181,68,60,.25);font-size:1.1rem;line-height:1}
+  .wi-kid-del:hover{filter:brightness(.97)}
+  .wi-kid-del:disabled{opacity:.35;cursor:not-allowed}
+  .wi-quote{background:var(--brand-pale);border:1px solid #CBE4EA;border-radius:var(--radius);
+    padding:12px 14px;margin-bottom:16px}
+  .wi-quote-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    font-family:var(--font-head);font-weight:700;color:var(--navy-deep)}
+  .wi-quote-head b{font-size:1.25rem;white-space:nowrap}
+  .wi-quote-tariff{font-size:.83rem;color:var(--brand-deep);font-weight:600}
+  .wi-quote-lines{margin:8px 0 0;padding:0;list-style:none;font-size:.85rem;color:var(--muted-2,#4d5a66)}
+  .wi-quote-lines li{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+  .wi-quote-lines .zniz{color:var(--ok);font-size:.79rem}
+  /* ---- powtarzanie zajęć ---- */
+  .rep-main{margin-bottom:10px}
+  /* `.rep-days` i `.rep-end` siedzą w mc-common.css — używa ich też okienko
+     „Powiel" w zarządzaniu zajęciami. */
+  @media (max-width:560px){
+    .wi-kid{grid-template-columns:1fr 38px}
+    .wi-kid .wi-kid-dob{grid-column:1}
+  }
+
+  /* ---- zakładka 7: finanse ----
+     Kafelki z liczbą, plakietką zmiany i wykresem — układ znany z paneli
+     sprzedażowych, ale w kolorach i krojach Małej Chmurki: kremowe tło,
+     Quicksand w nagłówkach, morska linia bieżącego okresu i błękitna
+     poprzedniego. */
+  .fin-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .fin-filters .control{width:auto;min-width:190px}
+  /* --- wybór okresu: przycisk + okienko ze skrótami i kalendarzem --- */
+  .fin-pick{position:relative}
+  .fin-chip{display:inline-flex;align-items:center;gap:8px;background:var(--white);
+    border:1px solid var(--line);border-radius:12px;padding:.55em 1em;min-height:44px;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);box-shadow:var(--shadow-sm)}
+  .fin-chip:hover{background:var(--cream)}
+  .fin-chip svg{width:17px;height:17px;flex:none;stroke:var(--brand-deep);fill:none;
+    stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .fin-caret{color:var(--muted);font-size:.8rem}
+  .fin-pop{position:absolute;z-index:60;top:calc(100% + 6px);left:0;display:flex;
+    background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-lg);overflow:hidden}
+  .fin-pop-narrow{flex-direction:column;padding:6px;min-width:230px}
+  .fin-pop-side{width:186px;flex:none;padding:8px;border-right:1px solid var(--line);
+    background:var(--cream);max-height:390px;overflow-y:auto}
+  .fin-pop-main{padding:12px 14px 12px;min-width:0}
+  .fin-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+    text-align:left;padding:.45em .7em;border-radius:10px;font-size:.9rem;color:var(--navy-deep)}
+  .fin-opt:hover{background:var(--brand-pale)}
+  .fin-opt.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep);font-weight:600}
+  .fin-opt .fin-caret{margin-left:auto}
+  .fin-group{margin-top:4px}
+  .fin-group > .fin-opt{font-family:var(--font-head);font-weight:600}
+  .fin-sub{display:none;padding:2px 0 4px 10px;margin-left:6px;border-left:2px solid var(--line)}
+  .fin-group.is-open .fin-sub{display:block}
+  .fin-group.is-open > .fin-opt .fin-caret{transform:rotate(180deg)}
+  .fin-pop-inputs{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .fin-pop-inputs .control{min-width:0;width:150px}
+  .fin-cals{display:flex;gap:18px}
+  .fin-cal{width:210px}
+  .fin-cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    font-size:.92rem;margin-bottom:6px;min-height:30px}
+  .fin-cal-nav{width:28px;height:28px;border-radius:8px;color:var(--navy-deep);
+    font-size:1.1rem;line-height:1;flex:none}
+  .fin-cal-nav:hover{background:var(--cream-deep)}
+  .fin-dow,.fin-week{display:grid;grid-template-columns:repeat(7,1fr)}
+  .fin-dow span{text-align:center;font-size:.72rem;color:var(--muted);padding:2px 0 4px}
+  .fin-day{height:30px;border-radius:9px;font-size:.85rem;color:var(--ink);
+    font-variant-numeric:tabular-nums}
+  .fin-day:hover:not(:disabled){background:var(--brand-pale)}
+  .fin-day.out{color:#C4BDB2}
+  .fin-day.today{box-shadow:inset 0 0 0 1.5px var(--brand)}
+  /* Dni pomiędzy końcami zakresu — pas w kolorze marki, końce mocniejsze. */
+  .fin-day.mid{background:var(--brand-pale);border-radius:0}
+  .fin-day.edge{background:var(--brand-deep);color:#fff;font-weight:700}
+  .fin-day.edge.from{border-radius:9px 0 0 9px}
+  .fin-day.edge.to{border-radius:0 9px 9px 0}
+  .fin-day.edge.from.to{border-radius:9px}
+  .fin-day:disabled{opacity:.35;cursor:not-allowed}
+  .fin-pop-foot{display:flex;align-items:center;gap:8px;margin-top:12px;
+    padding-top:11px;border-top:1px solid var(--line);flex-wrap:wrap}
+  /* Podpowiedź z datami dostaje własny wiersz, gdy nie mieści się obok
+     przycisków — bez tego na telefonie łamała się po jednej literze. */
+  .fin-pop-foot .hint{flex:1 1 170px;min-width:0}
+  /* --- dymek pod kursorem --- */
+  .fin-tip{position:fixed;z-index:999;pointer-events:none;
+    background:var(--white);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow-lg);padding:9px 12px;font-size:.84rem;color:var(--ink);
+    max-width:280px}
+  .fin-tip-head{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    margin-bottom:5px}
+  .fin-tip-row{display:flex;align-items:center;gap:8px;line-height:1.7;white-space:nowrap}
+  .fin-tip-row i{width:9px;height:9px;border-radius:50%;flex:none}
+  .fin-tip-row span{color:var(--muted)}
+  .fin-tip-row b{margin-left:auto;font-family:var(--font-head);font-weight:700;
+    color:var(--navy-deep);font-variant-numeric:tabular-nums;padding-left:14px}
+  .fin-guide{stroke:var(--brand);stroke-width:1;stroke-dasharray:3 3}
+  .fin-hover{transition:opacity .12s var(--ease)}
+  @media (max-width:760px){
+    /* Pasek filtrów rozpadał się na cztery osobne rzędy. Dwa przyciski wyboru
+       dostają po pół szerokości, a zakres dat i akcje mieszczą się pod nimi. */
+    .fin-filters{gap:8px}
+    .fin-pick{flex:1 1 calc(50% - 4px);min-width:0}
+    .fin-chip{width:100%;justify-content:space-between;padding-inline:.8em}
+    .fin-chip span:not(.fin-caret){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .fin-range{flex:1 1 100%;text-align:center}
+    .fin-filters .btn{flex:1 1 calc(50% - 4px)}
+    /* Na telefonie dwa kalendarze obok siebie nie mają szans — zostaje jeden,
+       a okienko przykleja się do lewej krawędzi ekranu. */
+    .fin-pop{position:fixed;left:8px;right:8px;top:auto;flex-direction:column;
+      max-height:78dvh;overflow-y:auto}
+    .fin-pop-side{width:auto;border-right:0;border-bottom:1px solid var(--line);max-height:none}
+    .fin-cals{flex-direction:column;gap:14px}
+    .fin-cal{width:100%}
+    .fin-cals .fin-cal:nth-child(2){display:none}
+    .fin-pop-inputs .control{width:100%}
+  }
+  .fin-range{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    background:var(--cream-deep);border-radius:999px;padding:.45em 1.1em;white-space:nowrap}
+  .fin-grid{display:grid;gap:14px;margin-bottom:14px}
+  .fin-g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .fin-g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .fin-g23{grid-template-columns:2fr 1fr}
+  .fin-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);padding:15px 17px 17px;display:flex;flex-direction:column;min-width:0}
+  .fin-card h3{margin:0 0 9px;font-size:.95rem;font-weight:600;color:var(--navy-deep)}
+  .fin-metric{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+  .fin-value{font-family:var(--font-head);font-weight:700;font-size:1.6rem;line-height:1.15;
+    color:var(--navy-deep);font-variant-numeric:tabular-nums}
+  .fin-badge{font-size:.76rem;font-weight:700;font-family:var(--font-head);
+    padding:.2em .7em;border-radius:999px;background:var(--cream-deep);color:var(--muted);white-space:nowrap}
+  .fin-badge.is-up{background:var(--ok-pale);color:var(--ok)}
+  .fin-badge.is-down{background:var(--bad-pale);color:var(--bad)}
+  /* Iskierka trzyma się dołu karty, żeby cztery kafelki obok siebie miały
+     wykresy w jednej linii mimo nagłówków różnej długości. */
+  .fin-kpi{min-height:158px}
+  .fin-kpi h3{min-height:2.6em}
+  .fin-kpi .fin-spark{margin-top:auto}
+  .fin-chart{display:block;width:100%;overflow:visible}
+  .fin-chart .fin-gridline{stroke:#EDE4D6;stroke-width:1}
+  .fin-chart .fin-tick{fill:var(--muted);font-family:var(--font-body);font-size:11px}
+  .fin-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:11px;font-size:.78rem;color:var(--muted)}
+  .fin-legend span{display:inline-flex;align-items:center;gap:6px}
+  .fin-legend i{width:8px;height:8px;border-radius:50%;flex:none}
+  .fin-legend.col{flex-direction:column;gap:5px}
+  .fin-empty{color:var(--muted);font-size:.85rem;margin:auto 0}
+  /* Przychód wg zajęć — pasek proporcjonalny do najlepszej pozycji.
+     Czyta się szybciej niż kolumna liczb i od razu widać, co ciągnie kasę. */
+  .fin-bars{display:flex;flex-direction:column;gap:11px;margin-top:2px}
+  .fin-bar-row{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:.85rem}
+  .fin-bar-row b{font-family:var(--font-head);font-weight:600;color:var(--navy-deep);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fin-bar-row .fin-sum{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fin-bar-track{grid-column:1/-1;height:8px;border-radius:999px;background:var(--cream-deep);overflow:hidden}
+  .fin-bar-fill{display:block;height:100%;border-radius:999px;background:var(--brand-deep)}
+  .fin-bar-row.is-entry .fin-bar-fill{background:var(--wood)}
+  .fin-bar-row small{grid-column:1/-1;color:var(--muted);font-size:.76rem}
+  /* Saldo — dwie kwoty jedna pod drugą, ta do zainkasowania na ciepło. */
+  .fin-split{display:flex;flex-direction:column;gap:10px;margin-top:2px}
+  .fin-split div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    padding:10px 12px;border-radius:12px;background:var(--cream)}
+  .fin-split div.is-due{background:var(--warn-pale)}
+  .fin-split .k{font-size:.84rem;color:var(--muted)}
+  .fin-split div.is-due .k{color:var(--warn)}
+  .fin-split .v{font-family:var(--font-head);font-weight:700;color:var(--navy-deep);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fin-split div.is-due .v{color:var(--warn)}
+  @media (max-width:1080px){
+    .fin-g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .fin-g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .fin-g23{grid-template-columns:1fr}
+  }
+  @media (max-width:700px){
+    .fin-g4,.fin-g3{grid-template-columns:1fr}
+    .fin-kpi h3{min-height:0}
+  }
 </style>
 </head>
 <body>
@@ -144,6 +398,7 @@
         <button data-tab="rank">4 · Ranking wizyt</button>
         <button data-tab="book">5 · Rezerwacje <span class="tab-badge" id="bookBadge" hidden>0</span></button>
         <button data-tab="play">6 · Czas zabawy</button>
+        <button data-tab="fin">7 · Finanse</button>
       </nav>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
@@ -227,9 +482,17 @@
               <input class="control" id="mCap" type="number" min="1" max="99" value="6">
             </div>
           </div>
+          <!-- Tryb to stan, nie czynność — dlatego przełącznik, a nie przycisk
+               „wróć do trybu automatycznego". Od razu widać, co jest włączone. -->
+          <label class="sw" for="autoMode">
+            <input type="checkbox" id="autoMode" checked>
+            <span class="sw-track" aria-hidden="true"><span class="sw-knob"></span></span>
+            <span class="sw-label" id="autoModeLabel">Tryb automatyczny</span>
+          </label>
+          <p class="hint" id="autoModeHint" style="margin:6px 0 14px"></p>
+
           <div class="bar">
             <button class="btn btn-primary btn-auto" id="saveManual">Zapisz ręczne ustawienie</button>
-            <button class="btn btn-outline btn-auto" id="autoMode">Wróć do trybu automatycznego</button>
             <button class="btn btn-soft btn-auto" id="zero">Wyzeruj licznik</button>
           </div>
           <p class="hint" style="margin:10px 0 0">Licznik automatyczny sumuje <strong>dzieci</strong>
@@ -242,15 +505,14 @@
           <h2 style="font-size:1.1rem">Maksimum miejsc</h2>
           <p class="hint">Mianownik licznika na stronie głównej — „2 os. / <strong>6</strong>".
             Obowiązuje w obu trybach i nie resetuje się przy odświeżaniu licznika.</p>
-          <div class="row2">
-            <div class="field">
-              <label for="capOnly">Ile dzieci mieści się jednocześnie</label>
-              <input class="control" id="capOnly" type="number" min="1" max="99" value="6">
-            </div>
-            <div class="field" style="display:flex;align-items:flex-end">
-              <button class="btn btn-primary btn-block" id="saveCap">Zapisz maksimum</button>
-            </div>
+          <!-- Przycisk pod polem, nie obok: pole jest wąskie (jedna liczba),
+               a przycisk rozciągnięty na pół karty wyglądał na ważniejszy
+               niż samo ustawienie. -->
+          <div class="field" style="max-width:320px">
+            <label for="capOnly">Ile dzieci mieści się jednocześnie</label>
+            <input class="control" id="capOnly" type="number" min="1" max="99" value="6">
           </div>
+          <button class="btn btn-primary btn-sm btn-auto" id="saveCap">Zapisz maksimum</button>
         </div>
 
         <div class="card" style="margin-top:18px">
@@ -288,7 +550,7 @@
           <table class="tbl">
             <thead><tr>
               <th>#</th><th>Dzieci</th><th>Rodzic</th><th>Telefon</th><th>E-mail</th>
-              <th>Liczba wizyt</th><th>Łączny czas</th><th>Ostatnia wizyta</th>
+              <th>Liczba wizyt</th><th>Łączny czas</th><th>Zapłacono</th><th>Ostatnia wizyta</th>
             </tr></thead>
             <tbody id="rankRows"></tbody>
           </table>
@@ -305,11 +567,9 @@
           <div class="stat-card"><div class="k">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
         </div>
 
-        <div class="cal-toolbar">
-          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
-          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
-          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
-          <div class="cal-range" id="bkRange">—</div>
+        <div class="bar">
+          <input class="control grow" id="bkQ"
+                 placeholder="Szukaj: numer rezerwacji, imię dziecka, rodzic, telefon, e-mail, godzina, uwagi…">
           <select class="control mini" id="bkFilter" aria-label="Filtr statusu">
             <option value="">wszystkie statusy</option>
             <option value="pending">tylko oczekujące</option>
@@ -317,6 +577,20 @@
             <option value="rejected">tylko odrzucone</option>
           </select>
         </div>
+
+        <div class="cal-toolbar" id="bkWeekNav">
+          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
+          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
+          <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
+          <div class="cal-range" id="bkRange">—</div>
+        </div>
+
+        <!-- Widoczne tylko przy szukaniu: wyszukiwarka celowo wychodzi poza
+             tydzień, bo rodzic dzwoni z numerem rezerwacji i nie wie, w którym
+             tygodniu ona leży. -->
+        <p class="hint" id="bkSearchInfo" hidden style="margin:-6px 0 12px">
+          Szukam w <strong>całej historii rezerwacji</strong>, nie tylko w tym tygodniu.
+          Wyczyść pole, żeby wrócić do widoku tygodnia.</p>
 
         <p class="hint" style="margin:-6px 0 12px">
           To rezerwacje samego wstępu do bawialni, złożone przez klientów. Dopóki nie klikniesz
@@ -344,7 +618,7 @@
 
         <div class="bar">
           <input class="control grow" id="plQ" placeholder="Szukaj: imię dziecka, telefon, godzina (np. 15:30)…">
-          <button class="btn btn-primary btn-sm btn-auto" id="plAdd">+ Dziecko z ulicy</button>
+          <button class="btn btn-primary btn-sm btn-auto" id="plAdd">+ Nowe wejście</button>
           <button class="btn btn-soft btn-sm btn-auto" id="plExport">Pobierz CSV</button>
         </div>
 
@@ -364,12 +638,168 @@
           <table class="tbl">
             <thead><tr>
               <th>Dzieci</th><th>Skąd</th><th>Od</th><th>Do</th>
-              <th>Pozostało</th><th>Telefon</th><th></th>
+              <th>Pozostało</th><th>Telefon</th><th>Opłacone</th><th></th>
             </tr></thead>
             <tbody id="plRows"></tbody>
           </table>
         </div>
         <p class="hint" id="plCount" style="margin-top:10px"></p>
+      </section>
+
+      <!-- ============================== 7. FINANSE ============================== -->
+      <section class="panel" id="tab-fin">
+        <div class="fin-filters">
+          <!-- Wybór okresu: skróty po lewej, dwa miesiące kalendarza po prawej.
+               Panel siedzi w DOM-ie od początku i tylko się chowa — dzięki temu
+               wybrany zakres przeżywa zamknięcie i otwarcie okienka. -->
+          <div class="fin-pick" id="finPick">
+            <button type="button" class="fin-chip" id="finPickBtn"
+                    aria-haspopup="dialog" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+              <span id="finPickLabel">Ostatnie: 30 dni</span>
+              <span class="fin-caret" aria-hidden="true">▾</span>
+            </button>
+
+            <div class="fin-pop" id="finPop" role="dialog" aria-label="Wybór okresu" hidden>
+              <div class="fin-pop-side" id="finPresets"></div>
+              <div class="fin-pop-main">
+                <div class="fin-pop-inputs">
+                  <input class="control" id="finFrom" type="date" aria-label="Od">
+                  <span aria-hidden="true">→</span>
+                  <input class="control" id="finTo" type="date" aria-label="Do">
+                </div>
+                <div class="fin-cals">
+                  <div class="fin-cal">
+                    <div class="fin-cal-head">
+                      <button type="button" class="fin-cal-nav" id="finPrevM" aria-label="Poprzedni miesiąc">‹</button>
+                      <span id="finMonthA">—</span>
+                    </div>
+                    <div id="finGridA"></div>
+                  </div>
+                  <div class="fin-cal">
+                    <div class="fin-cal-head">
+                      <span id="finMonthB">—</span>
+                      <button type="button" class="fin-cal-nav" id="finNextM" aria-label="Następny miesiąc">›</button>
+                    </div>
+                    <div id="finGridB"></div>
+                  </div>
+                </div>
+                <div class="fin-pop-foot">
+                  <span class="hint" id="finPickHint"></span>
+                  <button type="button" class="btn btn-outline btn-sm" id="finCancel">Anuluj</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="finApply">Zastosuj</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Do czego porównujemy jaśniejszą linię na wykresach. -->
+          <div class="fin-pick" id="finCmp">
+            <button type="button" class="fin-chip" id="finCmpBtn"
+                    aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V8m0 0L4 11m3-3 3 3M17 4v12m0 0 3-3m-3 3-3-3"/></svg>
+              <span id="finCmpLabel">Poprzedni okres</span>
+              <span class="fin-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="fin-pop fin-pop-narrow" id="finCmpPop" role="menu" hidden></div>
+          </div>
+
+          <div class="fin-range" id="finRange">—</div>
+          <button class="btn btn-soft btn-sm btn-auto" id="finReload">Odśwież</button>
+          <button class="btn btn-soft btn-sm btn-auto" id="finExport">Pobierz CSV</button>
+        </div>
+
+        <p class="hint" style="margin:-4px 0 14px">
+          Jedna kasa dla obu źródeł: zapisów na zajęcia i rezerwacji wstępu do bawialni
+          (razem z wejściami z ulicy). <strong>Przychodem jest wyłącznie to, co odhaczono
+          jako „opłacone”</strong> — reszta czeka w kafelku „Do zainkasowania”. Odrzucone
+          rezerwacje nie liczą się wcale. Kwoty przypisujemy do <strong>dnia zajęć albo
+          wizyty</strong>, a nie do dnia, w którym ktoś wypełnił formularz.
+          <strong>Najedź na wykres</strong>, żeby zobaczyć dokładne liczby z konkretnego dnia.</p>
+
+        <!-- kafelki -->
+        <section class="fin-grid fin-g4">
+          <div class="fin-card fin-kpi">
+            <h3>Sprzedaż</h3>
+            <div class="fin-metric"><span class="fin-value" id="finRevenue">—</span><span class="fin-badge" id="finRevenuePct">—</span></div>
+            <div class="fin-spark" data-fin="sparkRevenue"></div>
+          </div>
+          <div class="fin-card fin-kpi">
+            <h3>Liczba rezerwacji</h3>
+            <div class="fin-metric"><span class="fin-value" id="finOrders">—</span><span class="fin-badge" id="finOrdersPct">—</span></div>
+            <div class="fin-spark" data-fin="sparkOrders"></div>
+          </div>
+          <div class="fin-card fin-kpi">
+            <h3>Średnia wartość transakcji</h3>
+            <div class="fin-metric"><span class="fin-value" id="finAvg">—</span><span class="fin-badge" id="finAvgPct">—</span></div>
+            <div class="fin-spark" data-fin="sparkAvg"></div>
+          </div>
+          <div class="fin-card fin-kpi">
+            <h3>Nowi klienci</h3>
+            <div class="fin-metric"><span class="fin-value" id="finNew">—</span><span class="fin-badge" id="finNewPct">—</span></div>
+            <div class="fin-spark" data-fin="sparkNew"></div>
+          </div>
+        </section>
+
+        <!-- duży wykres + rozbicie na zajęcia -->
+        <section class="fin-grid fin-g23">
+          <div class="fin-card">
+            <h3>Przychód w czasie</h3>
+            <div class="fin-metric"><span class="fin-value" id="finRevenue2">—</span><span class="fin-badge" id="finRevenuePct2">—</span></div>
+            <div data-fin="revTime"></div>
+            <div class="fin-legend" id="legRevTime"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Przychód wg zajęć (cały czas)</h3>
+            <div id="finByLabel"></div>
+          </div>
+        </section>
+
+        <!-- trzy wykresy -->
+        <section class="fin-grid fin-g3">
+          <div class="fin-card">
+            <h3>Liczba rezerwacji</h3>
+            <div class="fin-metric"><span class="fin-value" id="finOrders2">—</span><span class="fin-badge" id="finOrdersPct2">—</span></div>
+            <div data-fin="orders"></div>
+            <div class="fin-legend col" id="legOrders"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Nowi klienci</h3>
+            <div class="fin-metric"><span class="fin-value" id="finNew2">—</span><span class="fin-badge" id="finNewPct2">—</span></div>
+            <div data-fin="newClients"></div>
+            <div class="fin-legend col" id="legNew"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Przychód na rezerwację</h3>
+            <div class="fin-metric"><span class="fin-value" id="finPer">—</span><span class="fin-badge" id="finPerPct">—</span></div>
+            <div data-fin="perOrder"></div>
+            <div class="fin-legend col" id="legPer"></div>
+          </div>
+        </section>
+
+        <!-- dolny rząd -->
+        <section class="fin-grid fin-g3">
+          <div class="fin-card">
+            <h3>Przychód wg dnia tygodnia</h3>
+            <div class="fin-metric"><span class="fin-value" id="finBestDay">—</span></div>
+            <div data-fin="weekday"></div>
+            <div class="fin-legend" id="legWeekday"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Skumulowany przychód</h3>
+            <div class="fin-metric"><span class="fin-value" id="finCum">—</span><span class="fin-badge" id="finCumPct">—</span></div>
+            <div data-fin="cumulative"></div>
+            <div class="fin-legend col" id="legCum"></div>
+          </div>
+          <div class="fin-card">
+            <h3>Saldo okresu</h3>
+            <div class="fin-split" id="finSettle"></div>
+            <p class="hint" style="margin:12px 0 0">Do zainkasowania odhaczasz w zakładce
+              <strong>2 · Zapisani</strong> (kolumna „Opłacone”) albo <strong>5 · Rezerwacje</strong>.</p>
+          </div>
+        </section>
+
+        <p class="hint" id="finCount" style="margin-top:4px"></p>
       </section>
     </div>
   </div>
@@ -379,27 +809,58 @@
 <div class="modal" id="wiModal" role="dialog" aria-modal="true" aria-labelledby="wiTitle">
   <div class="modal-box">
     <div class="modal-head">
-      <h2 id="wiTitle">Dziecko z ulicy</h2>
+      <h2 id="wiTitle">Nowe wejście</h2>
       <button class="modal-close" id="wiClose" aria-label="Zamknij">×</button>
     </div>
     <form id="wiForm">
       <div id="wiMsg"></div>
-      <p class="hint" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz imiona i godziny —
-        dzieci od razu wejdą do licznika na stronie i na listę czasu zabawy.</p>
+      <p class="hint" id="wiIntro" style="margin-top:0">Ktoś przyszedł bez zapisu. Wpisz dzieci i godziny —
+        wejdą od razu do licznika na stronie i na listę czasu zabawy. Cena liczy się
+        sama, tym samym cennikiem co rezerwacja ze strony.</p>
 
       <div class="field">
-        <label for="wiNames">Imiona dzieci (po przecinku) *</label>
-        <input class="control" id="wiNames" required placeholder="np. Zosia, Antek">
+        <span class="lbl">Dzieci *</span>
+        <p class="hint" style="margin:-2px 0 8px">Data urodzenia jest nieobowiązkowa, ale to ona
+          decyduje o progu wiekowym: do 6. miesiąca gratis, do 1. roku połowa ceny.
+          Od dwojga dzieci sama nalicza się zniżka rodzeństwa.</p>
+        <div id="wiKids"></div>
+        <button type="button" class="day-add" id="wiAddKid">+ Dodaj kolejne dziecko</button>
       </div>
-      <div class="row3">
+
+      <div class="row2">
         <div class="field"><label for="wiFrom">Od godziny *</label><input class="control" id="wiFrom" type="time" required></div>
         <div class="field"><label for="wiTo">Do godziny *</label><input class="control" id="wiTo" type="time" required></div>
-        <div class="field"><label for="wiQty">Liczba dzieci</label><input class="control" id="wiQty" type="number" min="1" max="10" value="1"></div>
       </div>
+
       <div class="field">
-        <label for="wiPhone">Telefon (nieobowiązkowy)</label>
-        <input class="control" id="wiPhone" type="tel" placeholder="np. 726 431 978">
+        <span class="lbl">Czas pobytu</span>
+        <!-- Kafelki z ceną, dokładnie jak w formularzu klienta — obsługa widzi
+             stawkę, zanim wybierze, i nie musi jej pamiętać z cennika. -->
+        <div class="durations" id="wiDurations"></div>
       </div>
+
+      <!-- Wycena przelicza się przy każdej zmianie: taryfa dnia, progi wiekowe,
+           zniżka rodzeństwa. To ten sam rachunek, co po stronie klienta. -->
+      <div class="wi-quote" id="wiQuote"></div>
+
+      <!-- Pełny cennik pod ręką. Składany z tych samych tabel, z których liczy
+           się cena, więc nie ma jak rozjechać się z rzeczywistością. -->
+      <details class="wi-cennik">
+        <summary>Cennik wstępu</summary>
+        <div class="pricelist" id="wiCennik"></div>
+      </details>
+
+      <div class="row2">
+        <div class="field">
+          <label for="wiPay">Forma płatności</label>
+          <select class="control" id="wiPay"></select>
+        </div>
+        <div class="field">
+          <label for="wiPhone">Telefon (nieobowiązkowy)</label>
+          <input class="control" id="wiPhone" type="tel" placeholder="np. 726 431 978">
+        </div>
+      </div>
+
       <label class="check"><input type="checkbox" id="wiPaid"><span>Opłacone (dopisze wizytę do rankingu)</span></label>
 
       <div class="modal-foot">
@@ -485,8 +946,33 @@
       <div class="row3">
         <div class="field"><label for="fArrive">Przyjdź ile minut wcześniej</label><input class="control" id="fArrive" type="number" min="0" max="90" value="10"></div>
         <div class="field"><label for="fCancel">Bezpłatna rezygnacja (godz. przed)</label><input class="control" id="fCancel" type="number" min="0" max="168" value="24"></div>
-        <div class="field"><label for="fRepeat">Powiel na kolejne tygodnie</label><input class="control" id="fRepeat" type="number" min="0" max="52" value="0"></div>
       </div>
+
+      <!-- Powtarzanie zajęć. Zamiast liczby tygodni obsługa zaznacza dni
+           i mówi, kiedy seria ma się skończyć — tak samo, jak w kalendarzu. -->
+      <fieldset class="rep">
+        <legend>Powtarzanie</legend>
+        <label class="check rep-main"><input type="checkbox" id="fRepeatOn"><span>Powtarza się</span></label>
+
+        <div id="fRepeatBox" hidden>
+          <span class="lbl">Powtarzaj w</span>
+          <div class="rep-days" id="fRepeatDays" role="group" aria-label="Dni tygodnia"></div>
+          <p class="hint" style="margin:6px 0 12px">Nic nie zaznaczone = co tydzień w ten sam
+            dzień, co pierwsze zajęcia.</p>
+
+          <span class="lbl">Kończy się</span>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="fRepeatEnd" id="fRepeatEndDate" value="date" checked><span>W dniu</span></label>
+            <input class="control" id="fRepeatUntil" type="date" aria-label="Ostatni dzień serii">
+          </div>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="fRepeatEnd" id="fRepeatEndCount" value="count"><span>Po wystąpieniu</span></label>
+            <input class="control" id="fRepeatCount" type="number" min="2" max="120" value="8" aria-label="Ile wystąpień">
+          </div>
+
+          <p class="hint" id="fRepeatInfo" style="margin:10px 0 0"></p>
+        </div>
+      </fieldset>
 
       <label class="check"><input type="checkbox" id="fActive" checked><span>Zajęcia widoczne dla klientów</span></label>
 
@@ -502,13 +988,15 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
-         DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
+         DAY_NAMES, DAY_SHORT, MONTHS, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
+         centerScrollLeft,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
          askConfirm, askText, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
+import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
-import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWeekly,
+import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          countEventImages,
          watchRegistrations, updateRegistration, deleteRegistration,
          applyVisitToRanking, listGuests, computePresence, pushPresence,
@@ -517,7 +1005,10 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatWe
          watchBookings, setBookingStatus, deleteBooking,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
-         updateBooking, applyBookingToRanking, createWalkin, extendBooking } from './assets/mc-data.js';
+         updateBooking, applyBookingToRanking, createWalkin, extendBooking,
+         listRegistrations, listBookings, repeatOnDates } from './assets/mc-data.js';
+import { quote, discountSummary, DURATIONS, tariffLabel, tariffFor, PRICES,
+         AGE_TIERS, SIBLING_DISCOUNT } from './assets/mc-cennik.js';
 
 mountChrome({ crumb: 'Panel admina' });
 
@@ -610,9 +1101,21 @@ function openTabFromUrl() {
 $$('.admin-tabs button').forEach(b => b.onclick = () => {
   $$('.admin-tabs button').forEach(x => x.classList.toggle('is-on', x === b));
   $$('.panel').forEach(p => p.classList.toggle('is-on', p.id === 'tab-' + b.dataset.tab));
+  /* Na telefonie pasek zakładek przewija się w bok — po przełączeniu wciągamy
+     wybraną z powrotem na środek, żeby było widać, gdzie się jest. Przewijamy
+     sam pasek, nie stronę: `scrollIntoView` ruszyłoby też oknem. */
+  const bar = b.parentElement;
+  if (bar.scrollWidth > bar.clientWidth) {
+    /* Bez `behavior:'smooth'` — animowane przewijanie kontenera bywa po cichu
+       porzucane (pasek zostawał tam, gdzie był). Skok jest natychmiastowy
+       i zawsze trafia tam, gdzie trzeba. */
+    bar.scrollLeft = centerScrollLeft(b.offsetLeft, b.offsetWidth,
+                                      bar.clientWidth, bar.scrollWidth - bar.clientWidth);
+  }
   if (b.dataset.tab === 'rank') loadRanking();
   if (b.dataset.tab === 'book') renderBookings();
   if (b.dataset.tab === 'play') { renderPlaytime(); startPlayClock(); } else stopPlayClock();
+  if (b.dataset.tab === 'fin') openFinance();
 });
 
 /* ================================================== STAN WSPÓŁDZIELONY ==== */
@@ -634,6 +1137,7 @@ function start() {
     $('#cNow').textContent   = `${p.count ?? 0} / ${p.capacity ?? SETTINGS.capacity}`;
     $('#cUntil').textContent = p.until || '—';
     $('#cMode').textContent  = p.manual ? 'ręczny' : 'automatyczny';
+    autoModePaint(!p.manual);
     $('#mCount').value = p.count ?? 0;
     if (p.until) $('#mUntil').value = p.until;
     const cap = p.capacity ?? SETTINGS.capacity;
@@ -858,6 +1362,77 @@ $('#evCancel').onclick = () => closeModal();
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
 
+/* ==========================================================================
+   POWTARZANIE ZAJĘĆ
+   --------------------------------------------------------------------------
+   Zamiast „powiel na N tygodni" obsługa zaznacza dni tygodnia i mówi, kiedy
+   seria ma się skończyć — datą albo liczbą wystąpień. Same daty liczy czysta
+   funkcja `seriesDates` z mc-common.js, tutaj zostaje obsługa klikania.
+   ========================================================================== */
+const repDays = new Set();          // 0 = poniedziałek … 6 = niedziela
+
+/** '2026-09-07' → Date. Panel nie importuje `parseDate`, a tu jest potrzebne. */
+const parseDateISO = iso => {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+$('#fRepeatDays').innerHTML = DAY_SHORT
+  .map((d, i) => `<button type="button" data-day="${i}" aria-pressed="false"
+                    title="${esc(DAY_NAMES[i])}">${esc(d[0].toUpperCase())}</button>`).join('');
+
+$$('#fRepeatDays button').forEach(b => b.onclick = () => {
+  const i = Number(b.dataset.day);
+  if (repDays.has(i)) repDays.delete(i); else repDays.add(i);
+  repRender();
+});
+
+/** Ustawienia powtarzania odczytane z formularza. */
+function repConfig() {
+  return {
+    on: $('#fRepeatOn').checked,
+    weekdays: [...repDays],
+    endMode: $('#fRepeatEndCount').checked ? 'count' : 'date',
+    endDate: $('#fRepeatUntil').value,
+    count: Number($('#fRepeatCount').value) || 2
+  };
+}
+
+/** Daty kolejnych terminów dla podanego dnia startu (pusto = bez powtarzania). */
+function repDates(startISO) {
+  const c = repConfig();
+  if (!c.on || !startISO) return [];
+  return seriesDates({ startISO, weekdays: c.weekdays, endMode: c.endMode,
+                       endDate: c.endDate, count: c.count });
+}
+
+/** Odświeża wygląd sekcji i podpowiedź „ile terminów powstanie". */
+function repRender() {
+  const c = repConfig();
+  $('#fRepeatBox').hidden = !c.on;
+  $$('#fRepeatDays button').forEach(b =>
+    b.setAttribute('aria-pressed', String(repDays.has(Number(b.dataset.day)))));
+  $('#fRepeatUntil').disabled = c.endMode !== 'date';
+  $('#fRepeatCount').disabled = c.endMode !== 'count';
+
+  if (!c.on) { $('#fRepeatInfo').textContent = ''; return; }
+  const start = $('#fDate').value;
+  if (!start) { $('#fRepeatInfo').textContent = 'Najpierw podaj datę pierwszych zajęć.'; return; }
+  /* Przy nowych zajęciach data końca jest pusta, więc podpowiedź mówiłaby
+     „nie powstanie żaden termin", zanim ktokolwiek cokolwiek źle ustawił.
+     Proponujemy osiem tygodni — do zmiany jednym kliknięciem. */
+  if (!$('#fRepeatUntil').value) $('#fRepeatUntil').value = isoDate(addDays(parseDateISO(start), 56));
+  const daty = repDates(start);
+  $('#fRepeatInfo').textContent = daty.length
+    ? `Powstanie ${daty.length} kolejnych terminów, ostatni ${shortDate(daty[daty.length - 1])}. `
+      + `Każdy z własną listą zapisów i kompletem zdjęć.`
+    : 'Przy tych ustawieniach nie powstanie żaden dodatkowy termin.';
+}
+
+['#fRepeatOn', '#fRepeatEndDate', '#fRepeatEndCount', '#fRepeatUntil', '#fRepeatCount', '#fDate']
+  .forEach(sel => $(sel).addEventListener('change', repRender));
+$('#fRepeatCount').addEventListener('input', repRender);
+
 /* Galeria zdjęć zajęć. Tak jak reszta pól czeka z zapisem na „Zapisz",
    więc bierze udział w pytaniu o niezapisane zmiany. */
 const gal = mountGallery($('#galHost'));
@@ -881,7 +1456,16 @@ function fillForm(ev) {
   $('#fLoc').value   = ev.location || `${SETTINGS.address}, ${SETTINGS.city}`;
   $('#fArrive').value= ev.arriveMinutes ?? 10;
   $('#fCancel').value= ev.cancelHours ?? 24;
-  $('#fRepeat').value= 0;
+  /* Powtarzanie zawsze startuje wyłączone — przy edycji istniejących zajęć
+     włączenie go zrobiłoby serię z pojedynczego terminu przez przypadek. */
+  $('#fRepeatOn').checked = false;
+  $('#fRepeatEndDate').checked = true;
+  $('#fRepeatCount').value = 8;
+  $('#fRepeatUntil').value = ev.date
+    ? isoDate(addDays(parseDateISO(ev.date), 7 * 8))
+    : '';
+  repDays.clear();
+  repRender();
   $('#fActive').checked = ev.active !== false;
   const pm = ev.paymentMethods || SETTINGS.paymentMethods;
   $$('.pay').forEach(c => c.checked = pm.includes(c.value));
@@ -937,9 +1521,11 @@ $('#evForm').addEventListener('submit', async e => {
     await refreshEvent(id, data).catch(e => console.warn('refreshEvent:', e.message));
     /* Zdjęcia PRZED powielaniem — kopie na kolejne tygodnie mają je przejąć. */
     await gal.commit(id);
-    const rep = Number($('#fRepeat').value) || 0;
-    if (rep > 0) { await repeatWeekly(id, rep); toast(`Zapisano i powielono na ${rep} kolejnych tygodni.`); }
-    else toast('Zapisano zajęcia.');
+    const seria = repDates(data.date);
+    if (seria.length) {
+      await repeatOnDates(id, seria);
+      toast(`Zapisano i utworzono ${seria.length} kolejnych terminów.`);
+    } else toast('Zapisano zajęcia.');
     closeModal(true);
   } catch (err) { toast('Błąd zapisu: ' + err.message); }
   finally { $('#evSave').disabled = false; }
@@ -1064,6 +1650,7 @@ $('#regRows').addEventListener('change', async e => {
       await applyVisitToRanking(reg, -1);
       await updateRegistration(reg.id, { countedInRanking: false });
     }
+    invalidateFinanceData();
     const auto = await refreshPresence();
     toast(!auto ? 'Zaktualizowano. Licznik jest w trybie ręcznym — nie zmieniam go.'
                 : shouldCount ? 'Potwierdzone — licznik na stronie zaktualizowany.' : 'Zaktualizowano.');
@@ -1074,9 +1661,21 @@ $('#regRows').addEventListener('click', async e => {
   if (!e.target.classList.contains('del')) return;
   const tr = e.target.closest('tr');
   const reg = REGS.find(r => r.id === tr.dataset.id); if (!reg) return;
-  if (!confirm('Usunąć ten zapis na stałe?')) return;
+  const ok = await askConfirm({
+    title: 'Usunąć ten zapis?',
+    /* Bez `esc` — `askConfirm` sam ucieka znaki, podwójne dałoby „&amp;”. */
+    text: `${kidsOf(reg).join(', ')} · ${reg.eventTitle || 'zajęcia'} · ${shortDate(reg.eventDate || todayISO())}.`,
+    details: [
+      'Zapis zniknie z panelu i z historii zamówień klienta',
+      ...(reg.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : []),
+      'Tej operacji nie da się cofnąć'
+    ],
+    confirmLabel: 'Usuń zapis'
+  });
+  if (!ok) return;
   if (reg.countedInRanking) await applyVisitToRanking(reg, -1).catch(() => {});
   await deleteRegistration(reg.id);
+  invalidateFinanceData();
   await refreshPresence();
   toast('Zapis usunięty.');
 });
@@ -1125,11 +1724,51 @@ $('#saveManual').onclick = async () => {
     toast('Licznik ustawiony ręcznie.');
   } catch (e) { toast('Błąd: ' + e.message); }
 };
-$('#autoMode').onclick = async () => {
-  try { await clearPresenceManual(); await refreshPresence({ force: true }); toast('Licznik znów liczy się automatycznie.'); }
-  catch (e) { toast('Błąd: ' + e.message); }
+/* Podpis i opis przełącznika trzymamy w jednym miejscu — stan przychodzi
+   z bazy (`watchPresence`), więc dwa panele otwarte obok siebie pokazują to
+   samo, a nie to, co ostatnio kliknięto w każdym z osobna. */
+function autoModePaint(auto) {
+  $('#autoMode').checked = auto;
+  $('#autoModeLabel').textContent = auto ? 'Tryb automatyczny' : 'Tryb ręczny';
+  $('#autoModeHint').textContent = auto
+    ? 'Licznik liczy się sam z zapisów i rezerwacji. Ustawienia niżej nie mają wtedy wpływu na stronę.'
+    : 'Licznik pokazuje to, co ustawisz niżej. Sam się nie zaktualizuje, dopóki nie wrócisz do trybu automatycznego.';
+}
+autoModePaint(true);
+
+$('#autoMode').onchange = async () => {
+  const auto = $('#autoMode').checked;
+  try {
+    if (auto) {
+      await clearPresenceManual();
+      await refreshPresence({ force: true });
+      toast('Licznik znów liczy się automatycznie.');
+    } else {
+      /* Wejście w tryb ręczny nie zmienia liczby — przepisujemy to, co jest
+         teraz na liczniku, żeby przełączenie samo w sobie niczego nie zepsuło. */
+      await setPresenceManual(Number($('#mCount').value) || 0, $('#mUntil').value,
+                              Number($('#mCap').value) || SETTINGS.capacity);
+      toast('Tryb ręczny. Licznik pokazuje to, co ustawisz niżej.');
+    }
+    autoModePaint(auto);
+  } catch (e) {
+    toast('Błąd: ' + e.message);
+    autoModePaint(!auto);                 // wracamy do stanu sprzed kliknięcia
+  }
 };
+
 $('#zero').onclick = async () => {
+  const ok = await askConfirm({
+    title: 'Wyzerować licznik?',
+    text: 'Na stronie głównej od razu pojawi się „0 osób". Licznik przejdzie w tryb ręczny.',
+    details: [
+      'Licznik przestanie liczyć się sam, dopóki nie wrócisz do trybu automatycznego',
+      'Dzieci, które są w bawialni, zostają w zakładce „6 · Czas zabawy" — to tylko licznik na stronie'
+    ],
+    confirmLabel: 'Tak, wyzeruj',
+    danger: true
+  });
+  if (!ok) return;
   try { await setPresenceManual(0, '', Number($('#mCap').value) || SETTINGS.capacity); toast('Licznik wyzerowany.'); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
@@ -1142,6 +1781,18 @@ $('#saveCap').onclick = async () => {
   } catch (e) { toast('Błąd: ' + e.message); }
 };
 $('#recountVisits').onclick = async () => {
+  const ok = await askConfirm({
+    title: 'Przeliczyć licznik odwiedzin z bazy?',
+    text: 'Policzymy od nowa wszystkie dzieci z zapisów na zajęcia i z zaakceptowanych rezerwacji.',
+    details: [
+      'Pole „Doliczone zapisy" zostanie nadpisane wynikiem',
+      'Wartość startowa zostaje bez zmian',
+      'Liczba na stronie głównej może się przez to zmienić'
+    ],
+    confirmLabel: 'Przelicz',
+    danger: false
+  });
+  if (!ok) return;
   const btn = $('#recountVisits');
   btn.disabled = true;
   try {
@@ -1152,16 +1803,43 @@ $('#recountVisits').onclick = async () => {
   finally { btn.disabled = false; }
 };
 $('#saveVisits').onclick = async () => {
-  try { await setVisitsBase(Number($('#vBase').value) || 0, Number($('#vCount').value) || 0); toast('Licznik odwiedzin zapisany.'); }
+  const base = Number($('#vBase').value) || 0, count = Number($('#vCount').value) || 0;
+  const ok = await askConfirm({
+    title: 'Zapisać licznik odwiedzin?',
+    text: `Na stronie głównej pojawi się „odwiedziło nas już ${base + count}".`,
+    details: [
+      `Wartość startowa: ${base}`,
+      `Doliczone zapisy: ${count}`,
+      'Zmiana jest widoczna od razu dla wszystkich odwiedzających'
+    ],
+    confirmLabel: 'Zapisz',
+    danger: false
+  });
+  if (!ok) return;
+  try { await setVisitsBase(base, count); toast('Licznik odwiedzin zapisany.'); }
   catch (e) { toast('Błąd: ' + e.message); }
 };
 
 /* ========================================================= 4. RANKING ==== */
-let GUESTS = [];
+let GUESTS = [], PAID_BY_CLIENT = null;
+
 async function loadRanking() {
   try { GUESTS = await listGuests(); } catch (e) { toast('Błąd: ' + e.message); return; }
   renderRank();
+  /* Kwoty dolicza się z historii zamówień, więc mogą przyjść chwilę później
+     niż sama lista — ranking pokazuje się od razu, kolumna dopisuje się sama.
+     Gdy pobranie padnie, zostaje kreska zamiast zerowej kwoty: „nie wiem”
+     to co innego niż „nic nie zapłacił”. */
+  try {
+    const { txs } = await loadFinanceData();
+    PAID_BY_CLIENT = FIN.paidByClient(txs);
+    renderRank();
+  } catch (e) { console.warn('kwoty w rankingu:', e.message); }
 }
+
+/** Ile ten rodzic u nas zostawił — suma opłaconych zajęć i wstępów. */
+const paidOf = g => FIN.paidFor(PAID_BY_CLIENT, FIN.guestClientKey(g));
+
 function renderRank() {
   const q = $('#qRank').value.trim().toLowerCase();
   const list = GUESTS
@@ -1176,15 +1854,23 @@ function renderRank() {
       <td>${esc(g.email || '—')}</td>
       <td class="num"><strong>${esc(plWizyty(g.visits))}</strong></td>
       <td class="num">${humanMinutes(g.totalMinutes)}</td>
+      <td class="num rank-paid">${PAID_BY_CLIENT ? esc(money(paidOf(g).total)) : '—'}</td>
       <td class="num">${g.lastVisit ? esc(shortDate(g.lastVisit)) : '—'}</td>
     </tr>`).join('')
-    : `<tr><td colspan="8"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
-  $('#rankCount').textContent = `${list.length} dzieci w rankingu.`;
+    : `<tr><td colspan="9"><div class="empty">Ranking zapełni się, gdy potwierdzisz pierwsze obecności.</div></td></tr>`;
+
+  /* Podsumowanie liczy to, co widać na liście — przy włączonej wyszukiwarce
+     to suma dla znalezionych rodziców, a nie dla całego rankingu. */
+  const suma = PAID_BY_CLIENT ? list.reduce((s, g) => s + paidOf(g).total, 0) : null;
+  $('#rankCount').textContent = suma === null
+    ? `${plDzieci(list.length)} w rankingu. Liczę zapłacone kwoty…`
+    : `${plDzieci(list.length)} w rankingu · zapłacone łącznie: ${money(suma)}.`;
 }
 $('#qRank').addEventListener('input', renderRank);
 $('#exportRank').onclick = () => {
-  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Ostatnia wizyta'],
-    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0, g.lastVisit || ''])];
+  const rows = [['Dzieci','Rodzic','Telefon','Email','Wizyty','Minuty','Zaplacono','Ostatnia wizyta'],
+    ...GUESTS.map(g => [g.childName, g.parentName, g.phone, g.email, g.visits || 0, g.totalMinutes || 0,
+      PAID_BY_CLIENT ? paidOf(g).total.toFixed(2).replace('.', ',') : '', g.lastVisit || ''])];
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
@@ -1218,40 +1904,29 @@ function loadBookingWeek() {
   });
 }
 
-function renderBookings() {
-  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
-  const shown = BOOKINGS.filter(b => !filter || (b.status || 'pending') === filter);
+/**
+ * Rezerwacja o danym id. Najpierw w bieżącym tygodniu (tam jest najświeższa,
+ * bo słucha bazy na żywo), a dopiero potem w historii pobranej na potrzeby
+ * wyszukiwarki. Bez tego drugiego kroku przyciski na znalezionej rezerwacji
+ * spoza tygodnia nic by nie robiły.
+ */
+const findBooking = id =>
+  BOOKINGS.find(x => x.id === id) ||
+  (FIN_DATA ? FIN_DATA.bookings.find(x => x.id === id) : null) || null;
 
-  /* podsumowanie liczy cały tydzień, nie tylko przefiltrowane */
-  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
-  const pending = count('pending');
-  $('#bkPending').textContent  = pending;
-  $('#bkAccepted').textContent = count('accepted');
-  $('#bkRejected').textContent = count('rejected');
-  $('#bkKids').textContent = BOOKINGS
-    .filter(b => b.status === 'accepted')
-    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
-
-  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
-  const badge = $('#bookBadge');
-  badge.textContent = pending;
-  badge.hidden = pending === 0;
-
-  const today = todayISO();
-  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
-    const dISO = isoDate(addDays(bkMonday, i));
-    const day = shown.filter(b => b.date === dISO)
-      .sort((a, b) => toMin(a.start) - toMin(b.start));
-
-    const cards = day.length ? day.map(b => {
-      const st = b.status || 'pending';
-      const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
-      return `
+/** Kafelek jednej rezerwacji. Ten sam w widoku tygodnia i w wynikach szukania —
+    w tym drugim dostaje jeszcze datę, bo wyniki nie są ułożone po dniach. */
+function bookingCard(b, { withDate = false } = {}) {
+  const st = b.status || 'pending';
+  const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
+  return `
         <div class="bk-card ${st}">
+          ${withDate ? `<div class="bk-when">${esc(shortDate(b.date || todayISO()))}</div>` : ''}
           <b>${esc(b.start || '—')} · ${esc(b.durationLabel || b.duration || '')}</b>
           <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code></div>
           <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
             · ${esc(plDzieci(b.qty || 1))} · ${esc(money(b.total))}</div>
+          ${b.paymentMethod ? `<div class="bk-line">${esc(b.paymentMethod)}</div>` : ''}
           ${kids ? `<div class="bk-line">${kids}</div>` : ''}
           <div class="bk-line"><a href="tel:${esc(b.phone || '')}">${esc(b.phone || '')}</a></div>
           ${b.note ? `<div class="bk-note"><strong>Uwagi od rodzica</strong>${esc(b.note)}</div>` : ''}
@@ -1272,28 +1947,151 @@ function renderBookings() {
             <button class="bk-del" data-del="${b.id}">Usuń</button>
           </div>
         </div>`;
-    }).join('') : '<div class="bk-empty">brak rezerwacji</div>';
+}
 
+/**
+ * Czy rezerwacja pasuje do wpisanej frazy. Ta sama zasada, co przy zapisach
+ * w zakładce 2: numer rezerwacji sprawdzamy osobno (klient dyktuje go przez
+ * telefon, z krzyżykiem albo bez), a reszta to zwykłe szukanie po słowach —
+ * wszystkie muszą trafić, więc „ania 15:30" zawęża wynik, a nie rozszerza.
+ */
+function matchesBooking(b, q) {
+  if (!q) return true;
+  if (matchesRef(b.id, q)) return true;
+  const hay = [
+    ...(b.children || []).map(c => c.name),
+    b.parentFirstName, b.parentLastName, b.phone, b.phoneKey, b.email,
+    b.start, b.stayUntil, b.date, b.note, b.adminNote,
+    b.durationLabel, b.duration, b.source === 'walkin' ? 'wejscie z ulicy' : '',
+    BOOKING_STATUS_SHORT[b.status || 'pending'] || ''
+  ].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+}
+
+/* Wyszukiwarka celowo wychodzi poza bieżący tydzień — rodzic dzwoni z numerem
+   rezerwacji i nie wie, w którym tygodniu ona leży. Historię bierzemy z tego
+   samego, raz pobranego zestawu, co wykresy i kwoty w rankingu. */
+let bkSearching = false;
+
+$('#bkQ').addEventListener('input', () => {
+  const q = $('#bkQ').value.trim();
+  if (q && !FIN_DATA && !bkSearching) {
+    bkSearching = true;
+    loadFinanceData()
+      .catch(e => toast('Nie udało się wczytać historii rezerwacji: ' + e.message))
+      .finally(() => { bkSearching = false; renderBookings(); });
+  }
+  renderBookings();
+});
+
+function renderBookings() {
+  const filter = $('#bkFilter') ? $('#bkFilter').value : '';
+  const q = $('#bkQ') ? $('#bkQ').value.trim() : '';
+  const byStatus = b => !filter || (b.status || 'pending') === filter;
+
+  /* Kafelki podsumowania zawsze dotyczą tygodnia — to one mówią obsłudze,
+     ile jest do zrobienia „teraz", i szukanie nie powinno tego mieszać. */
+  const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
+  const pending = count('pending');
+  $('#bkPending').textContent  = pending;
+  $('#bkAccepted').textContent = count('accepted');
+  $('#bkRejected').textContent = count('rejected');
+  $('#bkKids').textContent = BOOKINGS
+    .filter(b => b.status === 'accepted')
+    .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
+
+  /* plakietka przy nazwie zakładki — widać ją z każdej innej zakładki */
+  const badge = $('#bookBadge');
+  badge.textContent = pending;
+  badge.hidden = pending === 0;
+
+  $('#bkSearchInfo').hidden = !q;
+  $('#bkWeekNav').hidden = !!q;
+
+  if (q) { renderBookingSearch(q, byStatus); return; }
+
+  const shown = BOOKINGS.filter(byStatus);
+  const today = todayISO();
+  $('#bkGrid').className = 'bk-grid';
+  $('#bkGrid').innerHTML = [...Array(7)].map((_, i) => {
+    const dISO = isoDate(addDays(bkMonday, i));
+    const day = shown.filter(b => b.date === dISO)
+      .sort((a, b) => toMin(a.start) - toMin(b.start));
+    const cards = day.length ? day.map(b => bookingCard(b)).join('')
+                             : '<div class="bk-empty">brak rezerwacji</div>';
     return `<div class="bk-day${dISO === today ? ' is-today' : ''}">
         <h4>${DAY_SHORT[i]} <span>${shortDate(dISO).slice(0, 5)}</span></h4>
         ${cards}
       </div>`;
   }).join('');
 
-  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
-  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
-  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
-  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
-  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
-
+  wireBookingCards();
   $('#bkCount').textContent = shown.length
     ? `W tym tygodniu: ${shown.length} rezerwacji.`
     : 'W tym tygodniu nie ma rezerwacji pasujących do filtra.';
 }
 
+/** Wyniki szukania: płaska lista od najnowszej, z całej historii. */
+function renderBookingSearch(q, byStatus) {
+  const grid = $('#bkGrid');
+  grid.className = 'bk-found';
+
+  if (!FIN_DATA) {
+    grid.innerHTML = '<div class="loading"><span class="spin"></span> Wczytuję historię rezerwacji…</div>';
+    $('#bkCount').textContent = '';
+    return;
+  }
+
+  const hits = FIN_DATA.bookings
+    .filter(byStatus)
+    .filter(b => matchesBooking(b, q))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || toMin(b.start) - toMin(a.start));
+
+  grid.innerHTML = hits.length
+    ? hits.map(b => bookingCard(b, { withDate: true })).join('')
+    : `<div class="bk-empty">Nie znalazłem rezerwacji pasującej do „${esc(q)}".</div>`;
+
+  wireBookingCards();
+  $('#bkCount').textContent = hits.length
+    ? `Znaleziono ${hits.length} z ${FIN_DATA.bookings.length} rezerwacji w całej historii.`
+    : '';
+}
+
+function wireBookingCards() {
+  $$('#bkGrid [data-paid]').forEach(el => el.onchange = () => setPaid(el.dataset.paid, el.checked));
+  $$('#bkGrid [data-until]').forEach(el => el.onchange = () => setUntil(el.dataset.until, el.value));
+  $$('#bkGrid [data-yes]').forEach(el => el.onclick = () => decide(el.dataset.yes, 'accepted'));
+  $$('#bkGrid [data-no]').forEach(el => el.onclick = () => decide(el.dataset.no, 'rejected'));
+  $$('#bkGrid [data-del]').forEach(el => el.onclick = () => removeBooking(el.dataset.del));
+}
+
 async function decide(id, status) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   let note = '';
+
+  if (status === 'accepted') {
+    /* Akceptacja robi więcej, niż widać na kafelku: dzieci wchodzą do licznika
+       na stronie głównej, podbija się licznik odwiedzin, a opłacona rezerwacja
+       trafia do rankingu. Warto o tym powiedzieć, zanim się kliknie. */
+    const kto = `${b?.parentFirstName || ''} ${b?.parentLastName || ''}`.trim();
+    const ok = await askConfirm({
+      title: 'Zaakceptować rezerwację?',
+      text: b ? `${kto || 'Rezerwacja'} · ${shortDate(b.date)}, godz. ${b.start} · ${plDzieci(b.qty || 1)}.`
+              : 'Klient zobaczy „Status zaakceptowany, zapraszamy do bawialni".',
+      details: [
+        'Klient zobaczy potwierdzenie w historii zamówień',
+        'Dzieci wejdą do licznika na stronie głównej — do godziny wyjścia',
+        'Licznik odwiedzin podbije się o liczbę dzieci (tylko raz)',
+        ...(b && b.paid ? ['Wizyta dopisze się do rankingu — rezerwacja jest opłacona']
+                        : ['Do rankingu trafi dopiero po odhaczeniu „Opłacone"'])
+      ],
+      confirmLabel: 'Akceptuj',
+      cancelLabel: 'Jeszcze nie',
+      danger: false
+    });
+    if (!ok) return;
+  }
+
   if (status === 'rejected') {
     /* Powód zobaczy klient w historii zamówień, więc pytamy o niego własnym
        okienkiem, a nie systemowym `prompt()`. Ten ostatni wygląda inaczej na
@@ -1340,6 +2138,7 @@ async function decide(id, status) {
     if (b) await syncBookingRanking(b, { status }).catch(e => console.warn('ranking:', e.message));
 
     /* Zaakceptowana rezerwacja od razu wchodzi do licznika na stronie. */
+    invalidateFinanceData();
     await refreshPresence();
     toast(status === 'accepted' ? 'Rezerwacja zaakceptowana — licznik zaktualizowany.'
                                 : 'Rezerwacja odrzucona.');
@@ -1366,17 +2165,18 @@ async function syncBookingRanking(b, { paid = b.paid, status = b.status } = {}) 
 }
 
 async function setPaid(id, paid) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   if (!b) return;
   try {
     await updateBooking(id, { paid: !!paid });
     await syncBookingRanking(b, { paid });
+    invalidateFinanceData();
     toast(paid ? 'Oznaczone jako opłacone.' : 'Zdjęto oznaczenie opłaty.');
   } catch (err) { toast('Nie udało się zapisać: ' + (err.message || '')); }
 }
 
 async function setUntil(id, hhmm) {
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
   if (!b) return;
   try {
     /* jeśli wizyta jest już policzona w rankingu, najpierw ją cofamy — inaczej
@@ -1384,17 +2184,31 @@ async function setUntil(id, hhmm) {
     if (b.countedInRanking) await applyBookingToRanking(b, -1);
     await updateBooking(id, { stayUntil: hhmm || '' });
     if (b.countedInRanking) await applyBookingToRanking({ ...b, stayUntil: hhmm || '' }, +1);
+    invalidateFinanceData();
     await refreshPresence();
     toast('Godzina wyjścia zapisana.');
   } catch (err) { toast('Nie udało się zapisać godziny: ' + (err.message || '')); }
 }
 
 async function removeBooking(id) {
-  if (!confirm('Usunąć tę rezerwację na dobre? Klient przestanie ją widzieć w historii.')) return;
-  const b = BOOKINGS.find(x => x.id === id);
+  const b = findBooking(id);
+  const kto = `${b?.parentFirstName || ''} ${b?.parentLastName || ''}`.trim();
+  const ok = await askConfirm({
+    title: 'Usunąć rezerwację?',
+    text: b ? `${kto || 'Rezerwacja'} · ${shortDate(b.date)}, godz. ${b.start} · ${plDzieci(b.qty || 1)}.`
+            : 'Rezerwacja zniknie z panelu i z historii klienta.',
+    details: [
+      'Klient przestanie ją widzieć w historii zamówień',
+      ...(b && b.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : []),
+      'Tej operacji nie da się cofnąć'
+    ],
+    confirmLabel: 'Usuń rezerwację'
+  });
+  if (!ok) return;
   try {
     if (b && b.countedInRanking) await applyBookingToRanking(b, -1).catch(() => {});
     await deleteBooking(id);
+    invalidateFinanceData();
     await refreshPresence();
     toast('Rezerwacja usunięta.');
   }
@@ -1453,15 +2267,20 @@ function renderPlaytime() {
 
   const rows = playRows();
   if (!rows.length) {
-    $('#plRows').innerHTML = `<tr><td colspan="7"><div class="empty">${
+    $('#plRows').innerHTML = `<tr><td colspan="8"><div class="empty">${
       all.length ? 'Nic nie pasuje do wyszukiwania.'
-                 : 'Dziś nikogo jeszcze nie ma w bawialni. Kliknij „+ Dziecko z ulicy”, żeby dodać wejście bez zapisu.'
+                 : 'Dziś nikogo jeszcze nie ma w bawialni. Kliknij „+ Nowe wejście”, żeby dodać wejście bez zapisu.'
     }</div></td></tr>`;
     $('#plCount').textContent = '';
     return;
   }
 
   $('#plRows').innerHTML = rows.map(r => {
+    /* Kliknięta wartość ma pierwszeństwo, dopóki baza jej nie potwierdzi. */
+    if (plPendingPaid.has(r.id)) {
+      if (plPendingPaid.get(r.id) === r.paid) plPendingPaid.delete(r.id);
+      else r = { ...r, paid: plPendingPaid.get(r.id) };
+    }
     const cls = r.frozen ? 'frozen'
               : r.state === 'overtime' ? 'over'
               : r.state === 'waiting' ? 'waiting'
@@ -1473,7 +2292,9 @@ function renderPlaytime() {
                : fmtCountdown(r.shown);
 
     return `<tr class="pl-row ${cls}">
-      <td><strong>${esc(r.names.join(', ') || '—')}</strong>${
+      <td><button type="button" class="pl-name" data-edit="${esc(r.id)}"
+            data-src="${esc(r.source)}" title="Kliknij, żeby edytować ten pobyt"
+          >${esc(r.names.join(', ') || '—')}</button>${
         r.qty > 1 ? `<br><span class="hint">${esc(plDzieci(r.qty))}</span>` : ''}</td>
       <td><span class="pl-src">${esc(r.sourceLabel)}</span>${
         r.title ? `<br><span class="hint">${esc(r.title)}</span>` : ''}</td>
@@ -1481,7 +2302,15 @@ function renderPlaytime() {
       <td class="num">${esc(fmtMin(r.endMin))}</td>
       <td class="pl-left">${esc(left)}</td>
       <td>${r.phone ? `<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : '—'}</td>
+      <td class="pl-paid"><input type="checkbox" data-paid="${esc(r.id)}"
+            data-src="${esc(r.source)}" ${r.paid ? 'checked' : ''}
+            aria-label="Opłacone"${
+            /* Zapis na zajęcia trafia tu dopiero jako „przyszedł + opłacone",
+               więc odznaczenie zabrałoby go z listy w tej samej sekundzie.
+               Opłatę przy zajęciach zmienia się w zakładce 2. */
+            r.source === 'classes' ? ' disabled title="Opłatę przy zajęciach zmienisz w zakładce 2 · Zapisani"' : ''}></td>
       <td><div class="pl-acts">
+        <button data-edit2="${r.id}" data-src="${esc(r.source)}">Edytuj</button>
         <button data-plus="${r.id}">+15 min</button>
         <button data-any="${r.id}">+ minuty</button>
         <button data-stop="${r.id}">Zakończ</button>
@@ -1490,6 +2319,9 @@ function renderPlaytime() {
     </tr>`;
   }).join('');
 
+  $$('#plRows [data-edit]').forEach(el => el.onclick = () => plEdit(el.dataset.edit, el.dataset.src));
+  $$('#plRows [data-edit2]').forEach(el => el.onclick = () => plEdit(el.dataset.edit2, el.dataset.src));
+  $$('#plRows [data-paid]').forEach(el => el.onchange = () => plSetPaid(el.dataset.paid, el.dataset.src, el.checked));
   $$('#plRows [data-plus]').forEach(el => el.onclick = () => addMinutes(el.dataset.plus, 15));
   $$('#plRows [data-any]').forEach(el => el.onclick  = () => addAnyMinutes(el.dataset.any));
   $$('#plRows [data-stop]').forEach(el => el.onclick = () => endNow(el.dataset.stop));
@@ -1549,10 +2381,18 @@ async function addMinutes(id, minutes) {
   const end = fmtMin(target);
   if (target === row.endMin) return toast('Godzina wyjścia bez zmian.');
 
-  const pyt = minutes > 0
-    ? `Przedłużyć pobyt (${whoOf(row)}) o ${minutes} min — do ${end}?`
-    : `Skrócić pobyt (${whoOf(row)}) o ${Math.abs(minutes)} min — do ${end}?`;
-  if (!confirm(pyt)) return;
+  const ok = await askConfirm({
+    title: minutes > 0 ? 'Przedłużyć pobyt?' : 'Skrócić pobyt?',
+    text: `${whoOf(row)} · teraz do ${fmtMin(row.endMin)}.`,
+    details: [
+      minutes > 0 ? `Przedłużamy o ${minutes} min — do ${end}`
+                  : `Skracamy o ${Math.abs(minutes)} min — do ${end}`,
+      'Licznik na stronie głównej zaktualizuje się od razu'
+    ],
+    confirmLabel: minutes > 0 ? 'Przedłuż' : 'Skróć',
+    danger: false
+  });
+  if (!ok) return;
 
   try {
     await saveEnd(id, end);
@@ -1564,8 +2404,15 @@ async function addAnyMinutes(id) {
   const found = rawOf(id);
   if (!found) return;
   const { row } = found;
-  const raw = prompt(`O ile minut zmienić pobyt (${whoOf(row)})?\n\n` +
-    `Teraz do ${fmtMin(row.endMin)}. Liczba dodatnia przedłuża, ujemna skraca.`, '30');
+  const raw = await askText({
+    title: 'O ile minut zmienić pobyt?',
+    text: `${whoOf(row)} · teraz do ${fmtMin(row.endMin)}.`,
+    label: 'Liczba minut',
+    value: '30',
+    placeholder: 'np. 30',
+    hint: 'Liczba dodatnia przedłuża, ujemna skraca — np. −15 skróci pobyt o kwadrans.',
+    confirmLabel: 'Zmień godzinę'
+  });
   if (raw === null) return;
   const minutes = Math.round(Number(String(raw).replace(',', '.')));
   if (!Number.isFinite(minutes) || minutes === 0) return toast('Podaj liczbę minut.');
@@ -1577,7 +2424,17 @@ async function endNow(id) {
   if (!found) return;
   const { row } = found;
   const hhmm = fmtMin(Math.floor(nowMinFloat()));
-  if (!confirm(`Zakończyć pobyt (${whoOf(row)}) o ${hhmm}?`)) return;
+  const ok = await askConfirm({
+    title: 'Zakończyć pobyt?',
+    text: `${whoOf(row)} · godzina wyjścia zmieni się na ${hhmm}.`,
+    details: [
+      'Dzieci znikną z licznika na stronie głównej',
+      'Wpis zostaje na liście — możesz go jeszcze przedłużyć'
+    ],
+    confirmLabel: `Zakończ o ${hhmm}`,
+    danger: false
+  });
+  if (!ok) return;
   try { await saveEnd(id, hhmm); toast(`Pobyt zakończony o ${hhmm}.`); }
   catch (err) { toast('Nie udało się zakończyć: ' + (err.message || '')); }
 }
@@ -1589,9 +2446,18 @@ async function removeRow(id) {
   const { row, doc } = found;
 
   if (row.source === 'classes') {
-    if (!confirm(`Zdjąć z listy bawialni: ${whoOf(row)}?\n\n` +
-                 'Zapis na zajęcia zostaje — odznaczamy tylko obecność, ' +
-                 'więc dziecko znika z licznika i z czasu zabawy.')) return;
+    const ok = await askConfirm({
+      title: 'Zdjąć z listy bawialni?',
+      text: `${whoOf(row)} — zapis na zajęcia zostaje, odznaczamy tylko obecność.`,
+      details: [
+        'Dziecko zniknie z licznika i z czasu zabawy',
+        'Zapis zostaje w zakładce „2 · Zapisani" — możesz odhaczyć obecność z powrotem',
+        ...(doc.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : [])
+      ],
+      confirmLabel: 'Zdejmij z listy',
+      danger: false
+    });
+    if (!ok) return;
     try {
       if (doc.countedInRanking) {
         await applyVisitToRanking(doc, -1).catch(() => {});
@@ -1604,7 +2470,17 @@ async function removeRow(id) {
     return;
   }
 
-  if (!confirm(`Usunąć wpis na dobre: ${whoOf(row)}?\n\nTej operacji nie da się cofnąć.`)) return;
+  const ok = await askConfirm({
+    title: 'Usunąć wpis na dobre?',
+    text: `${whoOf(row)} · ${fmtMin(row.startMin)}–${fmtMin(row.endMin)}.`,
+    details: [
+      'Rezerwacja zniknie z panelu i z historii klienta',
+      ...(doc.countedInRanking ? ['Wizyta zostanie cofnięta w rankingu'] : []),
+      'Tej operacji nie da się cofnąć'
+    ],
+    confirmLabel: 'Usuń wpis'
+  });
+  if (!ok) return;
   try {
     if (doc.countedInRanking) await applyBookingToRanking(doc, -1).catch(() => {});
     await deleteBooking(id);
@@ -1617,39 +2493,306 @@ $('#plQ').oninput = renderPlaytime;
 
 /* ---------------------------------------------------- dziecko z ulicy --- */
 const wiModal = $('#wiModal');
-const wiCloseM = () => wiModal.classList.remove('is-open');
 
-$('#plAdd').onclick = () => {
-  const now = Math.floor(nowMinFloat());
-  $('#wiFrom').value = fmtMin(now);
-  $('#wiTo').value   = fmtMin(Math.min(now + 60, 23 * 60 + 59));
-  $('#wiNames').value = '';
-  $('#wiQty').value = 1;
-  $('#wiPhone').value = '';
-  $('#wiPaid').checked = false;
-  $('#wiMsg').innerHTML = '';
-  wiModal.classList.add('is-open');
-  $('#wiNames').focus();
+/* Formy płatności bierzemy z ustawień lokalu — dopisanie metody
+   w firebase-config.js pojawi się tu samo, bez ruszania panelu. */
+$('#wiPay').innerHTML = (SETTINGS.paymentMethods || ['Płatność na miejscu'])
+  .map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+
+/* --------------------------------------------------------- czas pobytu
+   Kafelki z ceną zamiast listy rozwijanej — te same, co w formularzu klienta.
+   Cena na kafelku zależy od taryfy dnia, więc w weekend widać od razu wyższe
+   stawki i nie trzeba ich sprawdzać w cenniku. */
+const wiDuration = () =>
+  ($$('#wiDurations input[name=wiDur]').find(r => r.checked) || {}).value || '1h';
+
+function wiRenderDurations() {
+  const date = todayISO();
+  const t = tariffFor(date);
+  const wybrany = wiDuration();
+  /* Pobyt nie może wyjść poza godzinę zamknięcia: przy wejściu o 18:00 w dzień
+     do 19:00 dwie godziny się nie zmieszczą. „Bez limitu" mieści się zawsze —
+     kończy się razem z zamknięciem. */
+  const o = openingFor(date);
+  const od = toMin($('#wiFrom').value || '0:00');
+  const mieści = d => !o || d.minutes === null || od + d.minutes <= o.closeMin;
+
+  $('#wiDurations').innerHTML = DURATIONS.map(d => `
+    <label class="dur">
+      <input type="radio" name="wiDur" value="${esc(d.id)}"
+             ${d.id === wybrany ? 'checked' : ''} ${mieści(d) ? '' : 'disabled'}>
+      <span>${esc(d.label)}<b>${esc(money(PRICES[t][d.id]))}</b>${
+        mieści(d) ? '' : '<em class="dur-no">nie zmieści się przed zamknięciem</em>'}</span>
+    </label>`).join('');
+
+  /* Gdy wybrany czas przestał się mieścić, przeskakujemy na pierwszy pasujący —
+     inaczej formularz zostałby z zaznaczeniem, którego nie da się zapisać. */
+  if (!DURATIONS.filter(mieści).some(d => d.id === wybrany)) {
+    const pierwszy = DURATIONS.find(mieści);
+    const el = pierwszy && $(`#wiDurations input[value="${pierwszy.id}"]`);
+    if (el) el.checked = true;
+  }
+  $$('#wiDurations input[name=wiDur]').forEach(r => r.onchange = wiDurationChanged);
+}
+
+/* Cennik składany z tych samych tabel, z których liczy się cena. */
+function wiRenderCennik() {
+  const wiersz = t => DURATIONS
+    .map(d => `${d.id === 'open' ? 'bez limitu' : d.label.replace(' godzina', ' h').replace(' godziny', ' h')} — ${money(PRICES[t][d.id])}`)
+    .join(' &nbsp;·&nbsp; ');
+  $('#wiCennik').innerHTML =
+    `<b>Poniedziałek – czwartek:</b> ${wiersz('weekday')}<br>
+     <b>Piątek – niedziela i święta:</b> ${wiersz('weekend')}<br>
+     <b>Zniżki:</b> ${esc(AGE_TIERS.free.label)} — za darmo &nbsp;·&nbsp;
+     ${esc(AGE_TIERS.half.label)} — 50% &nbsp;·&nbsp;
+     rodzeństwo — −${Math.round(SIBLING_DISCOUNT * 100)}%`;
+}
+
+/* --------------------------------------------------------- dzieci wierszami
+   Jedno wejście to często rodzeństwo — brat z siostrą płacą według tej samej
+   taryfy, ale każde ma swój próg wiekowy. Dlatego zamiast jednego pola
+   „imiona po przecinku" mamy wiersz na dziecko: imię + data urodzenia. */
+function wiKidRow(kid = {}) {
+  const row = document.createElement('div');
+  row.className = 'wi-kid';
+  row.innerHTML = `
+    <div><span class="hint">Imię</span>
+      <input class="control wi-kid-name" placeholder="np. Zosia" value="${esc(kid.name || '')}"></div>
+    <div class="wi-kid-dob"><span class="hint">Data urodzenia</span>
+      <input class="control wi-kid-dob-input" type="date" max="${todayISO()}" value="${esc(kid.dob || '')}"></div>
+    <button type="button" class="wi-kid-del" aria-label="Usuń dziecko">×</button>`;
+  row.querySelector('.wi-kid-del').onclick = () => { row.remove(); wiSyncKids(); };
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', wiQuoteRender));
+  return row;
+}
+
+/** Ostatniego wiersza nie da się usunąć — wejście bez dziecka nie ma sensu. */
+function wiSyncKids() {
+  const rows = $$('#wiKids .wi-kid');
+  if (!rows.length) $('#wiKids').appendChild(wiKidRow());
+  $$('#wiKids .wi-kid-del').forEach((b, _, all) => { b.disabled = all.length <= 1; });
+  wiQuoteRender();
+}
+
+const wiKids = () => $$('#wiKids .wi-kid').map(r => ({
+  name: r.querySelector('.wi-kid-name').value.trim(),
+  dob:  r.querySelector('.wi-kid-dob-input').value
+}));
+
+$('#wiAddKid').onclick = () => {
+  $('#wiKids').appendChild(wiKidRow());
+  wiSyncKids();
+  const ostatnie = $$('#wiKids .wi-kid-name').pop();
+  if (ostatnie) ostatnie.focus();
 };
-$('#wiClose').onclick = $('#wiCancel').onclick = wiCloseM;
+
+/* ------------------------------------------------------------------ wycena
+   Ten sam rachunek, co w formularzu klienta: taryfa dnia (weekend i święta
+   drożej), progi wiekowe i zniżka rodzeństwa od dwojga dzieci. */
+function wiQuote() {
+  return quote({
+    date: todayISO(),
+    duration: wiDuration(),
+    children: wiKids().filter(k => k.name || k.dob)
+  });
+}
+
+function wiQuoteRender() {
+  const kids = wiKids().filter(k => k.name || k.dob);
+  const box = $('#wiQuote');
+  if (!kids.length) {
+    box.innerHTML = `<div class="wi-quote-head"><span>Do zapłaty</span><b>${esc(money(0))}</b></div>
+      <div class="wi-quote-tariff">Dopisz dziecko, żeby zobaczyć cenę.</div>`;
+    return;
+  }
+  const q = wiQuote();
+  const zniżki = discountSummary(q);
+  box.innerHTML =
+    `<div class="wi-quote-head"><span>Do zapłaty</span><b>${esc(money(q.total))}</b></div>
+     <div class="wi-quote-tariff">${esc(tariffLabel(todayISO()))} · ${esc(money(q.base))} za dziecko</div>
+     <ul class="wi-quote-lines">${q.lines.map(l => `
+       <li><span>${esc(l.name || 'dziecko bez imienia')}${
+         l.tier !== 'full' ? ` <span class="zniz">(${esc(AGE_TIERS_SHORT[l.tier] || '')})</span>` : ''}${
+         l.siblingDiscount > 0 ? ' <span class="zniz">(rodzeństwo −20%)</span>' : ''}</span>
+         <span>${esc(money(l.price))}</span></li>`).join('')}</ul>
+     ${zniżki.length ? `<div class="wi-quote-tariff" style="margin-top:6px">${esc(zniżki.join(' · '))}</div>` : ''}`;
+}
+
+/* Krótkie podpisy progów wiekowych — pełne nazwy nie mieszczą się w wierszu. */
+const AGE_TIERS_SHORT = { free: 'gratis do 6 m-cy', half: '−50% do 1 roku' };
+
+/* Zmiana czasu pobytu przestawia godzinę wyjścia i cenę naraz. */
+function wiDurationChanged() {
+  const d = DURATIONS.find(x => x.id === wiDuration());
+  const od = toMin($('#wiFrom').value);
+  /* „Bez limitu" znaczy „do zamknięcia" — godzina zamknięcia zależy od dnia
+     (w piątek bawialnia kończy wcześniej), więc bierzemy ją z ustawień. */
+  const doMin = d && d.minutes ? od + d.minutes : closingMinFor(todayISO());
+  $('#wiTo').value = fmtMin(Math.min(Math.max(doMin, od + 15), 23 * 60 + 59));
+  wiQuoteRender();
+}
+/* Przesunięcie godziny wejścia może wykluczyć dłuższy pobyt — kafelki
+   przeliczamy od nowa, a dopiero potem godzinę wyjścia i cenę. */
+$('#wiFrom').addEventListener('input', () => { wiRenderDurations(); wiDurationChanged(); });
+
+/* ------------------------------------------------- niezapisane zmiany
+   Ta sama zasada, co przy zajęciach: jedno kliknięcie obok formularza nie
+   może wyrzucić wpisanych danych bez słowa. Pytamy tylko wtedy, gdy naprawdę
+   jest co stracić. */
+let wiSnapshot = null, wiAsking = false;
+
+const wiFormMap = () => {
+  const out = {};
+  $$('#wiForm input, #wiForm select').forEach((el, i) => {
+    out[el.id || `pole-${i}`] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  return out;
+};
+const wiChanged = () => {
+  if (!wiSnapshot) return [];
+  const teraz = wiFormMap(), klucze = new Set([...Object.keys(teraz), ...Object.keys(wiSnapshot)]);
+  const nazwy = [];
+  klucze.forEach(k => {
+    if (teraz[k] === wiSnapshot[k]) return;
+    const el = document.getElementById(k);
+    const lab = el && (document.querySelector(`#wiForm label[for="${k}"]`) ||
+                       el.closest('.wi-kid')?.querySelector('.hint'));
+    const nazwa = lab ? lab.textContent.replace('*', '').trim()
+                      : (el && el.placeholder) || 'Dzieci';
+    if (nazwa && !nazwy.includes(nazwa)) nazwy.push(nazwa);
+  });
+  return nazwy;
+};
+
+function wiShut() {
+  wiModal.classList.remove('is-open');
+  wiSnapshot = null;
+  wiEditing = null;
+}
+
+async function wiCloseM(force) {
+  if (force === true || !wiSnapshot || !wiChanged().length) return wiShut();
+  if (wiAsking) return;
+  wiAsking = true;
+  const zmiany = wiChanged();
+  const answer = await askSaveOrDiscard({
+    title: 'Masz niezapisane dane',
+    text: zmiany.length === 1
+      ? 'Zmieniłeś jedno pole i nie zostało jeszcze zapisane. Co z nim zrobić?'
+      : `Zmieniłeś ${zmiany.length} pola i nie zostały jeszcze zapisane. Co z nimi zrobić?`,
+    changes: zmiany,
+    saveLabel: wiEditing ? 'Zapisz zmiany' : 'Dodaj do bawialni',
+    discardLabel: 'Odrzuć i zamknij',
+    stayLabel: 'Wróć do formularza'
+  });
+  wiAsking = false;
+  if (answer === 'save')    { $('#wiForm').requestSubmit(); return; }
+  if (answer === 'discard') wiShut();
+}
+
+/* `null` = nowe wejście, obiekt rezerwacji = edycja istniejącego pobytu.
+   Jedno okienko w obu rolach: te same pola, ta sama wycena, ta sama walidacja. */
+let wiEditing = null;
+
+function wiOpen(b = null) {
+  wiEditing = b;
+  const now = Math.floor(nowMinFloat());
+
+  $('#wiTitle').textContent = b ? 'Edytuj pobyt' : 'Nowe wejście';
+  $('#wiSave').textContent  = b ? 'Zapisz zmiany' : 'Dodaj do bawialni';
+  $('#wiIntro').hidden = !!b;
+
+  $('#wiFrom').value = b ? (b.start || fmtMin(now)) : fmtMin(now);
+  $('#wiTo').value   = b ? (b.stayUntil || fmtMin(bookingEndMin(b)))
+                         : fmtMin(Math.min(now + 60, 23 * 60 + 59));
+  wiRenderDurations();
+  if (b && b.duration) {
+    const el = $(`#wiDurations input[value="${b.duration}"]`);
+    if (el && !el.disabled) el.checked = true;
+  }
+  wiRenderCennik();
+
+  $('#wiKids').innerHTML = '';
+  const kids = (b && (b.children || []).length) ? b.children : [{}];
+  kids.forEach(k => $('#wiKids').appendChild(wiKidRow(k)));
+
+  $('#wiPhone').value = b ? (b.phone || '') : '';
+  $('#wiPay').value = (b && b.paymentMethod) || $('#wiPay').options[0].value;
+  $('#wiPaid').checked = b ? !!b.paid : false;
+  $('#wiMsg').innerHTML = '';
+
+  wiSyncKids();
+  wiModal.classList.add('is-open');
+  wiSnapshot = wiFormMap();
+  const pierwsze = $('#wiKids .wi-kid-name');
+  if (pierwsze) pierwsze.focus();
+}
+
+$('#plAdd').onclick = () => wiOpen();
+
+/* Bez opakowania w strzałkę przeglądarka podałaby tu obiekt zdarzenia,
+   który trafiłby na miejsce `force` i zamknął okno bez pytania. */
+$('#wiClose').onclick = () => wiCloseM();
+$('#wiCancel').onclick = () => wiCloseM();
 wiModal.addEventListener('click', e => { if (e.target === wiModal) wiCloseM(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && wiModal.classList.contains('is-open')) wiCloseM();
+});
 
 const wiBad = text => { $('#wiMsg').innerHTML = `<div class="alert alert-bad">${esc(text)}</div>`; };
 
 $('#wiForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const names = $('#wiNames').value.split(',').map(x => x.trim()).filter(Boolean);
+  const kids = wiKids().filter(k => k.name || k.dob);
   const from = $('#wiFrom').value, to = $('#wiTo').value;
-  if (!names.length)            return wiBad('Podaj imię przynajmniej jednego dziecka.');
+  if (!kids.length)             return wiBad('Podaj imię przynajmniej jednego dziecka.');
   if (!from || !to)             return wiBad('Podaj godziny od i do.');
   if (toMin(to) <= toMin(from)) return wiBad('Godzina wyjścia musi być późniejsza niż wejścia.');
 
   $('#wiSave').disabled = true;
   try {
+    if (wiEditing) {
+      /* Edycja. Cenę przeliczamy od nowa tym samym cennikiem — inaczej zmiana
+         czasu pobytu albo dopisanie dziecka zostawiłoby starą kwotę.
+         Pola, których to okienko nie obsługuje (rodzic, e-mail, uwagi klienta),
+         zostają nietknięte, bo `updateBooking` scala tylko to, co podamy. */
+      const q = quote({ date: todayISO(), duration: wiDuration(), children: kids });
+      const przed = wiEditing;
+      const patch = {
+        children: q.lines.map(l => ({ name: l.name, dob: l.dob, tier: l.tier, price: l.price })),
+        qty: kids.length,
+        start: from, stayUntil: to,
+        duration: wiDuration(),
+        durationLabel: (DURATIONS.find(d => d.id === wiDuration()) || {}).label || '',
+        tariff: q.tariff, base: q.base, total: q.total, siblingApplies: q.siblingApplies,
+        paymentMethod: $('#wiPay').value,
+        phone: $('#wiPhone').value.trim(),
+        paid: $('#wiPaid').checked
+      };
+      /* Wizyta w rankingu liczy czas pobytu, więc przy zmianie godzin trzeba ją
+         przeliczyć — najpierw cofamy starą, potem dopisujemy nową. */
+      if (przed.countedInRanking) await applyBookingToRanking(przed, -1).catch(() => {});
+      await updateBooking(przed.id, patch);
+      const po = { ...przed, ...patch };
+      if (przed.countedInRanking && po.status === 'accepted' && po.paid) {
+        await applyBookingToRanking(po, +1).catch(() => {});
+      } else if (przed.countedInRanking) {
+        await updateBooking(przed.id, { countedInRanking: false }).catch(() => {});
+      } else {
+        await syncBookingRanking(po, { paid: po.paid, status: po.status }).catch(() => {});
+      }
+      invalidateFinanceData();
+      await refreshPresence();
+      toast(`Zapisano zmiany: ${plDzieci(kids.length)} · ${money(q.total)}.`);
+      wiShut();
+      return;
+    }
+
     const b = await createWalkin({
-      names,
-      qty: Number($('#wiQty').value) || names.length,
+      children: kids,
       start: from, stayUntil: to,
+      duration: wiDuration(),
+      paymentMethod: $('#wiPay').value,
       phone: $('#wiPhone').value,
       paid: $('#wiPaid').checked
     });
@@ -1657,22 +2800,73 @@ $('#wiForm').addEventListener('submit', async e => {
       await applyBookingToRanking(b, +1).catch(() => {});
       await markBookingCounted(b.id, true).catch(() => {});
     }
+    invalidateFinanceData();
     await refreshPresence();
-    toast('Dodano do bawialni.');
-    wiCloseM();
+    toast(`Dodano do bawialni: ${plDzieci(kids.length)} · ${money(b.total)}.`);
+    wiShut();
   } catch (err) {
-    wiBad(err.message || 'Nie udało się dodać.');
+    wiBad(err.message || 'Nie udało się zapisać.');
   } finally { $('#wiSave').disabled = false; }
 });
 
+/* ==========================================================================
+   OPŁATA I EDYCJA WPROST Z LISTY CZASU ZABAWY
+   --------------------------------------------------------------------------
+   Przy ladzie liczy się jedno kliknięcie. Odhaczenie opłaty i poprawka
+   godzin nie powinny wymagać szukania tego samego pobytu w innej zakładce.
+   ========================================================================== */
+
+/* Tabela przerysowuje się co sekundę (odliczanie), a zapis do bazy trwa
+   dłużej. Bez tego checkbox wracałby na chwilę do starego stanu — trzymamy
+   więc świeżo kliknięte wartości, dopóki baza ich nie potwierdzi. */
+const plPendingPaid = new Map();
+
+/** Odhaczenie opłaty prosto w wierszu. Ranking pilnuje `syncBookingRanking`. */
+async function plSetPaid(id, source, paid) {
+  if (source === 'classes') return;            // zapis na zajęcia — zakładka 2
+  const b = findBooking(id);
+  if (!b) return toast('Nie znalazłem tej rezerwacji — odśwież panel.');
+  plPendingPaid.set(id, !!paid);
+  try {
+    await updateBooking(id, { paid: !!paid });
+    await syncBookingRanking(b, { paid });
+    invalidateFinanceData();
+    toast(paid ? 'Oznaczone jako opłacone.' : 'Zdjęto oznaczenie opłaty.');
+  } catch (err) {
+    plPendingPaid.delete(id);                  // wracamy do stanu z bazy
+    toast('Nie udało się zapisać: ' + (err.message || ''));
+    renderPlaytime();
+  }
+}
+
+/**
+ * Edycja pobytu. Rezerwacje i wejścia otwieramy w tym samym okienku, w którym
+ * się je dodaje. Zapisu na zajęcia nie da się tu sensownie edytować — ma
+ * własne pola (termin zajęć, liczba miejsc), więc przenosimy obsługę do
+ * zakładki 2 z wpisanym numerem, zamiast pokazywać formularz, który
+ * połowy danych nie zapisze.
+ */
+function plEdit(id, source) {
+  if (source === 'classes') {
+    $('#q').value = orderRef(id);
+    document.querySelector('.admin-tabs button[data-tab="regs"]').click();
+    renderRegs();
+    toast('Zapis na zajęcia edytujesz w zakładce „2 · Zapisani”.');
+    return;
+  }
+  const b = findBooking(id);
+  if (!b) return toast('Nie znalazłem tej rezerwacji — odśwież panel.');
+  wiOpen(b);
+}
+
 /* ------------------------------------------------------------- eksport -- */
 $('#plExport').onclick = () => {
-  const rows = [['Dzieci', 'Liczba dzieci', 'Skąd', 'Od', 'Do', 'Pozostało', 'Stan', 'Telefon'],
+  const rows = [['Dzieci', 'Liczba dzieci', 'Skąd', 'Od', 'Do', 'Pozostało', 'Stan', 'Telefon', 'Opłacone'],
     ...playRows().map(r => [
       r.names.join(', '), r.qty, r.sourceLabel,
       fmtMin(r.startMin), fmtMin(r.endMin), fmtCountdown(r.remaining),
       r.state === 'over' ? 'po czasie' : r.state === 'waiting' ? 'jeszcze nie zaczął' : 'w bawialni',
-      r.phone
+      r.phone, r.paid ? 'tak' : 'nie'
     ])];
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -1681,6 +2875,452 @@ $('#plExport').onclick = () => {
   a.download = `czas-zabawy-mala-chmurka-${todayISO()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+};
+
+/* ==========================================================================
+   7. FINANSE
+   --------------------------------------------------------------------------
+   Cała matematyka siedzi w assets/mc-finanse.js — tutaj zostaje samo pobranie
+   danych i wpisanie wyników do kafelków. Inaczej niż pozostałe zakładki
+   ta nie słucha bazy na żywo: liczby z całej historii ściągamy raz, przy
+   pierwszym wejściu (i po kliknięciu „Odśwież”). Panel finansowy czyta się
+   spokojnie, a nasłuch na wszystkich zapisach i rezerwacjach naraz kosztowałby
+   tyle odczytów, że szkoda darmowego limitu Firebase.
+   ========================================================================== */
+let FIN_DATA = null, finLoading = null;
+
+/**
+ * Cała historia zapisów i rezerwacji, ściągnięta raz i trzymana w pamięci.
+ * Korzystają z niej trzy miejsca: wykresy w tej zakładce, kwoty w rankingu
+ * (zakładka 4) i wyszukiwarka rezerwacji (zakładka 5) — ta ostatnia dlatego,
+ * że szuka poza bieżącym tygodniem. Równoległe wejścia dostają to samo
+ * przyrzeczenie, żeby dwie zakładki otwarte pod rząd nie pobrały bazy dwa razy.
+ */
+function loadFinanceData() {
+  if (FIN_DATA) return Promise.resolve(FIN_DATA);
+  if (!finLoading) {
+    finLoading = Promise.all([listRegistrations(), listBookings()])
+      .then(([regs, bookings]) => (FIN_DATA = {
+        regs, bookings, txs: FIN.toTransactions({ regs, bookings })
+      }))
+      .finally(() => { finLoading = null; });
+  }
+  return finLoading;
+}
+
+/* Każda zmiana w rezerwacji albo zapisie unieważnia zapamiętaną historię —
+   inaczej kwoty w rankingu i wyniki wyszukiwarki pokazywałyby stan sprzed
+   kliknięcia. Następne wejście w zakładkę pobierze świeże dane. */
+function invalidateFinanceData() { FIN_DATA = null; }
+
+async function openFinance() {
+  if (FIN_DATA) { renderFinance(); return; }
+  $('#finCount').textContent = 'Wczytuję historię zapisów i rezerwacji…';
+  try {
+    await loadFinanceData();
+    renderFinance();
+  } catch (e) {
+    $('#finCount').textContent = 'Nie udało się wczytać danych: ' + e.message;
+  }
+}
+
+/* ==========================================================================
+   WYBÓR OKRESU
+   --------------------------------------------------------------------------
+   `FIN_RANGE` to jedyne źródło prawdy o tym, co pokazują wykresy. Okienko
+   wyboru pracuje na własnej kopii (`pickFrom` / `pickTo`) i dopiero „Zastosuj"
+   przenosi ją do `FIN_RANGE` — dzięki temu „Anuluj" naprawdę anuluje,
+   a klikanie po kalendarzu nie przerysowuje panelu przy każdym dniu.
+   ========================================================================== */
+let FIN_RANGE = FIN.presetRange('last30', todayISO());
+let FIN_CMP   = 'prev';
+let pickFrom = null, pickTo = null, pickMonth = null;
+
+$('#finReload').onclick  = () => { invalidateFinanceData(); openFinance(); };
+
+/* ---------------------------------------------------- skróty w okienku --- */
+function buildPresets() {
+  $('#finPresets').innerHTML = FIN.PRESET_GROUPS.map(g => g.items
+    ? `<div class="fin-group" data-group="${esc(g.label)}">
+         <button type="button" class="fin-opt">${esc(g.label)}<span class="fin-caret">▾</span></button>
+         <div class="fin-sub">${g.items.map(it =>
+           `<button type="button" class="fin-opt" data-preset="${esc(it.id)}">${esc(it.label)}</button>`).join('')}</div>
+       </div>`
+    : `<button type="button" class="fin-opt" data-preset="${esc(g.id)}">${esc(g.label)}</button>`
+  ).join('');
+
+  /* Nagłówek grupy tylko rozwija listę — sam w sobie nie jest okresem. */
+  $$('#finPresets .fin-group > .fin-opt').forEach(b => b.onclick = () => {
+    b.parentElement.classList.toggle('is-open');
+  });
+  $$('#finPresets [data-preset]').forEach(b => b.onclick = () => {
+    const r = FIN.presetRange(b.dataset.preset, todayISO());
+    if (!r) return;
+    pickFrom = r.from; pickTo = r.to;
+    pickMonth = { year: Number(r.to.slice(0, 4)), month: Number(r.to.slice(5, 7)) };
+    /* Kalendarz pokazuje dwa miesiące, więc cofamy się o jeden — wybrany
+       koniec okresu ma wypaść w prawej połowie, nie uciec za krawędź. */
+    pickMonth = FIN.shiftMonth(pickMonth.year, pickMonth.month, -1);
+    drawPicker();
+  });
+}
+
+/* -------------------------------------------------------- kalendarz ----- */
+const DOW = ['pon', 'wto', 'śro', 'czw', 'pią', 'sob', 'nie'];
+
+function calendarHTML(year, month) {
+  const today = todayISO();
+  const range = FIN.normalizeRange(pickFrom, pickTo);
+  return `<div class="fin-dow">${DOW.map(d => `<span>${d}</span>`).join('')}</div>` +
+    FIN.monthGrid(year, month).map(week => `<div class="fin-week">${week.map(c => {
+      const inRange = range && c.iso >= range.from && c.iso <= range.to;
+      const isFrom  = range && c.iso === range.from;
+      const isTo    = range && c.iso === range.to;
+      const cls = ['fin-day'];
+      if (c.outside) cls.push('out');
+      if (c.iso === today) cls.push('today');
+      if (inRange && !isFrom && !isTo) cls.push('mid');
+      if (isFrom || isTo) { cls.push('edge'); if (isFrom) cls.push('from'); if (isTo) cls.push('to'); }
+      /* Przyszłość jest zablokowana: w finansach nie ma czego tam szukać,
+         a pusty wykres „do 2030 roku" tylko wygląda na awarię. */
+      const future = c.iso > today;
+      return `<button type="button" class="${cls.join(' ')}" data-day="${c.iso}"
+                ${future ? 'disabled' : ''}>${c.day}</button>`;
+    }).join('')}</div>`).join('');
+}
+
+function drawPicker() {
+  if (!pickMonth) {
+    const base = (FIN_RANGE && FIN_RANGE.to) || todayISO();
+    pickMonth = FIN.shiftMonth(Number(base.slice(0, 4)), Number(base.slice(5, 7)), -1);
+  }
+  const a = pickMonth;
+  const b = FIN.shiftMonth(a.year, a.month, 1);
+  const name = m => `${MONTHS[m.month - 1]} ${m.year}`;
+
+  $('#finMonthA').textContent = name(a);
+  $('#finMonthB').textContent = name(b);
+  $('#finGridA').innerHTML = calendarHTML(a.year, a.month);
+  $('#finGridB').innerHTML = calendarHTML(b.year, b.month);
+  $('#finFrom').value = pickFrom || '';
+  $('#finTo').value   = pickTo || '';
+
+  const range = FIN.normalizeRange(pickFrom, pickTo);
+  /* Nazwa okresu stoi już na przycisku — tutaj bardziej przydają się
+     konkretne daty i długość, bo to one decydują, co zobaczysz na wykresie. */
+  $('#finPickHint').textContent = range
+    ? `${FIN.shortDatePl(range.from)} – ${FIN.shortDatePl(range.to)} · ${plDni(FIN.rangeLength(range.from, range.to))}`
+    : 'Kliknij dzień początkowy, potem końcowy.';
+  $('#finApply').disabled = !range;
+
+  $$('#finPop [data-day]').forEach(b => b.onclick = () => pickDay(b.dataset.day));
+  $$('#finPresets [data-preset]').forEach(b => {
+    const r = FIN.presetRange(b.dataset.preset, todayISO());
+    b.classList.toggle('is-on', !!(range && r && r.from === range.from && r.to === range.to));
+  });
+}
+
+/** 1 dzień / 2 dni / 5 dni — odmiana jak w reszcie panelu. */
+function plDni(n) {
+  n = Number(n) || 0;
+  if (n === 1) return '1 dzień';
+  return `${n} dni`;
+}
+
+/**
+ * Klik w dzień. Pierwszy klik zaczyna nowy zakres, drugi go domyka.
+ * Trzeci zaczyna od nowa — bez tego trzeba by pamiętać o jakimś „resecie",
+ * a tak wybór poprawia się samym klikaniem.
+ */
+function pickDay(iso) {
+  if (!pickFrom || (pickFrom && pickTo)) { pickFrom = iso; pickTo = null; }
+  else pickTo = iso;
+  drawPicker();
+}
+
+[['#finFrom', v => { pickFrom = v; }], ['#finTo', v => { pickTo = v; }]].forEach(([sel, set]) => {
+  $(sel).onchange = () => {
+    const v = $(sel).value;
+    if (!v || v > todayISO()) { drawPicker(); return; }
+    set(v);
+    pickMonth = FIN.shiftMonth(Number(v.slice(0, 4)), Number(v.slice(5, 7)), -1);
+    drawPicker();
+  };
+});
+
+$('#finPrevM').onclick = () => { pickMonth = FIN.shiftMonth(pickMonth.year, pickMonth.month, -1); drawPicker(); };
+$('#finNextM').onclick = () => { pickMonth = FIN.shiftMonth(pickMonth.year, pickMonth.month,  1); drawPicker(); };
+
+/* ------------------------------------------------- otwieranie okienka --- */
+function openPicker() {
+  pickFrom = FIN_RANGE.from; pickTo = FIN_RANGE.to; pickMonth = null;
+  $('#finPop').hidden = false;
+  $('#finPickBtn').setAttribute('aria-expanded', 'true');
+  drawPicker();
+}
+function closePicker() {
+  $('#finPop').hidden = true;
+  $('#finPickBtn').setAttribute('aria-expanded', 'false');
+}
+
+$('#finPickBtn').onclick = e => {
+  e.stopPropagation();
+  if ($('#finPop').hidden) { closeCmp(); openPicker(); } else closePicker();
+};
+$('#finCancel').onclick = closePicker;
+$('#finApply').onclick = () => {
+  const r = FIN.normalizeRange(pickFrom, pickTo);
+  if (!r) return;
+  FIN_RANGE = r;
+  closePicker();
+  renderFinance();
+};
+$('#finPop').addEventListener('click', e => e.stopPropagation());
+
+/* ------------------------------------------------- okres porównawczy --- */
+function buildCompare() {
+  $('#finCmpPop').innerHTML = FIN.COMPARE_MODES.map(m =>
+    `<button type="button" class="fin-opt" data-cmp="${esc(m.id)}">${esc(m.label)}</button>`).join('');
+  $$('#finCmpPop [data-cmp]').forEach(b => b.onclick = () => {
+    FIN_CMP = b.dataset.cmp;
+    closeCmp();
+    renderFinance();
+  });
+}
+function closeCmp() {
+  $('#finCmpPop').hidden = true;
+  $('#finCmpBtn').setAttribute('aria-expanded', 'false');
+}
+$('#finCmpBtn').onclick = e => {
+  e.stopPropagation();
+  const pop = $('#finCmpPop');
+  if (pop.hidden) {
+    closePicker();
+    pop.hidden = false;
+    $('#finCmpBtn').setAttribute('aria-expanded', 'true');
+    $$('#finCmpPop [data-cmp]').forEach(b => b.classList.toggle('is-on', b.dataset.cmp === FIN_CMP));
+  } else closeCmp();
+};
+$('#finCmpPop').addEventListener('click', e => e.stopPropagation());
+
+/* Klik gdziekolwiek indziej i Escape zamykają oba okienka. */
+document.addEventListener('click', () => { closePicker(); closeCmp(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePicker(); closeCmp(); }
+});
+
+buildPresets();
+buildCompare();
+
+/** Podpisy pod osią X — kilka dat rozłożonych równo, w formacie „7 wrz”. */
+const finXLabels = days => FIN.pickLabels(days).map(({ i, iso }) =>
+  ({ i, text: FIN.dayLabelPl(iso) }));
+
+/** Krótka kwota na oś Y: „1,2 tys.” zamiast „1200,00 zł” — inaczej oś rośnie w nieskończoność. */
+const finShortMoney = v => {
+  if (v >= 1000) return (Math.round(v / 100) / 10).toString().replace('.', ',') + ' tys.';
+  return Math.round(v) + ' zł';
+};
+
+/* Ta sama liczba bywa w dwóch miejscach: raz na kafelku, raz nad wykresem.
+   Stąd listy identyfikatorów zamiast pojedynczych. */
+function finSet(ids, text) {
+  ids.forEach(id => {
+    const val = $('#' + id);
+    if (val) val.textContent = text;
+  });
+}
+function finBadge(ids, pct) {
+  ids.forEach(id => {
+    const b = $('#' + id);
+    if (!b) return;
+    b.textContent = FIN.fmtPct(pct);
+    b.className = 'fin-badge ' + FIN.pctTone(pct);
+  });
+}
+
+/** Legenda: kropka + zakres dat. Dwie serie albo jedna, zależnie od wykresu. */
+function finLegend(hostId, now, prev) {
+  const host = $('#' + hostId);
+  if (!host) return;
+  const line = (color, r) =>
+    `<span><i style="background:${color}"></i>${esc(shortDate(r.from))} – ${esc(shortDate(r.to))}</span>`;
+  host.innerHTML = line(FIN.CHART.now, now) + (prev ? line(FIN.CHART.prev, prev) : '');
+}
+
+function renderFinance() {
+  if (!FIN_DATA) return;
+  const TX = FIN_DATA.txs;
+  const now  = FIN_RANGE;
+  const cmp  = FIN.comparisonRange(now, FIN_CMP);
+  const withCmp = !!cmp;
+  /* Bez porównania nadal liczymy poprzedni okres — tylko po to, żeby serie
+     miały tę samą długość co bieżące i reszta funkcji nie musiała w kilkunastu
+     miejscach sprawdzać, czy porównanie w ogóle jest. Na wykresy ta seria
+     nie trafia, a plakietki zmiany pokazują wtedy kreskę: „nie ma do czego
+     porównać" to nie to samo co „bez zmian". */
+  const prev = cmp || FIN.previousRange(now);
+
+  $('#finPickLabel').textContent = FIN.rangeLabel(now, todayISO());
+  $('#finCmpLabel').textContent =
+    (FIN.COMPARE_MODES.find(m => m.id === FIN_CMP) || {}).label || '';
+  $('#finRange').textContent = `${shortDate(now.from)} – ${shortDate(now.to)}`;
+
+  const A1 = FIN.summary(TX, now), B1 = FIN.summary(TX, prev);
+  const dNow = A1.days, dPrev = B1.days;
+
+  /* Etykiety serii w dymku i w legendzie — ten sam napis w obu miejscach. */
+  const labNow  = `${shortDate(now.from)} – ${shortDate(now.to)}`;
+  const labPrev = withCmp ? `${shortDate(prev.from)} – ${shortDate(prev.to)}` : '';
+  /* Dymek tytułuje się datą z BIEŻĄCEGO okresu; dla okresu porównawczego
+     ten sam indeks to inny dzień, więc jego datę dopisujemy przy wierszu. */
+  const tipLabels = dNow.map(FIN.dayLabelPl);
+
+  /* ---- kafelki ---- */
+  const pct = (a, b) => withCmp ? FIN.changePct(a, b) : null;
+  const pctRevenue = pct(A1.revenue, B1.revenue);
+  const pctOrders  = pct(A1.orders, B1.orders);
+  const pctAvg     = pct(A1.avgOrder, B1.avgOrder);
+  const pctNew     = pct(A1.newClients, B1.newClients);
+  const pctPer     = pct(A1.perOrder, B1.perOrder);
+
+  finSet(['finRevenue', 'finRevenue2'], money(A1.revenue));
+  finBadge(['finRevenuePct', 'finRevenuePct2'], pctRevenue);
+  finSet(['finOrders', 'finOrders2'], String(A1.orders));
+  finBadge(['finOrdersPct', 'finOrdersPct2'], pctOrders);
+  finSet(['finAvg'], money(A1.avgOrder));
+  finBadge(['finAvgPct'], pctAvg);
+  finSet(['finNew', 'finNew2'], String(A1.newClients));
+  finBadge(['finNewPct', 'finNewPct2'], pctNew);
+  finSet(['finPer'], money(A1.perOrder));
+  finBadge(['finPerPct'], pctPer);
+
+  /* ---- iskierki: sam kształt okresu, bez osi ---- */
+  const spark = (key, points, fmt) => FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
+    type: 'line', h: 54, axes: false, pointCount: points.length,
+    series: [{ color: FIN.CHART.now, points, fill: true, width: 2 }],
+    hover: { labels: tipLabels, fmt, rows: [{ color: FIN.CHART.now, label: labNow, values: points }] }
+  });
+  const revNow = FIN.revenueByDay(A1.txs, dNow);
+  const cntNow = FIN.countByDay(A1.txs, dNow);
+  const liczba = v => String(Math.round(v));
+  spark('sparkRevenue', revNow, money);
+  spark('sparkOrders', cntNow, liczba);
+  spark('sparkAvg', FIN.revenuePerBookingByDay(A1.txs, dNow), money);
+  spark('sparkNew', FIN.newClientsByDay(TX, dNow), liczba);
+
+  /* ---- wykresy z osiami: bieżący okres na tle porównawczego ---- */
+  const pair = (key, nowPoints, prevPoints, opts = {}) => {
+    const fmt = opts.tipFmt || liczba;
+    const series = [{ color: FIN.CHART.now, points: nowPoints, fill: true }];
+    const rows = [{ color: FIN.CHART.now, label: labNow, values: nowPoints }];
+    if (withCmp) {
+      /* Jaśniejsza linia idzie pod spód, żeby bieżący okres był czytelny. */
+      series.unshift({ color: FIN.CHART.prev, points: prevPoints });
+      rows.push({ color: FIN.CHART.prev, label: labPrev, values: prevPoints });
+    }
+    FIN.drawChart(document.querySelector(`[data-fin="${key}"]`), {
+      type: 'line', h: opts.h || 150, pointCount: nowPoints.length,
+      xLabels: finXLabels(dNow), yFmt: opts.yFmt, padL: opts.padL,
+      series, alt: opts.alt || '',
+      hover: { labels: tipLabels, fmt, rows }
+    });
+  };
+
+  pair('revTime', revNow, FIN.revenueByDay(B1.txs, dPrev),
+       { h: 260, yFmt: finShortMoney, tipFmt: money, alt: 'Przychód dzień po dniu' });
+  pair('orders', cntNow, FIN.countByDay(B1.txs, dPrev),
+       { padL: 34, alt: 'Liczba rezerwacji dzień po dniu' });
+  pair('newClients', FIN.newClientsByDay(TX, dNow), FIN.newClientsByDay(TX, dPrev),
+       { padL: 34, alt: 'Nowi klienci dzień po dniu' });
+  pair('perOrder', FIN.revenuePerBookingByDay(A1.txs, dNow), FIN.revenuePerBookingByDay(B1.txs, dPrev),
+       { yFmt: finShortMoney, tipFmt: money, alt: 'Przychód na rezerwację' });
+  pair('cumulative', FIN.cumulative(revNow), FIN.cumulative(FIN.revenueByDay(B1.txs, dPrev)),
+       { yFmt: finShortMoney, tipFmt: money, alt: 'Skumulowany przychód' });
+
+  ['legRevTime', 'legOrders', 'legNew', 'legPer', 'legCum']
+    .forEach(id => finLegend(id, now, withCmp ? prev : null));
+
+  /* ---- dzień tygodnia: sam bieżący okres, bo porównanie nic tu nie wnosi ---- */
+  const wd = FIN.revenueByWeekday(A1.txs);
+  FIN.drawChart(document.querySelector('[data-fin="weekday"]'), {
+    type: 'bar', h: 150, values: wd, color: FIN.CHART.bar, yFmt: finShortMoney,
+    xLabels: DAY_SHORT.map((text, i) => ({ i, text })),
+    alt: 'Przychód wg dnia tygodnia',
+    hover: { labels: DAY_NAMES, fmt: money,
+             rows: [{ color: FIN.CHART.bar, label: labNow, values: wd }] }
+  });
+  const best = wd.indexOf(Math.max(...wd));
+  $('#finBestDay').textContent = wd[best] > 0
+    ? `${DAY_NAMES[best]} — ${money(wd[best])}`
+    : money(0);
+  $('#legWeekday').innerHTML =
+    `<span><i style="background:${FIN.CHART.now}"></i>${esc(shortDate(now.from))} – ${esc(shortDate(now.to))}</span>`;
+
+  /* ---- skumulowany: na końcu krzywej stoi suma całego okresu, więc kafelek
+         pokazuje tę samą liczbę i tę samą zmianę co sprzedaż ---- */
+  finSet(['finCum'], money(A1.revenue));
+  finBadge(['finCumPct'], pctRevenue);
+
+  /* ---- saldo okresu ---- */
+  const s = FIN.settlement(A1.txs);
+  $('#finSettle').innerHTML = `
+    <div><span class="k">Wpłynęło (${s.paidCount})</span><span class="v">${esc(money(s.paid))}</span></div>
+    <div class="${s.unpaid > 0 ? 'is-due' : ''}"><span class="k">Do zainkasowania (${s.unpaidCount})</span>
+      <span class="v">${esc(money(s.unpaid))}</span></div>
+    <div><span class="k">Dzieci w okresie</span><span class="v">${A1.kids}</span></div>`;
+
+  /* ---- przychód wg zajęć: cała historia, nie tylko wybrany okres ---- */
+  const rows = FIN.revenueByLabel(TX);
+  const host = $('#finByLabel');
+  if (!rows.length) {
+    host.innerHTML = `<p class="fin-empty">Nie ma jeszcze opłaconych zapisów ani rezerwacji —
+      wykres pojawi się, gdy odhaczysz pierwszą płatność.</p>`;
+  } else {
+    const max = rows[0].total || 1;
+    host.innerHTML = `<div class="fin-bars">` + rows.slice(0, 8).map(r => `
+      <div class="fin-bar-row${r.source === 'zajecia' ? '' : ' is-entry'}">
+        <b title="${esc(r.label)}">${esc(r.label)}</b>
+        <span class="fin-sum">${esc(money(r.total))}</span>
+        <span class="fin-bar-track"><i class="fin-bar-fill" style="width:${(r.total / max * 100).toFixed(1)}%"></i></span>
+        <small>${r.count} ${r.count === 1 ? 'zamówienie' : 'zamówień'} · ${esc(plDzieci(r.kids))}</small>
+      </div>`).join('') + `</div>` +
+      (rows.length > 8 ? `<p class="hint" style="margin:12px 0 0">…i ${rows.length - 8} więcej.</p>` : '');
+  }
+
+  $('#finCount').textContent =
+    `Podstawa: ${TX.length} zamówień z całej historii, w wybranym okresie ${A1.orders}. `
+    + `Odrzucone rezerwacje pominięte.`;
+}
+
+/* Wykresy rysują się pod aktualną szerokość karty, więc po zmianie rozmiaru
+   okna trzeba je przerysować — inaczej zostają w starej skali. */
+let finResizeT;
+addEventListener('resize', () => {
+  if (!FIN_DATA || !$('#tab-fin').classList.contains('is-on')) return;
+  clearTimeout(finResizeT);
+  /* Stary dymek wisiałby nad przerysowanym już wykresem. */
+  FIN.hideTip();
+  finResizeT = setTimeout(renderFinance, 150);
+});
+
+/* ------------------------------------------------------------- eksport -- */
+/* Arkusz ma służyć do rozliczeń, nie tylko do podejrzenia sumy — dlatego
+   idzie do niego komplet danych o każdym zgłoszeniu (23 kolumny, od godzin
+   i telefonu po uwagi rodzica). Układ kolumn siedzi w mc-finanse.js, żeby
+   dało się go przetestować bez przeglądarki. */
+$('#finExport').onclick = () => {
+  if (!FIN_DATA) return;
+  const now = FIN_RANGE;
+  const rows = FIN.csvTable(FIN_DATA.txs, now);
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finanse-mala-chmurka-${now.from}_${now.to}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Pobrano ${rows.length - 1} pozycji z okresu ${shortDate(now.from)} – ${shortDate(now.to)}.`);
 };
 
 </script>

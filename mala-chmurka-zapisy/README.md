@@ -24,7 +24,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `logowanie.html` | Logowanie klienta (e-mail + hasło, Google, reset hasła). |
 | `dziekujemy.html` | Podziękowanie: podsumowanie, numer konta, kontakt. |
 | **`admin.html`** | **Ekran logowania administratora + zarządzanie zajęciami.** |
-| `panel-admina.html` | Pełny panel z 4 zakładkami (kalendarz, zapisani, licznik, ranking). |
+| `panel-admina.html` | Pełny panel z 7 zakładkami (kalendarz, zapisani, licznik, ranking, rezerwacje, czas zabawy, finanse). |
 | `assets/firebase-config.js` | Konfiguracja Firebase **i lista administratorów**. |
 | `assets/mc-firebase.js` | Inicjalizacja SDK + sprawdzanie uprawnień. |
 | `assets/mc-licznik.js` | Licznik dzieci na stronie głównej (jedna linijka w index.html). |
@@ -32,17 +32,19 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `assets/mc-data.js` | Cała logika bazy danych. |
 | **`assets/mc-cennik.js`** | **Cennik bawialni: taryfy, święta, progi wiekowe, zniżki.** |
 | **`assets/mc-dzieci.js`** | **Pamięć dzieci — podpowiedzi przy kolejnym zapisie.** |
+| **`assets/mc-finanse.js`** | **Finanse: wspólny kształt transakcji, agregaty i wykresy SVG.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 80 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 82 testy reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
-| `tools/test-zapisy.mjs` | 77 testów: terminy, godziny otwarcia, numer rezerwacji — sam Node. |
+| `tools/test-zapisy.mjs` | 98 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
 | `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
-| `tools/test-czas.mjs` | 54 testy zakładki „Czas zabawy” (odliczanie) — sam Node. |
+| `tools/test-czas.mjs` | 58 testów zakładki „Czas zabawy” (odliczanie, opłata) — sam Node. |
 | `tools/test-galeria.mjs` | 85 testów galerii zdjęć zajęć i podglądu — sam Node. |
+| `tools/test-finanse.mjs` | 214 testów zakładki „Finanse” (przychód, wejścia, arkusz CSV) — sam Node. |
 | **`diagnostyka.html`** | **Sprawdza, czy reguły w Firebase są aktualne — bez zgadywania.** |
 | `assets/mc-boot.js` | Bezpiecznik startu panelu — zwykły skrypt, działa gdy moduły padną. |
 | `snippety-do-index.txt` | Wklejki do `index.html` (już zastosowane). |
@@ -103,12 +105,13 @@ Szczegóły: [„Bezpieczeństwo”](#bezpieczeństwo--jak-to-działa) niżej.
 
 ## Krok 3 — konta administratorów
 
-Dostęp mają dokładnie dwa adresy — są wpisane w `firestore.rules` (funkcja
+Dostęp mają dokładnie trzy adresy — są wpisane w `firestore.rules` (funkcja
 `adminEmails()`) i w `assets/firebase-config.js` (stała `ADMIN_EMAILS`):
 
 ```
 velorwr16@gmail.com
 malachmurka.leszno@gmail.com
+buchar123@gmail.com
 ```
 
 Żeby wejść do panelu:
@@ -230,7 +233,7 @@ Do tego `mc-firebase.js` ma 15-sekundowy limit na pobranie SDK, żeby zablokowan
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **80 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **82 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -258,8 +261,9 @@ node tools/test-zapisy.mjs  # 77 testów: terminy, godziny otwarcia, numer rezer
 node tools/test-licznik.mjs # 33 testy: licznik dzieci w bawialni
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
-node tools/test-czas.mjs    # 54 testy: czas zabawy, odliczanie w dół
+node tools/test-czas.mjs    # 58 testów: czas zabawy, odliczanie, stan opłaty
 node tools/test-galeria.mjs # 85 testów: zdjęcia zajęć, kolejność, plan zapisu, podgląd
+node tools/test-finanse.mjs # 214 testów: przychód, okresy, wejścia przy drzwiach, CSV
 ```
 
 ### Czego panel *nie* chroni
@@ -312,6 +316,51 @@ kto i od kiedy ma dostęp.
   podsumowania, **+ Nowe zajęcia**, **Edytuj**, **Duplikuj**, **Usuń**,
   „Powiel na kolejne tygodnie”.
 * **Wyloguj** natychmiast zwija panel i wraca do ekranu logowania.
+
+---
+
+## Powtarzające się zajęcia
+
+W oknie zajęć jest sekcja **Powtarzanie** z przełącznikiem „Powtarza się”. Po włączeniu:
+
+* **Powtarzaj w** — zaznacz dni tygodnia (P W Ś C P S N). Nic nie zaznaczone znaczy
+  „co tydzień w ten sam dzień, co pierwsze zajęcia”.
+* **Kończy się** — albo **W dniu** (data ostatniego możliwego terminu), albo
+  **Po wystąpieniu** (ile terminów łącznie z pierwszym).
+* Pod spodem stoi podpowiedź: ile terminów powstanie i kiedy wypada ostatni. Liczy się
+  na żywo, więc widać skutek zanim się cokolwiek zapisze.
+
+Pierwszy termin to te zajęcia, które właśnie zapisujesz — kopie powstają dopiero po nim.
+„8 wystąpień” znaczy oryginał plus siedem kopii. Każda kopia dostaje **własną, pustą listę
+zapisów** i komplet zdjęć oryginału. Serię ogranicza twardy limit, żeby jedno kliknięcie
+nie zrobiło setek terminów.
+
+Same daty liczy czysta funkcja `seriesDates` z `mc-common.js` — bez przeglądarki, więc
+da się ją sprawdzić testem (`node tools/test-zapisy.mjs`).
+
+**To samo jest w „Zarządzaniu zajęciami"** (`admin.html`) — ta strona ma własną kopię okna
+zajęć, więc sekcja powtarzania musiała trafić w oba miejsca. Dodatkowo w wierszu tabeli
+obok „Duplikuj" stoi **„Powiel"**:
+
+* **Duplikuj** — jedna kopia na wskazany dzień;
+* **Powiel** — cała seria; okienko (`askSeries`) pyta o dni tygodnia i koniec serii,
+  tak samo jak sekcja w formularzu, i pokazuje na żywo, ile terminów powstanie.
+
+**Żadne okienko w panelu nie jest już systemowe.** `confirm()` i `prompt()` zastąpiły
+`askConfirm`, `askText` i `askSeries` z `mc-common.js`. Nie chodzi tylko o wygląd:
+przeglądarki po kilku systemowych okienkach z rzędu proponują „zablokuj kolejne
+komunikaty z tej strony", a po zaznaczeniu tego pola **każde następne `confirm()`
+i `prompt()` po cichu zwraca „nie"** — przycisk przestaje działać i nic tego nie
+tłumaczy. Własne okienka nie dają się w ten sposób wyłączyć.
+
+Dotyczy to: akceptacji i odrzucenia rezerwacji, usunięcia rezerwacji i zapisu,
+przedłużania i skracania pobytu, zakończenia pobytu oraz zdjęcia z listy bawialni.
+Każde okienko wypisuje skutki, zamiast samego „na pewno?" — przy akceptacji na
+przykład, że dzieci wejdą do licznika, a licznik odwiedzin podbije się raz.
+
+**Odrzucenie rezerwacji** pyta o powód (`askText`). Powód zobaczy klient w historii
+zamówień, więc okienko pokazuje, czyjej rezerwacji dotyczy, i mówi wprost, że pole
+można zostawić puste.
 
 ---
 
@@ -502,6 +551,31 @@ widoczna w zakładce **2 · Zapisani** przy danych dziecka i obejmuje ją wyszuk
 więc da się na przykład znaleźć wszystkie zgłoszenia ze słowem „alergia". Przy odrzuceniu możesz wpisać powód — klient zobaczy go
 w swojej historii.
 
+### Wyszukiwarka rezerwacji (zakładka 5)
+
+Nad siatką tygodnia jest pole szukania: **numer rezerwacji, imię dziecka, rodzic,
+telefon, e-mail, godzina, uwagi** i status. Numer rezerwacji rozpoznajemy tak samo
+jak w zakładce 2 — z krzyżykiem albo bez, wielkimi literami albo małymi. Wpisanie
+kilku słów zawęża wynik: `zosia 15:30` znajdzie tylko te rezerwacje, które pasują
+do obu.
+
+**Szukanie celowo wychodzi poza bieżący tydzień** i przegląda całą historię —
+rodzic dzwoni z numerem rezerwacji i nie wie, w którym tygodniu ona leży. Widok
+przełącza się wtedy z siatki siedmiu dni na płaską listę wyników od najnowszej,
+z datą na każdej karcie, a nawigacja tygodniami znika (nie miałaby co robić).
+Wyczyszczenie pola wraca do zwykłego widoku tygodnia. Wszystkie przyciski
+— **Akceptuj**, **Odrzuć**, **Opłacone**, **Do godz.**, **Usuń** — działają
+na znalezionej rezerwacji tak samo jak w widoku tygodnia.
+
+Kafelki podsumowania nad wyszukiwarką (czekają na decyzję, zaakceptowane,
+odrzucone, dzieci) zawsze dotyczą **tygodnia**, nie wyników szukania — to one
+mówią obsłudze, ile jest do zrobienia teraz, i szukanie nie powinno tego mieszać.
+
+Historię rezerwacji pobieramy raz, przy pierwszym szukaniu, i dzielimy ją
+z zakładką 7 oraz z kwotami w rankingu. Każda zmiana (akceptacja, opłata, godzina
+wyjścia, usunięcie, dziecko z ulicy) unieważnia ten zapas, więc następne wejście
+w zakładkę widzi świeże dane.
+
 ### Zakładka 6 · Czas zabawy
 
 Jedna lista wszystkich, którzy są dziś w bawialni — **z zajęć, z rezerwacji i wprowadzonych
@@ -515,7 +589,19 @@ ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekund�
   jak każdy inny — dziecko może przecież zostać dłużej.
 * Lista dotyczy **dzisiejszego dnia**; jutro zaczyna się od nowa, bez sprzątania ręką.
 * **Wyszukiwarka** po imieniu, telefonie, źródle i godzinach; **Pobierz CSV** zgrywa to,
-  co aktualnie widać.
+  co aktualnie widać (razem z kolumną „Opłacone”).
+* **Kolumna „Opłacone”** — odhaczasz wprost w wierszu, bez szukania tego samego pobytu
+  w innej zakładce. Ranking i Finanse aktualizują się od razu. Przy zapisie na zajęcia
+  checkbox jest wyłączony: taki zapis trafia tu dopiero jako „przyszedł + opłacone”,
+  więc odznaczenie zabrałoby go z listy w tej samej sekundzie — opłatę zmienia się
+  w zakładce **2 · Zapisani**.
+* **Edycja pobytu** — kliknij w imię dziecka albo w przycisk **Edytuj**. Rezerwacje
+  i wejścia otwierają się w tym samym okienku, w którym się je dodaje: te same pola,
+  ta sama wycena, ta sama walidacja. Cena przelicza się od nowa, więc dopisanie dziecka
+  albo zmiana czasu pobytu od razu daje właściwą kwotę. Pola, których to okienko nie
+  obsługuje (rodzic, e-mail, uwagi klienta), zostają nietknięte.
+  Zapisu na zajęcia nie da się tu sensownie edytować — ma własne pola, więc przycisk
+  przenosi do zakładki **2 · Zapisani** z wpisanym numerem rezerwacji.
 * Akcje w każdym wierszu: **+15 min**, **+ minuty**, **Zakończ**, **Usuń**. Każda pyta
   o potwierdzenie — przy ladzie łatwo o kliknięcie w biegu, a te operacje ruszają licznik
   na stronie i ranking.
@@ -529,12 +615,37 @@ ręcznie przy drzwiach** — z czasem lecącym w dół, odświeżanym co sekund�
   a przy zapisie na zajęcia tylko odznacza obecność, więc dziecko znika z bawialni,
   ale sam zapis zostaje.
 
-**Dziecko z ulicy.** Przycisk **„+ Dziecko z ulicy”** otwiera formularz: imiona po przecinku,
-godzina od i do, liczba dzieci, telefon i opcjonalnie „opłacone”. Taki wpis zapisujemy jako
-rezerwację od razu zaakceptowaną, z oznaczeniem `source: 'walkin'` — dzięki temu bez żadnego
-dodatkowego kodu wchodzi do licznika na stronie głównej, na listę czasu zabawy, a po
-odhaczeniu opłaty także do rankingu. Reguły pozwalają założyć rezerwację od razu
-zaakceptowaną **wyłącznie administratorowi**; klient przez formularz nadal tworzy `pending`.
+**Nowe wejście.** Przycisk **„+ Nowe wejście”** otwiera formularz dla kogoś, kto przyszedł
+bez zapisu:
+
+* **Dzieci wierszami** — imię i (nieobowiązkowa) data urodzenia, osobno dla każdego dziecka.
+  Przyszło rodzeństwo? Jeden rekord, dwa wiersze, cena naliczona każdemu osobno.
+* **Cena liczy się sama, tym samym cennikiem co rezerwacja ze strony**: taryfa dnia
+  (weekend i święta drożej), progi wiekowe (do 6. miesiąca gratis, do 1. roku połowa)
+  i zniżka rodzeństwa −20% od dwojga dzieci. Wycena przelicza się przy każdej zmianie,
+  z rozpisaniem na poszczególne dzieci — obsługa widzi, skąd wzięła się kwota.
+* **Czas pobytu** to trzy kafelki z ceną — te same, co w formularzu klienta.
+  Cena na kafelku zależy od taryfy dnia, więc w weekend od razu widać wyższe stawki.
+  Wybór przestawia i cenę, i godzinę wyjścia; „bez limitu” ustawia godzinę zamknięcia
+  właściwą dla danego dnia. Pobyt, który nie zmieści się przed zamknięciem, jest
+  wyłączony z podpisem — a jeśli przestał się mieścić po zmianie godziny wejścia,
+  zaznaczenie samo przeskakuje na pierwszy pasujący.
+* Pod wyceną jest zwijany **cennik wstępu** — składany z tych samych tabel,
+  z których liczy się cena, więc nie ma jak rozjechać się z rzeczywistością.
+* **Forma płatności** z listy `SETTINGS.paymentMethods` — trafia do rekordu, na kafelek
+  w zakładce 5 i do kolumny „Płatność / taryfa” w arkuszu CSV.
+* **Zamknięcie z wpisanymi danymi pyta**, dokładnie tak samo jak przy zajęciach: wylicza,
+  które pola są wypełnione, i daje trzy wyjścia — dodać, odrzucić albo wrócić do formularza.
+  Kliknięcie obok okienka ani Escape nie kasują już wpisanych danych bez słowa.
+
+Taki wpis zapisujemy jako rezerwację od razu zaakceptowaną, z oznaczeniem `source: 'walkin'` —
+dzięki temu bez żadnego dodatkowego kodu wchodzi do licznika na stronie głównej, na listę
+czasu zabawy, a po odhaczeniu opłaty także do rankingu. Reguły pozwalają założyć rezerwację
+od razu zaakceptowaną **wyłącznie administratorowi**; klient przez formularz nadal tworzy
+`pending`.
+
+Wejścia z ulicy mają teraz **prawdziwą kwotę**, więc widać je w zakładce Finanse — wcześniej
+zapisywały się z ceną zero i znikały z wykresu przychodu wg zajęć.
 
 ### Co widzi klient
 
@@ -584,11 +695,19 @@ Jedno zgłoszenie na czworo dzieci to **czworo dzieci**, nie jedno. Kafelki
 Po upływie ostatniej godziny wyjścia licznik sam wraca do zera.
 
 **Maksimum (mianownik).** Osobna karta **„Maksimum miejsc”** w zakładce 3 —
-ustawiasz, ile dzieci mieści się jednocześnie, i klikasz „Zapisz maksimum”.
+ustawiasz, ile dzieci mieści się jednocześnie, i klikasz „Zapisz maksimum”
+(przycisk stoi pod polem, bo pole jest wąskie i przycisk rozciągnięty na pół karty
+wyglądałby na ważniejszy niż samo ustawienie).
 Obowiązuje w obu trybach i nie resetuje się przy odświeżaniu licznika.
 
 **Ręcznie:** zakładka **3 · Licznik w bawialni** — wpisujesz liczbę dzieci i godzinę.
-Przycisk „Wróć do trybu automatycznego” oddaje sterowanie checkboxom.
+
+Tryb przełącza **suwak „Tryb automatyczny”**, domyślnie włączony. Po wyłączeniu podpis
+zmienia się na „Tryb ręczny”, a pod spodem widać, co to znaczy dla strony. Tryb jest
+**stanem, nie czynnością**, więc suwak zamiast przycisku „Wróć do trybu automatycznego”:
+od razu widać, co jest włączone. Stan przychodzi z bazy, więc dwa panele otwarte obok
+siebie pokazują to samo. Samo przełączenie w tryb ręczny nie zmienia liczby na liczniku —
+przepisuje to, co już na nim jest.
 
 **Licznik odwiedzin** („Odwiedziło nas już 266 dzieci”) rośnie o **liczbę zapisanych
 dzieci**, a nie o liczbę zgłoszeń — jeden zapis na 2 miejsca podbija go o 2.
@@ -600,12 +719,215 @@ Przycisk **„Przelicz z bazy”** sumuje dzieci ze wszystkich zapisów na zaję
 i z zaakceptowanych rezerwacji — **nie rekordy**. Zgłoszenie na czworo dzieci
 liczy się jako cztery.
 
+**Trzy przyciski pytają przed wykonaniem** — „Wyzeruj licznik”, „Zapisz licznik
+odwiedzin” i „Przelicz z bazy zapisów”. Każdy z nich zmienia to, co widzą wszyscy
+odwiedzający stronę, a żadnego nie da się cofnąć jednym kliknięciem. Okienko
+(`askConfirm` z `mc-common.js`) mówi wprost, co się stanie, i wypisuje skutki:
+przy zerowaniu na przykład, że licznik przejdzie w tryb ręczny, a dzieci zostaną
+w zakładce 6. Kliknięcie w tło i Escape zawsze znaczą „nie”, a przy zerowaniu
+focus siada na „Anuluj” — Enter odruchowo wciśnięty po otwarciu okienka niczego
+nie skasuje.
+
 ## Ranking wizyt (zakładka 4)
 
 Każde potwierdzone „Przyszedł + Opłacone” dopisuje dziecku wizytę i czas pobytu:
 *Zosia Kowalska, 726 431 978, 3 wizyty, 6 godz.* — dokładnie tak przy trzech
 wizytach po 2 h, 3 h i 1 h. Odznaczenie checkboxa cofa wizytę. Jest eksport do CSV.
 Dzieci rozpoznajemy po **numerze telefonu** — ten sam numer to ta sama kartoteka.
+
+**Kolumna „Zapłacono”** pokazuje, ile ten rodzic u nas łącznie zostawił — zajęcia
+i wstęp do bawialni razem, wyłącznie pozycje odhaczone jako opłacone. Kwot nie
+trzymamy w kartotece: doliczamy je z historii zamówień tym samym rachunkiem, co
+zakładka **7 · Finanse**, więc obie zakładki nie mogą pokazać różnych liczb.
+Dzięki temu kwoty działają też dla wizyt sprzed wprowadzenia tej kolumny —
+nie było czego wstecznie dopisywać do bazy.
+
+Pod tabelą stoi suma dla **aktualnie wyświetlanej listy** — po wpisaniu czegoś
+w wyszukiwarkę zobaczysz sumę dla znalezionych rodziców, a nie dla całego rankingu.
+Kwoty przychodzą chwilę po samej liście (najpierw ranking, potem historia zamówień);
+zanim doliczą się do końca, w kolumnie stoi kreska. Kreska zamiast `0,00 zł` znaczy
+„jeszcze nie wiem”, a nie „nic nie zapłacił” — to dwie różne rzeczy.
+
+Eksport CSV ma tę kolumnę razem z resztą.
+
+---
+
+## Finanse (zakładka 7)
+
+Jedna kasa dla obu źródeł pieniędzy: **zapisów na zajęcia** i **rezerwacji wstępu
+do bawialni** (razem z wejściami z ulicy). Obie kolekcje sprowadzamy w
+`assets/mc-finanse.js` do wspólnego kształtu „transakcji" i dopiero na nim liczą
+się wszystkie kafelki — dzięki temu nie ma dwóch równoległych sposobów liczenia
+przychodu, które prędzej czy później by się rozjechały.
+
+**Trzy zasady, które warto znać, zanim spojrzysz na liczby:**
+
+* **Przychód to wyłącznie to, co odhaczono jako „opłacone".** Zamówienie bez
+  opłaty nie jest sprzedażą — czeka w kafelku „Do zainkasowania" w karcie *Saldo
+  okresu*. Odhaczasz je w zakładce **2 · Zapisani** albo **5 · Rezerwacje**.
+* **Odrzucone rezerwacje nie liczą się wcale.** Nikt za nie nie zapłacił i nie
+  zapłaci; widać je tylko w zakładce 5.
+* **Kwotę przypisujemy do dnia zajęć albo wizyty**, a nie do dnia, w którym ktoś
+  wypełnił formularz. Tak myśli obsługa („ile zarobiliśmy w sobotę"), a `eventDate`
+  i `date` są w bazie zawsze, w przeciwieństwie do znacznika utworzenia.
+
+**Co pokazuje zakładka**
+
+| Kafelek | Co liczy |
+|---|---|
+| Sprzedaż | Suma opłaconych kwot w wybranym okresie. |
+| Liczba rezerwacji | Wszystkie zamówienia, także te jeszcze nieopłacone. |
+| Średnia wartość transakcji | Sprzedaż podzielona przez liczbę **opłaconych** pozycji. |
+| Nowi klienci | Ilu rodziców trafiło do nas **pierwszy raz w życiu** w tym okresie. |
+| Przychód w czasie | Sprzedaż dzień po dniu. |
+| Przychód wg zajęć | Rozbicie na nazwy zajęć i wstęp — **cała historia**, nie tylko okres. |
+| Przychód na rezerwację | Sprzedaż podzielona przez **wszystkie** zamówienia danego dnia. |
+| Przychód wg dnia tygodnia | Od poniedziałku. Nad wykresem najlepszy dzień okresu. |
+| Skumulowany przychód | Narastająco — na końcu krzywej stoi suma całego okresu. |
+| Saldo okresu | Ile wpłynęło, ile zostało do zainkasowania, ile dzieci. |
+
+### Wybór okresu
+
+Przycisk z datą otwiera okienko: po lewej gotowe skróty, po prawej dwa miesiące
+kalendarza z polami **od → do**.
+
+* **Dzisiaj**, **Wczoraj** — jednym kliknięciem.
+* **Ostatnie** — 7 / 14 / 30 / 90 / 365 dni, licząc z dzisiejszym włącznie.
+* **Do dzisiaj** — ten tydzień, miesiąc, kwartał, rok, każdy do dziś.
+* **Kwartały** — cztery kwartały bieżącego roku i cztery poprzedniego
+  (przy styczniowym zamknięciu roku najczęściej patrzy się właśnie na te drugie).
+* **Dowolny zakres z kalendarza** — pierwszy klik zaczyna, drugi domyka,
+  trzeci zaczyna od nowa. Kolejność nie ma znaczenia: kliknięcie „od tyłu"
+  prostuje się samo. Można też wpisać daty w pola u góry.
+
+Dni z przyszłości są zablokowane — w finansach nie ma tam czego szukać,
+a pusty wykres „do 2030 roku" wygląda jak awaria.
+
+Nic nie przelicza się, dopóki nie klikniesz **Zastosuj**; **Anuluj** naprawdę
+anuluje, bo okienko pracuje na własnej kopii wyboru.
+
+### Do czego porównujemy
+
+Drugi przycisk ustawia **jaśniejszą linię** na wykresach:
+
+* **Poprzedni okres** (domyślnie) — ten sam co do długości okres tuż przed wybranym;
+* **Ten sam okres rok temu** — przy sezonowym ruchu sensowniejszy, bo bawialnia
+  w wakacje i bawialnia w listopadzie to dwa różne światy;
+* **Bez porównania** — sam bieżący okres. Plakietki zmiany pokazują wtedy kreskę,
+  bo „nie ma do czego porównać" to nie to samo co „bez zmian".
+
+Kreskę zobaczysz też wtedy, gdy okres porównawczy był pusty — z zera nie da się
+urosnąć o żaden sensowny procent.
+
+### Arkusz CSV
+
+**Pobierz CSV** zgrywa pozycje z wybranego okresu — ale nie samą kwotę.
+W pliku jest **23 kolumny**, czyli komplet tego, co o zgłoszeniu wiemy:
+
+| | |
+|---|---|
+| Kiedy | data, dzień tygodnia, godzina od i do |
+| Co | źródło (zajęcia / bawialnia / wejście z ulicy), nazwa pozycji, status |
+| Kto | numer rezerwacji, imiona dzieci, rodzic, telefon, e-mail |
+| Za ile | cena za dziecko, kwota, opłacone |
+| Reszta | przyszedł, w rankingu, metoda płatności albo taryfa, czas pobytu, uwagi rodzica, uwagi obsługi, kiedy zgłoszenie powstało |
+
+Po to, żeby arkusz wystarczał do rozliczenia i do obdzwonienia nieopłaconych —
+bez wracania do panelu po każdy telefon.
+
+Zakres wierszy jest **ten sam, co na wykresach**: odrzucone rezerwacje pominięte,
+więc suma kolumny „Kwota" po odfiltrowaniu opłaconych zgadza się z kafelkiem
+„Sprzedaż". Kwoty mają przecinek dziesiętny, a plik zaczyna się znacznikiem BOM,
+więc polski Excel otwiera go poprawnie dwuklikiem. Uwagi wieloliniowe
+spłaszczamy do jednej linii, żeby nie rozjechały wiersza.
+
+### Dymek pod kursorem
+
+Najedź na dowolny wykres (także na iskierkę w kafelku), a zobaczysz **dokładne
+liczby z konkretnego dnia**: datę, wartość bieżącego okresu i wartość okresu
+porównawczego, każdą przy kropce w kolorze swojej linii. Pionowa prowadnica
+i kropki na liniach pokazują, o który dzień chodzi. Na wykresie dnia tygodnia
+dymek podaje nazwę dnia i kwotę.
+
+Na telefonie i tablecie działa **dotknięciem**, nie przeciągnięciem: przesunięcie
+palcem po wykresie przewija stronę (`touch-action: pan-y`), a dymek pokazuje się
+dopiero po dotknięciu i znika przy przewijaniu. Bez tego zakładka Finanse — prawie
+same wykresy — łapała gest przewijania i nie dało się zejść na dół strony.
+
+---
+
+## Panel na telefonie
+
+* **Pasek zakładek** to jeden rząd przewijany w bok. Siedem zakładek zawijało się
+  wcześniej w cztery rzędy i zjadało ćwierć ekranu, zanim pokazała się treść.
+  Po przełączeniu wybrana zakładka sama wjeżdża na środek paska.
+* **Menu strony** ma pięć sposobów zamknięcia: przycisk, link, dotknięcie obok,
+  Escape i powiększenie okna do wersji desktopowej. Wcześniej działały dwa
+  pierwsze — kto otworzył menu i dotknął obok, zostawał z zablokowanym
+  przewijaniem i bez widocznego wyjścia.
+* Pod otwartym menu jest **przyciemnienie**, a przycisk zamykania (krzyżyk)
+  zostaje nad menu, więc widać, jak wrócić.
+* Blokada przewijania obejmuje `html`, nie tylko `body` — elementem przewijanym
+  jest `html`, więc wcześniej strona jechała pod otwartym menu.
+* Menu mierzy wysokość w `dvh`, a nie `vh`: `100vh` liczy się razem z paskiem
+  adresu przeglądarki, przez co dolne pozycje lądowały pod krawędzią ekranu.
+  Gdy pozycji jest więcej niż mieści ekran, menu **przewija się w środku**,
+  a `overscroll-behavior: contain` pilnuje, żeby gest nie przelewał się na
+  stronę pod spodem (to od tego widok „odbijał" w górę).
+
+**Blokadę przewijania robi JavaScript, nie CSS.** `overflow:hidden` na `<html>`
+bywa na telefonach nieskuteczne, a przy okazji potrafi przesunąć elementy
+`position:fixed` — menu otwarte w połowie strony lądowało wtedy poza ekranem,
+przy zablokowanej stronie, więc nie dało się do niego dojechać. Zamiast tego
+unieruchamiamy `<body>` (`position:fixed` z ujemnym `top`) i po zamknięciu
+przywracamy dokładną pozycję przewinięcia.
+
+**Nagłówek traci `backdrop-filter` na czas otwarcia menu.** Każdy filtr tworzy
+blok zawierający dla potomków `position:fixed`, a menu jest dzieckiem nagłówka —
+bez tego jego przypięcie zależałoby od tego, czy strona jest przewinięta.
+
+**To samo menu jest na stronie głównej** (`css/style.css` + `js/main.js`) —
+ma własną kopię kodu, więc każdą z tych poprawek trzeba wprowadzić w obu
+miejscach.
+
+**Nagłówek i pasek „Powrót do…" przyklejają się do góry razem**, jako jeden
+blok `.mc-chrome` (tworzy go `mc-common.js`). Wcześniej każdy przyklejał się
+osobno i pasek musiał znać wysokość nagłówka — a każda liczba wpisana na sztywno
+(56 px na telefonie, 60 px na komputerze) rozjeżdżała się z rzeczywistymi 65 px
+i przycisk był przycinany od góry. Teraz nie ma czego dopasowywać: oba leżą
+jeden pod drugim w normalnym przepływie, więc **nie mają jak na siebie nachodzić**
+niezależnie od wysokości nagłówka, kroju pisma i szerokości ekranu.
+
+`position:sticky` na samym nagłówku i pasku zostaje w arkuszu jako zapas —
+działa, gdyby przeglądarka miała jeszcze zapamiętany stary `mc-common.js`
+(arkusz ma wersję w adresie, skrypt nie).
+
+**Po zmianie arkuszy podbij `?v=`**: w `index.html` przy `style.css`, `main.js`
+i `cookies.js`, a w podstronach zapisów przy `assets/mc-common.css`. Bez tego
+wracający goście dostają starą wersję z cache — i wygląda to jak „poprawka
+działa u jednych, u drugich nie". `mc-common.js` celowo nie ma wersji: importuje
+go kilkanaście modułów i wystarczy pominąć jedno miejsce, żeby przeglądarka
+wczytała moduł dwa razy pod dwoma adresami.
+* Filtry w zakładce Finanse układają się w dwie kolumny zamiast czterech
+  osobnych rzędów.
+
+**Nowi klienci** liczą się z całej bazy, a nie z okresu: stały bywalec nie może
+zrobić się „nowy" tylko dlatego, że zmieniliśmy filtr dat. Rodzica rozpoznajemy
+po numerze telefonu, tak samo jak w rankingu wizyt.
+
+**Wejścia z ulicy** mają w bazie kwotę zero (przy drzwiach nikt nie wpisuje ceny),
+więc nie pojawiają się na wykresie przychodu wg zajęć — ale wchodzą do liczby
+rezerwacji i do licznika. Jeśli chcesz je widzieć w pieniądzach, wpisz kwotę
+przy rezerwacji.
+
+W odróżnieniu od pozostałych zakładek ta **nie słucha bazy na żywo**: historię
+ściągamy raz, przy pierwszym wejściu, i odświeżamy przyciskiem **Odśwież**.
+Nasłuch na wszystkich zapisach i rezerwacjach naraz kosztowałby tyle odczytów,
+że szkoda darmowego limitu Firebase. **Pobierz CSV** zgrywa pozycje z wybranego
+okresu — data, źródło, nazwa, dzieci, kwota, opłacone.
+
+Wykresy to ręcznie robione SVG, bez żadnej biblioteki z sieci — panel ma działać
+także wtedy, gdy CDN nie odpowiada. Matematykę pilnuje `node tools/test-finanse.mjs`.
 
 ---
 

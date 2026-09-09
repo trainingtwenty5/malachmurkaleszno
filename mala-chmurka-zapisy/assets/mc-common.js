@@ -178,25 +178,77 @@ export function mountChrome(opts = {}) {
     });
   }
 
-  document.body.prepend(backbar);
-  document.body.prepend(header);
+  /* Nagłówek i pasek powrotu w jednym przyklejanym bloku — patrz `.mc-chrome`
+     w mc-common.css. Dzięki temu pasek nie może wjechać pod nagłówek. */
+  const chrome = document.createElement('div');
+  chrome.className = 'mc-chrome';
+  chrome.append(header, backbar);
+  document.body.prepend(chrome);
   document.body.append(footer);
 
+  /* ---------------------------------------------------------------- MENU
+     Menu na telefonie ma jeden stan i pięć sposobów zamknięcia: przycisk,
+     link, dotknięcie obok, Escape i powiększenie okna do wersji desktopowej.
+     Wcześniej działały tylko dwa pierwsze — kto otworzył menu i dotknął obok,
+     zostawał z zablokowanym przewijaniem i bez widocznego wyjścia. */
   const btn = header.querySelector('#mcNavToggle');
   const nav = header.querySelector('#mcNav');
-  btn.addEventListener('click', () => {
-    const open = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!open));
-    nav.classList.toggle('is-open', !open);
-    document.body.classList.toggle('nav-open', !open);
-  });
-  nav.addEventListener('click', e => {
-    if (e.target.tagName === 'A') {
-      btn.setAttribute('aria-expanded', 'false');
-      nav.classList.remove('is-open');
-      document.body.classList.remove('nav-open');
+
+  /* Przyciemnienie pod menu — element tylko dla oka, klik obsługujemy niżej.
+     Wisi na <body>, a nie w nagłówku: nagłówek ma `backdrop-filter`, a ten
+     tworzy blok zawierający dla `position:fixed` i zamknąłby przyciemnienie
+     w wysokości samego paska. */
+  const backdrop = document.createElement('div');
+  backdrop.className = 'nav-backdrop';
+  backdrop.hidden = true;
+  document.body.appendChild(backdrop);
+
+  /* Blokada przewijania strony pod otwartym menu.
+     NIE robimy tego przez `overflow:hidden` na <html>. Na telefonach (przede
+     wszystkim iOS) taka blokada bywa nieskuteczna, a przy okazji potrafi
+     przesunac elementy `position:fixed` — menu otwarte w polowie strony
+     ladowalo wtedy poza ekranem, a strona byla zablokowana, wiec nie dalo sie
+     do niego dojechac. Zamiast tego unieruchamiamy <body> i przesuwamy je
+     o dotychczasowe przewiniecie: strona stoi, menu trzyma sie okna,
+     a po zamknieciu wracamy dokladnie tam, gdzie uzytkownik byl. */
+  let scrollPrzedMenu = 0;
+  const blokujPrzewijanie = wlacz => {
+    const b = document.body;
+    if (wlacz) {
+      scrollPrzedMenu = window.pageYOffset || document.documentElement.scrollTop || 0;
+      Object.assign(b.style, { position: 'fixed', top: `${-scrollPrzedMenu}px`,
+                               left: '0', right: '0', width: '100%' });
+    } else {
+      Object.assign(b.style, { position: '', top: '', left: '', right: '', width: '' });
+      window.scrollTo({ top: scrollPrzedMenu, left: 0, behavior: 'instant' });
     }
+  };
+
+  const setNav = open => {
+    btn.setAttribute('aria-expanded', String(open));
+    nav.classList.toggle('is-open', open);
+    document.body.classList.toggle('nav-open', open);
+    document.documentElement.classList.toggle('nav-open', open);
+    backdrop.hidden = !open;
+    /* Menu otwiera sie zawsze od gory listy — bez tego zostawalaby pozycja
+       z poprzedniego otwarcia i wygladaloby to jak ucieta lista. */
+    if (open) nav.scrollTop = 0;
+    blokujPrzewijanie(open);
+  };
+  const navOpen = () => btn.getAttribute('aria-expanded') === 'true';
+
+  btn.addEventListener('click', e => { e.stopPropagation(); setNav(!navOpen()); });
+  nav.addEventListener('click', e => { if (e.target.tagName === 'A') setNav(false); });
+  backdrop.addEventListener('click', () => setNav(false));
+  /* Dotknięcie czegokolwiek poza menu zamyka je — tak zachowuje się każde
+     menu, którego ludzie używają na co dzień. */
+  document.addEventListener('click', e => {
+    if (navOpen() && !nav.contains(e.target) && e.target !== btn) setNav(false);
   });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && navOpen()) setNav(false); });
+  /* Obrót telefonu albo powiększenie okna: menu mobilne znika z układu,
+     ale klasa blokująca przewijanie zostałaby na `html` i `body`. */
+  addEventListener('resize', () => { if (navOpen() && innerWidth > 860) setNav(false); });
 
   /* Menu wie, czy ktoś jest zalogowany. Firebase dociągamy dynamicznie i bez
      blokowania — gdyby się nie wczytał, w menu zostają zwykłe linki do konta. */
@@ -304,6 +356,105 @@ export function askSaveOrDiscard({
  * było wklepać „RRRR-MM-DD" z palca.
  * @returns {Promise<string|null>} data w formacie ISO albo null (anulowano)
  */
+/**
+ * Okienko do rozpisania serii terminów: dni tygodnia i koniec serii.
+ * Ten sam zestaw pytań, co sekcja „Powtarzanie" w oknie zajęć, tylko wywołany
+ * osobno — z listy zajęć, dla czegoś, co już istnieje.
+ *
+ * @param {string} o.startISO  data pierwszego (istniejącego) terminu
+ * @returns {Promise<string[]|null>} daty kolejnych terminów albo `null`
+ */
+export function askSeries({
+  title = 'Powiel zajęcia',
+  text = '',
+  startISO = '',
+  confirmLabel = 'Powiel',
+  cancelLabel = 'Anuluj'
+} = {}) {
+  return new Promise(resolve => {
+    const dni = new Set();
+    const box = document.createElement('div');
+    box.className = 'ask-back';
+    box.innerHTML = `
+      <div class="ask ask-wide" role="dialog" aria-modal="true" aria-labelledby="askSeriesTitle">
+        <h2 id="askSeriesTitle">${esc(title)}</h2>
+        ${text ? `<p>${esc(text)}</p>` : ''}
+        <span class="lbl">Powtarzaj w</span>
+        <div class="rep-days" id="asDays" role="group" aria-label="Dni tygodnia">
+          ${DAY_SHORT.map((d, i) => `<button type="button" data-day="${i}" aria-pressed="false"
+              title="${esc(DAY_NAMES[i])}">${esc(d[0].toUpperCase())}</button>`).join('')}
+        </div>
+        <p class="hint" style="margin:6px 0 12px">Nic nie zaznaczone = co tydzień w ten sam
+          dzień, co pierwszy termin.</p>
+
+        <span class="lbl">Kończy się</span>
+        <div class="rep-end">
+          <label class="check"><input type="radio" name="asEnd" id="asEndDate" value="date" checked><span>W dniu</span></label>
+          <input class="control" id="asUntil" type="date" aria-label="Ostatni dzień serii">
+        </div>
+        <div class="rep-end">
+          <label class="check"><input type="radio" name="asEnd" id="asEndCount" value="count"><span>Po wystąpieniu</span></label>
+          <input class="control" id="asCount" type="number" min="2" max="120" value="8" aria-label="Ile wystąpień">
+        </div>
+
+        <p class="hint" id="asInfo" style="margin:10px 0 0"></p>
+        <div class="ask-acts">
+          <button class="btn btn-primary btn-block" data-a="ok">${esc(confirmLabel)}</button>
+          <button class="btn btn-soft btn-block" data-a="no">${esc(cancelLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    requestAnimationFrame(() => box.classList.add('is-on'));
+
+    const q = sel => box.querySelector(sel);
+    q('#asUntil').value = startISO ? isoDate(addDays(parseDate(startISO), 7 * 8)) : '';
+
+    const daty = () => seriesDates({
+      startISO,
+      weekdays: [...dni],
+      endMode: q('#asEndCount').checked ? 'count' : 'date',
+      endDate: q('#asUntil').value,
+      count: Number(q('#asCount').value) || 2
+    });
+
+    const odswiez = () => {
+      box.querySelectorAll('#asDays button').forEach(b =>
+        b.setAttribute('aria-pressed', String(dni.has(Number(b.dataset.day)))));
+      const naDate = !q('#asEndCount').checked;
+      q('#asUntil').disabled = !naDate;
+      q('#asCount').disabled = naDate;
+      const d = daty();
+      q('#asInfo').textContent = d.length
+        ? `Powstanie ${d.length} kolejnych terminów, ostatni ${shortDate(d[d.length - 1])}.`
+        : 'Przy tych ustawieniach nie powstanie żaden dodatkowy termin.';
+      q('[data-a="ok"]').disabled = !d.length;
+    };
+
+    box.querySelectorAll('#asDays button').forEach(b => b.onclick = () => {
+      const i = Number(b.dataset.day);
+      if (dni.has(i)) dni.delete(i); else dni.add(i);
+      odswiez();
+    });
+    ['#asEndDate', '#asEndCount', '#asUntil', '#asCount'].forEach(sel =>
+      q(sel).addEventListener('change', odswiez));
+    q('#asCount').addEventListener('input', odswiez);
+    odswiez();
+
+    const done = answer => {
+      box.classList.remove('is-on');
+      setTimeout(() => box.remove(), 160);
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const onKey = e => { if (e.key === 'Escape') done(null); };
+
+    q('[data-a="ok"]').onclick = () => { const d = daty(); done(d.length ? d : null); };
+    q('[data-a="no"]').onclick = () => done(null);
+    box.addEventListener('click', e => { if (e.target === box) done(null); });
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 export function askDate({
   title = 'Wybierz datę',
   text = '',
@@ -676,7 +827,79 @@ export function normPhone(p) {
   return digits.length > 9 ? digits.slice(-9) : digits;
 }
 
+/* ==========================================================================
+   POWTARZAJĄCE SIĘ ZAJĘCIA
+   --------------------------------------------------------------------------
+   Zamiast wpisywać „powiel na 8 tygodni" i liczyć w pamięci, obsługa zaznacza
+   dni tygodnia i mówi, kiedy seria ma się skończyć. Tu zamieniamy to na zwykłą
+   listę dat — funkcja jest czysta, więc daje się sprawdzić bez przeglądarki.
+   ========================================================================== */
+
+/**
+ * Daty KOLEJNYCH wystąpień serii. Pierwsze wystąpienie to sam oryginał
+ * (`startISO`) i celowo nie trafia do wyniku — ono już istnieje.
+ *
+ * @param {object} o
+ * @param {string} o.startISO  data pierwszych zajęć
+ * @param {number[]} [o.weekdays]  dni tygodnia, 0 = poniedziałek … 6 = niedziela.
+ *        Pusta lista znaczy „co tydzień w ten sam dzień, co oryginał".
+ * @param {'date'|'count'} [o.endMode]  czym kończy się seria
+ * @param {string} [o.endDate]  ostatni możliwy dzień (przy endMode 'date')
+ * @param {number} [o.count]  ile wystąpień ŁĄCZNIE z oryginałem (przy 'count')
+ * @param {number} [o.max]  twardy limit — zabezpieczenie przed serią bez końca
+ * @returns {string[]} daty w kolejności rosnącej
+ */
+export function seriesDates({ startISO, weekdays = [], endMode = 'count',
+                              endDate = '', count = 1, max = 120 } = {}) {
+  if (!startISO) return [];
+  /* Bez zaznaczonych dni powtarzamy w ten sam dzień tygodnia, co oryginał —
+     tak działa domyślne „co tydzień" i nie trzeba niczego klikać. */
+  const wanted = weekdays.length
+    ? [...new Set(weekdays.map(Number))].filter(n => n >= 0 && n <= 6)
+    : [(parseDate(startISO).getDay() + 6) % 7];
+  if (!wanted.length) return [];
+
+  const byCount = endMode === 'count';
+  const ile = Math.max(1, Math.min(max, Math.floor(Number(count) || 1)));
+  if (byCount && ile <= 1) return [];
+  if (!byCount && (!endDate || endDate <= startISO)) return [];
+
+  const out = [];
+  let d = parseDate(startISO);
+  /* Oryginał liczy się jako pierwsze wystąpienie. */
+  let wystapien = 1;
+  /* Zapas na dwa lata dziennych kroków — seria dłuższa i tak wpada w `max`. */
+  for (let krok = 0; krok < 366 * 2; krok++) {
+    d = addDays(d, 1);
+    const iso = isoDate(d);
+    if (!byCount && iso > endDate) break;
+    if (!wanted.includes((d.getDay() + 6) % 7)) continue;
+    out.push(iso);
+    wystapien++;
+    if (out.length >= max) break;
+    if (byCount && wystapien >= ile) break;
+  }
+  return out;
+}
+
 export const params = () => new URLSearchParams(location.search);
+
+/**
+ * Dokąd przewinąć pasek przewijany w bok, żeby wskazany element wylądował
+ * na środku. Liczymy sami, zamiast wołać `scrollIntoView` — ta ostatnia
+ * przy `behavior:'smooth'` bywa przerywana przez każdą inną zmianę układu
+ * i potrafiła zostawić pasek tam, gdzie był.
+ *
+ * @param {number} itemLeft   pozycja elementu wewnątrz paska (offsetLeft)
+ * @param {number} itemWidth  szerokość elementu
+ * @param {number} viewWidth  widoczna szerokość paska (clientWidth)
+ * @param {number} scrollMax  scrollWidth - clientWidth
+ * @returns {number} docelowy scrollLeft, przycięty do zakresu paska
+ */
+export function centerScrollLeft(itemLeft, itemWidth, viewWidth, scrollMax) {
+  const target = itemLeft - (viewWidth - itemWidth) / 2;
+  return Math.round(Math.min(Math.max(0, target), Math.max(0, scrollMax)));
+}
 
 /**
  * Numer rezerwacji pokazywany klientowi i wyszukiwany przez obsługę.
@@ -965,7 +1188,10 @@ export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
       startMin: toMin(r.eventStart),
       endMin: toMin(r.stayUntil || r.eventEnd),
       phone: r.phone || '',
-      title: r.eventTitle || ''
+      title: r.eventTitle || '',
+      /* Stan opłaty pokazujemy wprost w tabeli, żeby obsługa nie musiała
+         szukać tego samego pobytu w dwóch innych zakładkach. */
+      paid: !!r.paid
     });
   });
 
@@ -979,7 +1205,8 @@ export function playtimeRows({ regs, bookings, dateISO, atMin, dayEnd } = {}) {
       startMin: toMin(b.start),
       endMin: bookingEndMin(b, dayEnd),
       phone: b.phone || '',
-      title: b.durationLabel || ''
+      title: b.durationLabel || '',
+      paid: !!b.paid
     });
   });
 
