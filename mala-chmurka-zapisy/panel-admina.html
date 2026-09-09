@@ -504,7 +504,7 @@
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
-         askConfirm, orderRef, matchesRef,
+         askConfirm, askText, orderRef, matchesRef,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { mountGallery } from './assets/mc-galeria.js';
@@ -1295,8 +1295,28 @@ async function decide(id, status) {
   const b = BOOKINGS.find(x => x.id === id);
   let note = '';
   if (status === 'rejected') {
-    note = prompt('Powód odmowy (zobaczy go klient — możesz zostawić puste):',
-                  'Tego dnia mamy komplet.') ?? null;
+    /* Powód zobaczy klient w historii zamówień, więc pytamy o niego własnym
+       okienkiem, a nie systemowym `prompt()`. Ten ostatni wygląda inaczej na
+       każdej przeglądarce, pokazuje w nagłówku adres strony i — co gorsza —
+       przeglądarki po kilku takich okienkach z rzędu proponują „zablokuj
+       kolejne komunikaty z tej strony". Po zaznaczeniu tego pola `prompt()`
+       po cichu zwraca null, więc przycisk przestaje cokolwiek robić i nic
+       tego nie tłumaczy. Własnego okienka nie da się w ten sposób wyłączyć. */
+    const kto = `${b?.parentFirstName || ''} ${b?.parentLastName || ''}`.trim();
+    note = await askText({
+      title: 'Odrzucić rezerwację?',
+      text: b ? `${kto || 'Rezerwacja'} · ${shortDate(b.date)}, godz. ${b.start} · ${plDzieci(b.qty || 1)}.`
+              : 'Klient zobaczy tę odpowiedź w historii zamówień.',
+      label: 'Powód odmowy (zobaczy go klient)',
+      value: 'Tego dnia mamy komplet.',
+      placeholder: 'np. Tego dnia mamy komplet.',
+      hint: 'Możesz zostawić puste — wtedy klient zobaczy samą informację o odmowie.',
+      confirmLabel: 'Odrzuć rezerwację',
+      cancelLabel: 'Zostaw bez zmian',
+      /* Bez tego puste pole zwróciłoby `null`, czyli to samo co „Anuluj" —
+         a podpowiedź wyżej obiecuje, że puste jest w porządku. */
+      allowEmpty: true
+    });
     if (note === null) return;             // Anuluj
   }
   try {
