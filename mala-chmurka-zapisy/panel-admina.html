@@ -990,7 +990,8 @@
 import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate, shortDate,
          DAY_NAMES, DAY_SHORT, MONTHS, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          centerScrollLeft,
-         PALETTE, URLS, SETTINGS, computeLivePresence, countChildren, askSaveOrDiscard, askDate,
+         PALETTE, URLS, SETTINGS, computeLivePresence, presenceTimeline, manualActive,
+         countChildren, askSaveOrDiscard, askDate,
          askConfirm, askText, orderRef, matchesRef,
          seriesDates, openingFor, closingMinFor,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
@@ -1137,8 +1138,11 @@ function start() {
     PRESENCE = p;
     $('#cNow').textContent   = `${p.count ?? 0} / ${p.capacity ?? SETTINGS.capacity}`;
     $('#cUntil').textContent = p.until || '—';
-    $('#cMode').textContent  = p.manual ? 'ręczny' : 'automatyczny';
-    autoModePaint(!p.manual);
+    /* Ręczne nadpisanie liczy się tylko w dniu, w którym je zapisano — po
+       północy przełącznik sam wraca na „automatyczny". */
+    const reczny = manualActive(p, todayISO());
+    $('#cMode').textContent  = reczny ? 'ręczny' : 'automatyczny';
+    autoModePaint(!reczny);
     $('#mCount').value = p.count ?? 0;
     if (p.until) $('#mUntil').value = p.until;
     const cap = p.capacity ?? SETTINGS.capacity;
@@ -1151,6 +1155,13 @@ function start() {
     $('#vBase').value  = s.visitsBase ?? SETTINGS.visitsBase;
     $('#vCount').value = s.visitsCount ?? 0;
   });
+
+  /* Licznik odświeża się sam, bez klikania: raz krótko po wejściu do panelu
+     (żeby dokument dostał dzisiejszą datę i aktualny rozkład) i potem co
+     minutę. `refreshPresence` zapisuje tylko wtedy, gdy coś się zmieniło,
+     więc stojący otwarty panel nie zasypuje bazy zapisami. */
+  setTimeout(() => refreshPresence().catch(() => {}), 2500);
+  setInterval(() => refreshPresence().catch(() => {}), 60000);
 }
 
 /* ======================================================= 1. KALENDARZ ==== */
@@ -1694,19 +1705,43 @@ function renderRegStats() {
 
 async function refreshPresence({ force = false } = {}) {
   renderRegStats();
-  /* w trybie ręcznym nie nadpisujemy tego, co admin ustawił w zakładce 3 */
-  if (PRESENCE && PRESENCE.manual && !force) return false;
+  /* W trybie ręcznym nie nadpisujemy tego, co admin ustawił w zakładce 3 —
+     ale TYLKO w dniu, w którym to ustawił. Wcześniej flaga `manual` nie miała
+     końca, więc wieczorne „Wyzeruj licznik" wyłączało tryb automatyczny na
+     dobre i nazajutrz trzeba było ręcznie wracać przełącznikiem. */
+  if (manualActive(PRESENCE, todayISO()) && !force) return false;
 
+  const dzis = todayISO();
   /* Licznik sumuje dzieci z zajęć ORAZ z zaakceptowanych rezerwacji wstępu.
      Maksimum zostawiamy w spokoju — zmienia je tylko przycisk „Zapisz maksimum". */
-  const p = computeLivePresence({
-    regs: REGS, bookings: BOOKINGS,
-    dateISO: todayISO(), atMin: nowMin()
-  });
-  await pushPresence({ count: p.count, untilMin: p.untilMin, manual: false });
+  const p = computeLivePresence({ regs: REGS, bookings: BOOKINGS, dateISO: dzis, atMin: nowMin() });
+  /* Obok liczby publikujemy rozkład godzinowy dnia. Strona główna liczy z niego
+     obłożenie na bieżącą minutę, więc licznik zmienia się także wtedy, gdy
+     panel jest zamknięty. Same liczby — bez imion i telefonów. */
+  const timeline = presenceTimeline({ regs: REGS, bookings: BOOKINGS, dateISO: dzis })
+    .map(({ from, to, qty }) => ({ from, to, qty }));
+
   $('#cFromClasses').textContent  = p.fromClasses;
   $('#cFromBookings').textContent = p.fromBookings;
+
+  /* Odświeżanie chodzi co minutę, a każdy zapis do bazy kosztuje — piszemy
+     więc tylko wtedy, gdy w bazie leży co innego, niż właśnie policzyliśmy. */
+  if (!force && presenceAktualne(p, timeline)) return true;
+
+  await pushPresence({ count: p.count, untilMin: p.untilMin, manual: false, timeline });
   return true;
+}
+
+/** Czy `settings/presence` zawiera już dokładnie to, co policzyliśmy. */
+function presenceAktualne(p, timeline) {
+  if (!PRESENCE || PRESENCE.manual) return false;
+  if (PRESENCE.date !== todayISO()) return false;
+  if (!Array.isArray(PRESENCE.timeline)) return false;      // dokument sprzed tej zmiany
+  if ((Number(PRESENCE.count) || 0) !== p.count) return false;
+  if ((PRESENCE.until || '') !== (p.untilMin ? fmtMin(p.untilMin) : '')) return false;
+  /* Kolejność pól w obiekcie z bazy bywa inna, więc porównujemy po wartościach. */
+  const klucz = t => (t || []).map(x => `${x.from}-${x.to}-${x.qty}`).join('|');
+  return klucz(PRESENCE.timeline) === klucz(timeline);
 }
 
 /** Wszystkie dzieci z zapisu — nowy kształt (children[]) i stary (childFirstName). */
