@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=12">
+<link rel="stylesheet" href="assets/mc-common.css?v=13">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -85,6 +85,38 @@
   /* `.tab-badge` mieszka w mc-common.css — tę samą plakietkę rysuje też
      „Zarządzanie zajęciami", więc nie ma sensu trzymać dwóch kopii. */
   .bk-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+
+  /* ---- widok miesiąca ----
+     Miesiąc to trzydzieści kilka dni; pełne karty rezerwacji nie zmieszczą się
+     na ekranie i tak. Komórka pokazuje więc tylko to, co da się ogarnąć okiem:
+     godzinę, liczbę dzieci i kolor statusu. Kliknięcie w dzień przeskakuje na
+     jego tydzień, gdzie są pełne karty z akceptacją i opłatą — dzięki temu
+     obsługa ma jeden komplet przycisków do nauczenia się, a nie dwa. */
+  .bk-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+  .bk-month-head{font-family:var(--font-head);font-weight:700;font-size:.78rem;
+    color:var(--muted);text-align:center;padding:2px 0}
+  .bk-mday{min-height:92px;border:1px solid var(--line);border-radius:10px;background:var(--cream);
+    padding:6px 6px 8px;cursor:pointer;display:flex;flex-direction:column;gap:4px;
+    transition:background-color .15s var(--ease),border-color .15s var(--ease)}
+  .bk-mday:hover{background:var(--cream-deep);border-color:var(--brand)}
+  .bk-mday.is-today{border-color:var(--brand-deep);background:var(--brand-pale)}
+  .bk-mday.is-other{opacity:.45}
+  .bk-mday.is-excluded{border-color:rgba(181,68,60,.45);background:var(--bad-pale)}
+  .bk-mday h5{margin:0;font-family:var(--font-head);font-size:.82rem;color:var(--navy-deep);
+    display:flex;justify-content:space-between;align-items:center;gap:4px}
+  .bk-mday h5 .ile{font-size:.7rem;color:var(--muted);font-weight:600}
+  .bk-chip{font-size:.72rem;line-height:1.3;border-radius:6px;padding:2px 5px;
+    border-left:3px solid var(--line);background:var(--white);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bk-chip.pending{border-left-color:var(--warn)}
+  .bk-chip.accepted{border-left-color:var(--ok)}
+  .bk-chip.rejected{border-left-color:var(--bad);opacity:.6}
+  .bk-mday .wiecej{font-size:.7rem;color:var(--muted)}
+  @media (max-width:760px){
+    .bk-month{gap:4px}
+    .bk-mday{min-height:64px;padding:4px}
+    .bk-chip{font-size:.66rem}
+  }
   .bk-day{background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:10px 10px 6px}
   .bk-day.is-today{border-color:var(--brand-deep);background:var(--brand-pale)}
   .bk-day h4{margin:0 0 8px;font-size:.86rem;display:flex;justify-content:space-between;gap:6px}
@@ -754,7 +786,7 @@
           <div class="stat-card"><div class="k">Czekają na decyzję</div><div class="v" id="bkPending">—</div></div>
           <div class="stat-card"><div class="k">Zaakceptowane</div><div class="v" id="bkAccepted">—</div></div>
           <div class="stat-card"><div class="k">Odrzucone</div><div class="v" id="bkRejected">—</div></div>
-          <div class="stat-card"><div class="k">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
+          <div class="stat-card"><div class="k" id="bkKidsLabel">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
         </div>
 
         <div class="bar">
@@ -773,6 +805,10 @@
           <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
           <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
           <div class="cal-range" id="bkRange">—</div>
+          <div class="view-switch" role="group" aria-label="Widok rezerwacji">
+            <button type="button" data-bk-view="week" class="is-on">Tydzień</button>
+            <button type="button" data-bk-view="month">Miesiąc</button>
+          </div>
         </div>
 
         <!-- Widoczne tylko przy szukaniu: wyszukiwarka celowo wychodzi poza
@@ -2228,23 +2264,80 @@ $('#exportRank').onclick = () => {
    ========================================================================== */
 let BOOKINGS = [], bkMonday = weekStart(new Date()), unsubBook = null;
 
-function startBookings() {
-  $('#bkPrev').onclick  = () => { bkMonday = addDays(bkMonday, -7); loadBookingWeek(); };
-  $('#bkNext').onclick  = () => { bkMonday = addDays(bkMonday,  7); loadBookingWeek(); };
-  $('#bkToday').onclick = () => { bkMonday = weekStart(new Date()); loadBookingWeek(); };
-  $('#bkFilter').onchange = renderBookings;
-  loadBookingWeek();
+/* 'week' albo 'month'. Tydzień zostaje domyślny: przy ladzie liczy się to, co
+   dzieje się teraz, a miesiąc jest do planowania i do szukania luk. */
+let bkView = 'week';
+/* Pierwszy dzień pokazywanego miesiąca — osobno od `bkMonday`, żeby przełączenie
+   widoku tam i z powrotem nie gubiło miejsca, w którym obsługa była. */
+let bkMonth = firstOfMonth(new Date());
+
+function firstOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+
+/** Zakres dat, który ma być wczytany i narysowany przy obecnym widoku. */
+function bkRangeDates() {
+  if (bkView === 'month') {
+    /* Siatka miesiąca pokazuje pełne tygodnie, więc sięga po kilka dni
+       z sąsiednich miesięcy — i te dni też muszą przyjść z bazy. */
+    const first = weekStart(bkMonth);
+    const last  = addDays(weekStart(addDays(addMonths(bkMonth, 1), -1)), 6);
+    return { from: first, to: last };
+  }
+  return { from: bkMonday, to: addDays(bkMonday, 6) };
 }
 
-function loadBookingWeek() {
-  const from = isoDate(bkMonday), to = isoDate(addDays(bkMonday, 6));
-  $('#bkRange').textContent = `${shortDate(from)} – ${shortDate(to)}`;
+function startBookings() {
+  const krok = n => () => {
+    if (bkView === 'month') bkMonth = addMonths(bkMonth, n);
+    else bkMonday = addDays(bkMonday, n * 7);
+    loadBookingRange();
+  };
+  $('#bkPrev').onclick  = krok(-1);
+  $('#bkNext').onclick  = krok(+1);
+  $('#bkToday').onclick = () => {
+    bkMonday = weekStart(new Date());
+    bkMonth  = firstOfMonth(new Date());
+    loadBookingRange();
+  };
+  $('#bkFilter').onchange = renderBookings;
+
+  $$('[data-bk-view]').forEach(b => b.onclick = () => {
+    if (bkView === b.dataset.bkView) return;
+    bkView = b.dataset.bkView;
+    $$('[data-bk-view]').forEach(x => x.classList.toggle('is-on', x === b));
+    /* Przy przejściu na tydzień trzymamy się miesiąca, który był na ekranie:
+       skok na „dziś" po zmianie widoku wyglądałby jak zgubienie miejsca. */
+    if (bkView === 'week' && !sameMonth(bkMonday, bkMonth)) bkMonday = weekStart(bkMonth);
+    if (bkView === 'month') bkMonth = firstOfMonth(bkMonday);
+    loadBookingRange();
+  });
+
+  loadBookingRange();
+}
+
+const sameMonth = (a, b) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+
+function loadBookingRange() {
+  const { from, to } = bkRangeDates();
+  const fromISO = isoDate(from), toISO = isoDate(to);
+
+  $('#bkRange').textContent = bkView === 'month'
+    ? `${MONTHS[bkMonth.getMonth()]} ${bkMonth.getFullYear()}`
+    : `${shortDate(fromISO)} – ${shortDate(toISO)}`;
+  $('#bkPrev').setAttribute('aria-label', bkView === 'month' ? 'Poprzedni miesiąc' : 'Poprzedni tydzień');
+  $('#bkNext').setAttribute('aria-label', bkView === 'month' ? 'Następny miesiąc' : 'Następny tydzień');
+
   if (unsubBook) unsubBook();
-  unsubBook = watchBookings({ fromISO: from, toISO: to }, list => {
+  unsubBook = watchBookings({ fromISO, toISO }, list => {
     BOOKINGS = list;
     renderBookings();
   });
 }
+
+/* Stara nazwa została w kilku miejscach (np. po zapisie rezerwacji), a robi
+   dokładnie to samo — przeładowanie bieżącego zakresu. */
+const loadBookingWeek = loadBookingRange;
 
 /**
  * Rezerwacja o danym id. Najpierw w bieżącym tygodniu (tam jest najświeższa,
@@ -2333,8 +2426,9 @@ function renderBookings() {
   const q = $('#bkQ') ? $('#bkQ').value.trim() : '';
   const byStatus = b => !filter || (b.status || 'pending') === filter;
 
-  /* Kafelki podsumowania zawsze dotyczą tygodnia — to one mówią obsłudze,
-     ile jest do zrobienia „teraz", i szukanie nie powinno tego mieszać. */
+  /* Kafelki podsumowania dotyczą tego, co widać na ekranie — tygodnia albo
+     miesiąca. Szukanie ich nie miesza: to one mówią obsłudze, ile jest
+     do zrobienia w wybranym zakresie. */
   const count = st => BOOKINGS.filter(b => (b.status || 'pending') === st).length;
   const pending = count('pending');
   $('#bkPending').textContent  = pending;
@@ -2343,6 +2437,10 @@ function renderBookings() {
   $('#bkKids').textContent = BOOKINGS
     .filter(b => b.status === 'accepted')
     .reduce((sum, b) => sum + (Number(b.qty) || 1), 0);
+  /* Kafelek liczy zaakceptowane dzieci z tego, co wczytane — a wczytany jest
+     tydzień albo miesiąc. Podpis musi mówić to samo, co liczba pod nim. */
+  $('#bkKidsLabel').textContent = bkView === 'month'
+    ? 'Dzieci w tym miesiącu' : 'Dzieci w tym tygodniu';
 
   /* Plakietki przy zakładkach NIE biorą się stąd: ta lista to jeden tydzień,
      a plakietka ma liczyć wszystko, co przed nami — patrz startTodoBadges(). */
@@ -2351,6 +2449,8 @@ function renderBookings() {
   $('#bkWeekNav').hidden = !!q;
 
   if (q) { renderBookingSearch(q, byStatus); return; }
+
+  if (bkView === 'month') { renderBookingMonth(byStatus); return; }
 
   const shown = BOOKINGS.filter(byStatus);
   const today = todayISO();
@@ -2371,6 +2471,63 @@ function renderBookings() {
   $('#bkCount').textContent = shown.length
     ? `W tym tygodniu: ${shown.length} rezerwacji.`
     : 'W tym tygodniu nie ma rezerwacji pasujących do filtra.';
+}
+
+/**
+ * Siatka miesiąca. Świadomie NIE powtarza pełnych kart z widoku tygodnia:
+ * trzydzieści kilka dni × karta z akceptacją, opłatą i godziną wyjścia to
+ * ekran, po którym trzeba by scrollować kilka minut. Komórka mówi tylko
+ * „kiedy, ile dzieci, w jakim stanie", a kliknięcie przenosi na tydzień
+ * tego dnia — tam są wszystkie przyciski, które obsługa już zna.
+ */
+function renderBookingMonth(byStatus) {
+  const shown = BOOKINGS.filter(byStatus);
+  const today = todayISO();
+  const wykluczone = exclSet();
+
+  const first = weekStart(bkMonth);
+  const last  = addDays(weekStart(addDays(addMonths(bkMonth, 1), -1)), 6);
+  const dni = Math.round((last - first) / 86400000) + 1;
+
+  const grid = $('#bkGrid');
+  grid.className = 'bk-month';
+  grid.innerHTML =
+    DAY_SHORT.map(d => `<div class="bk-month-head">${esc(d)}</div>`).join('') +
+    [...Array(dni)].map((_, i) => {
+      const d = addDays(first, i), iso = isoDate(d);
+      const dnia = shown.filter(b => b.date === iso)
+        .sort((a, b) => toMin(a.start) - toMin(b.start));
+
+      /* Więcej niż trzy wpisy w kratce robią się nieczytelne — resztę
+         zwijamy w „+N", bo i tak trzeba wejść w tydzień, żeby coś z nimi zrobić. */
+      const widoczne = dnia.slice(0, 3);
+      const reszta = dnia.length - widoczne.length;
+
+      const klasy = ['bk-mday'];
+      if (iso === today) klasy.push('is-today');
+      if (!sameMonth(d, bkMonth)) klasy.push('is-other');
+      if (wykluczone.has(iso)) klasy.push('is-excluded');
+
+      return `<div class="${klasy.join(' ')}" data-bk-day="${esc(iso)}"
+                   title="${esc(longDate(iso))} — kliknij, żeby otworzyć ten tydzień">
+          <h5>${d.getDate()}${dnia.length ? `<span class="ile">${dnia.length}</span>` : ''}</h5>
+          ${widoczne.map(b => `<div class="bk-chip ${esc(b.status || 'pending')}">${
+            esc(b.start || '—')} · ${esc(plDzieci(b.qty || 1))}</div>`).join('')}
+          ${reszta > 0 ? `<div class="wiecej">+${reszta} więcej</div>` : ''}
+        </div>`;
+    }).join('');
+
+  /* Kliknięcie w dzień = wejście w jego tydzień z pełnymi kartami. */
+  $$('#bkGrid [data-bk-day]').forEach(el => el.onclick = () => {
+    bkMonday = weekStart(parseDateISO(el.dataset.bkDay));
+    bkView = 'week';
+    $$('[data-bk-view]').forEach(x => x.classList.toggle('is-on', x.dataset.bkView === 'week'));
+    loadBookingRange();
+  });
+
+  $('#bkCount').textContent = shown.length
+    ? `W tym miesiącu: ${shown.length} rezerwacji. Kliknij w dzień, żeby otworzyć jego tydzień.`
+    : 'W tym miesiącu nie ma rezerwacji pasujących do filtra.';
 }
 
 /** Wyniki szukania: płaska lista od najnowszej, z całej historii. */
