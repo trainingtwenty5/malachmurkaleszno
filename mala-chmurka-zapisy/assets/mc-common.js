@@ -17,7 +17,9 @@ export const URLS = {
   thanksBooking: 'dziekujemy-rezerwacja.html',
   history:       'historia-zamowien.html',
   admin:         'panel-admina.html',
-  adminEvents:   'admin.html'          // „Zarządzanie zajęciami"
+  /* „Zarządzanie zajęciami" to dziś karta 6 panelu — osobnej strony już nie ma.
+     Adres zostaje pod jedną nazwą, żeby menu i skróty miały gdzie wskazywać. */
+  adminEvents:   'panel-admina.html?tab=events'
 };
 
 const NAV = [
@@ -49,7 +51,7 @@ const NAV_ADMIN = [
      obsługa robi z marszu, a które dotąd wymagały wejścia w panel i szukania
      właściwej karty. Każda ma własny kolor, bo cztery przyciski obok siebie
      rozróżnia się kolorem, nie czytaniem. */
-  { label: 'Nowe zajęcia',          href: URLS.adminEvents + '?new=1',  cls: 'nav-cta nav-cta-teal' },
+  { label: 'Nowe zajęcia',          href: URLS.adminEvents + '&new=1',  cls: 'nav-cta nav-cta-teal' },
   { label: 'Wykluczenia',           href: URLS.admin + '?tab=excl',     cls: 'nav-cta nav-cta-plum' }
 ];
 

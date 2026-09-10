@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=11">
+<link rel="stylesheet" href="assets/mc-common.css?v=12">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -18,6 +18,13 @@
     border-radius:var(--radius);margin:16px 0 22px}
   .admin-tabs button{padding:.6em 1.1em;border-radius:12px;font-family:var(--font-head);font-weight:600;
     font-size:.94rem;color:var(--navy-deep);white-space:nowrap}
+  /* Dwie rodziny zakładek, dwa pastelowe tła. Kolor niesie tu grupowanie,
+     więc musi być na tyle blady, żeby napis został czytelny, i na tyle
+     wyraźny, żeby granica między grupami rzucała się w oczy. */
+  .admin-tabs button[data-group="a"]{background:var(--sky-pale)}
+  .admin-tabs button[data-group="b"]{background:var(--mint-pale)}
+  /* Wybrana zakładka nadal jest biała i uniesiona — to jedyny sygnał „jesteś
+     tutaj", więc wygrywa z kolorem grupy. */
   .admin-tabs button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
   /* Na telefonie siedem zakładek zawijało się w cztery rzędy i zjadało
      ćwierć ekranu — zanim obsługa doszła do treści, musiała przewinąć.
@@ -188,6 +195,16 @@
   .wi-cennik .pricelist{font-size:.85rem;line-height:1.75;color:var(--muted);margin-top:8px}
   .wi-cennik .pricelist b{color:var(--navy-deep)}
   @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
+
+  /* ---- karta 6: zarządzanie zajęciami (przeniesione z admin.html) ---- */
+  .quick{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+  .quick a{font-size:.86rem;padding:.45em .9em;border:1px solid var(--line);border-radius:999px;
+    background:var(--white);color:var(--navy-deep)}
+  .quick a:hover{background:var(--cream-deep);text-decoration:none}
+  .dot-color{width:12px;height:12px;border-radius:4px;display:inline-block;vertical-align:-1px;margin-right:7px}
+  .ev-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .seats-full{color:var(--bad);font-weight:700}
+  @media (max-width:760px){ .ev-actions{justify-content:flex-start} }
 
   /* ---- wykluczenia rezerwacji ---- */
   /* Dzień wyłączony z rezerwacji. Czerwony pas nad kolumną w kalendarzu widzi
@@ -478,17 +495,62 @@
 
       <nav class="admin-tabs" role="tablist">
         <button data-tab="entry">0 · Nowe wejście</button>
-        <button data-tab="cal"   class="is-on">1 · Kalendarz zajęć</button>
-        <button data-tab="regs">2 · Zapisy na zajęcia <span class="tab-badge" id="regsBadge" hidden>0</span></button>
-        <button data-tab="count">3 · Licznik w bawialni</button>
-        <button data-tab="rank">4 · Ranking wizyt</button>
-        <button data-tab="book">5 · Rezerwacje wizyt <span class="tab-badge" id="bookBadge" hidden>0</span></button>
-        <button data-tab="play">6 · Czas zabawy</button>
-        <button data-tab="fin">7 · Finanse</button>
-        <button data-tab="excl">8 · Wykluczenia <span class="tab-badge" id="exclBadge" hidden>0</span></button>
+
+        <!-- BAWIALNIA — wszystko, co dotyczy zwykłych wizyt. Wspólny, jasno
+             niebieski kafelek: przy jedenastu zakładkach kolor mówi „to jedna
+             rodzina spraw" szybciej niż numer. -->
+        <button data-tab="book"  data-group="a">2 · Rezerwacje wizyt <span class="tab-badge" id="bookBadge" hidden>0</span></button>
+        <button data-tab="excl"  data-group="a">3 · Wykluczenia <span class="tab-badge" id="exclBadge" hidden>0</span></button>
+        <button data-tab="play"  data-group="a">4 · Czas zabawy</button>
+        <button data-tab="rank"  data-group="a">5 · Ranking wizyt</button>
+
+        <!-- ZAJĘCIA — druga rodzina, pastelowa zieleń. -->
+        <button data-tab="events" data-group="b">6 · Zarządzaj zajęciami</button>
+        <button data-tab="cal"    data-group="b" class="is-on">7 · Kalendarz zajęć</button>
+        <button data-tab="regs"   data-group="b">8 · Zapisy na zajęcia <span class="tab-badge" id="regsBadge" hidden>0</span></button>
+        <button data-tab="count"  data-group="b">9 · Licznik w bawialni</button>
+
+        <button data-tab="fin">10 · Finanse</button>
       </nav>
 
-      <!-- ============================== 8. WYKLUCZENIA ============================== -->
+      <!-- ============================== 6. ZARZĄDZAJ ZAJĘCIAMI ============================== -->
+      <!-- Przeniesione z osobnej strony admin.html: ta sama lista zajęć, ten sam
+           formularz (okno „zajęcia" niżej jest jedno na cały panel), tylko bez
+           drugiego logowania i drugiego paska zakładek. -->
+      <section class="panel" id="tab-events">
+        <div class="quick">
+          <a href="kalendarz-zajec.html">Grafik oczami klienta</a>
+          <a href="zapisz-sie-na-zajecia.html">Formularz zapisu</a>
+          <a href="rezerwacja-bawialni.html">Formularz rezerwacji</a>
+        </div>
+
+        <div class="stat-cards">
+          <div class="stat-card"><div class="k">Zajęcia w wybranym zakresie</div><div class="v" id="zeCount">—</div></div>
+          <div class="stat-card"><div class="k">Zajętych miejsc</div><div class="v" id="zeBooked">—</div></div>
+          <div class="stat-card"><div class="k">Wolnych miejsc</div><div class="v" id="zeFree">—</div></div>
+          <div class="stat-card"><div class="k">Ukrytych przed klientami</div><div class="v" id="zeHidden">—</div></div>
+        </div>
+
+        <div class="bar">
+          <input class="control grow" id="zeQ" placeholder="Szukaj po nazwie zajęć…">
+          <input class="control mini" id="zeFrom" type="date" aria-label="Zakres od">
+          <input class="control mini" id="zeTo" type="date" aria-label="Zakres do">
+          <button class="btn btn-teal btn-sm btn-auto" id="zeAdd">+ Nowe zajęcia</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Termin</th><th>Godzina</th><th>Zajęcia</th><th>Miejsca</th>
+              <th>Cena</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="zeRows"></tbody>
+          </table>
+        </div>
+        <p class="hint" id="zeShown" style="margin-top:10px"></p>
+      </section>
+
+      <!-- ============================== 3. WYKLUCZENIA ============================== -->
       <!-- Dni, w których nie przyjmujemy rezerwacji bawialni. Klient nie
            zapisze się na taki dzień — pilnuje tego reguła w firestore.rules,
            nie sam formularz. -->
@@ -1211,7 +1273,7 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          DAY_NAMES, DAY_SHORT, MONTHS, MONTHS_GEN, weekStart, addDays, isoDate, toMin, fmtMin, plDzieci,
          centerScrollLeft,
          PALETTE, URLS, SETTINGS, computeLivePresence, presenceTimeline, manualActive,
-         countChildren, askSaveOrDiscard, askDate,
+         countChildren, askSaveOrDiscard, askDate, askSeries,
          askConfirm, askText, orderRef, matchesRef,
          seriesDates, openingFor, closingMinFor,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
@@ -1320,6 +1382,11 @@ function openTabFromUrl() {
   const want = new URLSearchParams(location.search).get('tab') || location.hash.replace('#', '');
   const btn = want && document.querySelector(`.admin-tabs button[data-tab="${want}"]`);
   if (btn) btn.click();
+
+  /* „Nowe zajęcia" z menu prowadzi tu z `?tab=events&new=1` — otwieramy okno
+     od razu, żeby pozycja w menu robiła to, co obiecuje, a nie tylko
+     przenosiła na kartę, na której trzeba jeszcze czegoś poszukać. */
+  if (new URLSearchParams(location.search).get('new') === '1') openEvent(null);
 }
 
 $$('.admin-tabs button').forEach(b => b.onclick = () => {
@@ -1354,6 +1421,7 @@ function start() {
   startBookings();
   startTodoBadges();
   startExclusions();
+  startEventsTab();
   const from = isoDate(addDays(new Date(), -120));
   const to   = isoDate(addDays(new Date(),  120));
   if (unsubReg) unsubReg();
@@ -3259,6 +3327,142 @@ $('#neForm').addEventListener('submit', async e => {
   } finally { $('#neSave').disabled = false; }
 });
 
+
+
+/* ==========================================================================
+   KARTA 6 — ZARZĄDZAJ ZAJĘCIAMI
+   --------------------------------------------------------------------------
+   Przeniesione z osobnej strony admin.html. Lista zajęć w wybranym zakresie
+   dat, z wyszukiwarką i akcjami przy każdym wierszu.
+
+   Świadomie NIE dubluje kalendarza z karty 7: kalendarz pokazuje jeden
+   tydzień w siatce godzin, lista — dowolny zakres w formie tabeli, z cenami
+   i licznikiem miejsc. To dwa różne pytania („co się dzieje w środę o 10?"
+   kontra „ile mam zajęć w październiku i gdzie zostały wolne miejsca?").
+
+   Formularz zajęć jest jeden na cały panel (okno `evModal`), więc edycja
+   z listy i z kalendarza prowadzi dokładnie w to samo miejsce.
+   ========================================================================== */
+let ZE_EVENTS = [], unsubZe = null;
+
+function zeSubscribe() {
+  const from = $('#zeFrom').value || todayISO();
+  const to   = $('#zeTo').value   || isoDate(addDays(new Date(), 60));
+  if (unsubZe) unsubZe();
+  unsubZe = watchEvents(from, to, list => { ZE_EVENTS = list; zeRender(); });
+}
+
+function zeRender() {
+  const q = ($('#zeQ').value || '').trim().toLowerCase();
+  const list = ZE_EVENTS.filter(e => !q || (e.title || '').toLowerCase().includes(q));
+
+  let booked = 0, cap = 0, hidden = 0;
+  ZE_EVENTS.forEach(e => {
+    booked += Number(e.booked) || 0;
+    cap    += Number(e.capacity) || 0;
+    if (e.active === false) hidden++;
+  });
+  $('#zeCount').textContent  = ZE_EVENTS.length;
+  $('#zeBooked').textContent = booked;
+  $('#zeFree').textContent   = Math.max(0, cap - booked);
+  $('#zeHidden').textContent = hidden;
+
+  if (!list.length) {
+    $('#zeRows').innerHTML = `<tr><td colspan="7"><div class="empty">
+      Brak zajęć w tym zakresie. Kliknij „+ Nowe zajęcia", żeby dodać pierwsze.</div></td></tr>`;
+    $('#zeShown').textContent = '';
+    return;
+  }
+
+  $('#zeRows').innerHTML = list.map(e => {
+    const b = Number(e.booked) || 0, c = Number(e.capacity) || 0;
+    const full = c && b >= c;
+    return `<tr>
+      <td><strong>${esc(shortDate(e.date))}</strong><br><span class="hint">${esc(longDate(e.date).split(',')[0])}</span></td>
+      <td class="num">${esc(e.start || '')}–${esc(e.end || '')}</td>
+      <td><span class="dot-color" style="background:${esc(e.color || '#93C7CF')}"></span><strong>${esc(e.title || '(bez nazwy)')}</strong>
+          ${e.badge ? `<br><span class="hint">${esc(e.badge)}</span>` : ''}</td>
+      <td class="num ${full ? 'seats-full' : ''}">${b} / ${c || '—'}</td>
+      <td class="num">${esc(money(e.price))}</td>
+      <td>${e.active === false
+            ? '<span class="badge badge-warn">ukryte</span>'
+            : '<span class="badge badge-ok">widoczne</span>'}</td>
+      <td><div class="ev-actions">
+            <button class="btn btn-outline btn-sm" data-ze-edit="${esc(e.id)}">Edytuj</button>
+            <button class="btn btn-soft btn-sm" data-ze-dup="${esc(e.id)}">Duplikuj</button>
+            <button class="btn btn-soft btn-sm" data-ze-rep="${esc(e.id)}">Powiel</button>
+            <button class="btn btn-danger btn-sm" data-ze-del="${esc(e.id)}">Usuń</button>
+          </div></td>
+    </tr>`;
+  }).join('');
+
+  $$('#zeRows [data-ze-edit]').forEach(b => b.onclick = () => openEvent(b.dataset.zeEdit));
+  $$('#zeRows [data-ze-dup]').forEach(b => b.onclick = () => zeDuplicate(b.dataset.zeDup));
+  $$('#zeRows [data-ze-rep]').forEach(b => b.onclick = () => zeRepeat(b.dataset.zeRep));
+  $$('#zeRows [data-ze-del]').forEach(b => b.onclick = () => zeRemove(b.dataset.zeDel));
+
+  $('#zeShown').textContent = `Pokazano ${list.length} z ${ZE_EVENTS.length} zajęć.`;
+}
+
+/** „Duplikuj" — jedna kopia na wskazany dzień. */
+async function zeDuplicate(id) {
+  const src = ZE_EVENTS.find(e => e.id === id);
+  const d = await askDate({
+    title: 'Skopiuj zajęcia',
+    text: src ? `Na jaki dzień skopiować „${src.title}"?` : 'Na jaki dzień skopiować te zajęcia?',
+    value: src ? src.date : todayISO(),
+    min: todayISO(),
+    confirmLabel: 'Skopiuj'
+  });
+  if (!d) return;
+  try { await duplicateEvent(id, d); toast('Skopiowano na ' + shortDate(d) + '.'); }
+  catch (err) { toast(authError(err)); }
+}
+
+/** „Powiel" — cała seria kolejnych terminów, w odróżnieniu od „Duplikuj". */
+async function zeRepeat(id) {
+  const src = ZE_EVENTS.find(e => e.id === id);
+  if (!src) return toast('Nie znalazłem tych zajęć — odśwież stronę.');
+  const daty = await askSeries({
+    title: 'Powiel zajęcia',
+    text: `„${src.title}" z ${shortDate(src.date)}. Każdy nowy termin startuje `
+        + 'z pustą listą zapisanych i kompletem zdjęć oryginału.',
+    startISO: src.date
+  });
+  if (!daty) return;
+  try {
+    await repeatOnDates(id, daty);
+    toast(`Utworzono ${daty.length} kolejnych terminów.`);
+  } catch (err) { toast(authError(err)); }
+}
+
+async function zeRemove(id) {
+  const src = ZE_EVENTS.find(e => e.id === id);
+  const ile = await countEventImages(id).catch(() => 0);
+  const ok = await askConfirm({
+    title: 'Usunąć te zajęcia?',
+    text: 'Tej operacji nie da się cofnąć. Zapisy klientów zostają w bazie.',
+    details: [
+      (src && src.title) || 'zajęcia bez nazwy',
+      ile ? `${ile} ${ile === 1 ? 'zdjęcie zostanie usunięte' : 'zdjęć zostanie usuniętych'}` : 'brak zdjęć'
+    ],
+    confirmLabel: 'Tak, usuń zajęcia'
+  });
+  if (!ok) return;
+  try { await deleteEvent(id); toast('Zajęcia usunięte razem ze zdjęciami.'); }
+  catch (err) { toast(authError(err)); }
+}
+
+$('#zeAdd').onclick = () => openEvent(null);
+['input', 'change'].forEach(evt => $('#zeQ').addEventListener(evt, zeRender));
+$('#zeFrom').addEventListener('change', zeSubscribe);
+$('#zeTo').addEventListener('change', zeSubscribe);
+
+function startEventsTab() {
+  $('#zeFrom').value = todayISO();
+  $('#zeTo').value   = isoDate(addDays(new Date(), 60));
+  zeSubscribe();
+}
 
 /* ==========================================================================
    WYKLUCZENIA REZERWACJI
