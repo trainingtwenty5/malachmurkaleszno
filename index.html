@@ -760,7 +760,10 @@
         <li><a href="#materialy">Oferty</a></li>
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
-        <li><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
+        <!-- Ta sama zasada co w menu na górze: gość widzi "Zarejestruj się",
+             zalogowany - "Historia zamówień". Stan ustawia watchNavAuth(). -->
+        <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
+        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
       </ul>
     </nav>
 
