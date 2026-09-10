@@ -123,7 +123,9 @@
 
     // Zamknij po kliknięciu w link
     navMenu.addEventListener('click', function (e) {
-      if (e.target.closest('a')) closeNav();
+      /* Także `button`: „Wyloguj" nie jest linkiem, a po kliknięciu menu ma się
+         zamknąć dokładnie tak samo jak po wybraniu każdej innej pozycji. */
+      if (e.target.closest('a, button')) closeNav();
     });
 
     // Zamknij klawiszem Escape
