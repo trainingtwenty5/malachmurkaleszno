@@ -69,6 +69,39 @@
   .countdown.during .dot{animation:mcTick 1.6s ease-out infinite}
   @keyframes mcTick{0%{opacity:1}60%{opacity:.25}100%{opacity:1}}
   @media (prefers-reduced-motion:reduce){.countdown.during .dot{animation:none}}
+
+  /* ------------------------------------------------------------------ FILTRY
+     Dwa rzędy pastylek: „kiedy" i „status". Pastylki, a nie lista rozwijana —
+     na telefonie wszystkie możliwości widać od razu, bez otwierania menu,
+     i każda z nich jest dość duża, żeby trafić w nią kciukiem. */
+  .filters{border:1px solid var(--line);border-radius:var(--radius);background:var(--white);
+    box-shadow:var(--shadow-sm);padding:13px 15px;margin-bottom:18px}
+  .filter-row{display:flex;gap:8px 12px;align-items:baseline;flex-wrap:wrap}
+  .filter-row + .filter-row{margin-top:11px;padding-top:11px;border-top:1px solid var(--cream-deep)}
+  .filter-k{flex:none;min-width:56px;font-family:var(--font-head);font-weight:700;
+    font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;flex:1 1 240px}
+  .chip{padding:.38em .95em;border-radius:999px;border:1px solid var(--line);
+    background:var(--cream);color:var(--navy-deep);
+    font-family:var(--font-head);font-weight:600;font-size:.88rem;
+    transition:background-color .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
+  .chip:hover{background:var(--cream-deep)}
+  .chip[aria-pressed="true"]{background:var(--brand-deep);border-color:var(--brand-deep);color:var(--white)}
+  .filter-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid var(--cream-deep)}
+  .filter-sum{margin:0;font-size:.86rem;color:var(--muted)}
+  .tab-count{font-weight:700;opacity:.55}
+
+  /* Na telefonie podpis rzędu idzie nad pastylki. Obok nich zabierał tyle
+     szerokości, że pastylki układały się po jednej w wierszu i sam pasek
+     filtrów zajmował cały ekran. */
+  @media (max-width:560px){
+    .filters{padding:12px 13px}
+    .filter-row{flex-direction:column;align-items:stretch;gap:7px}
+    .filter-k{min-width:0}
+    .chips{flex:0 1 auto}
+    .filter-foot .btn{width:auto}
+  }
 </style>
 </head>
 <body>
@@ -102,8 +135,38 @@
       </div>
 
       <div class="tabs" role="tablist">
-        <button id="tabBookings" class="is-on" role="tab" aria-selected="true">Bawialnia</button>
-        <button id="tabClasses" role="tab" aria-selected="false">Zajęcia</button>
+        <button id="tabBookings" class="is-on" role="tab" aria-selected="true">Bawialnia<span
+          class="tab-count" id="cntBookings"></span></button>
+        <button id="tabClasses" role="tab" aria-selected="false">Zajęcia<span
+          class="tab-count" id="cntClasses"></span></button>
+      </div>
+
+      <!-- Filtry działają na obie zakładki naraz: wybór „Dziś" albo „Odrzucone"
+           zostaje, kiedy przeskakujesz z bawialni na zajęcia. -->
+      <div class="filters">
+        <div class="filter-row">
+          <span class="filter-k" id="fkWhen">Kiedy</span>
+          <div class="chips" id="chipsWhen" role="group" aria-labelledby="fkWhen">
+            <button class="chip" data-when="all"      aria-pressed="true">Wszystkie</button>
+            <button class="chip" data-when="today"    aria-pressed="false">Dziś</button>
+            <button class="chip" data-when="week"     aria-pressed="false">Ostatnie 7 dni</button>
+            <button class="chip" data-when="month"    aria-pressed="false">Ostatnie 30 dni</button>
+            <button class="chip" data-when="upcoming" aria-pressed="false">Nadchodzące</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-k" id="fkStatus">Status</span>
+          <div class="chips" id="chipsStatus" role="group" aria-labelledby="fkStatus">
+            <button class="chip" data-status="all"      aria-pressed="true">Wszystkie</button>
+            <button class="chip" data-status="pending"  aria-pressed="false">W trakcie akceptacji</button>
+            <button class="chip" data-status="accepted" aria-pressed="false">Zaakceptowane</button>
+            <button class="chip" data-status="rejected" aria-pressed="false">Odrzucone</button>
+          </div>
+        </div>
+        <div class="filter-foot" id="filterFoot" hidden>
+          <p class="filter-sum" id="filterSum"></p>
+          <button class="btn btn-soft btn-sm btn-auto" id="filterClear">Wyczyść filtry</button>
+        </div>
       </div>
 
       <section class="pane is-on" id="paneBookings">
@@ -124,7 +187,7 @@
 
 <script type="module">
 import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, plDzieci, URLS, SETTINGS,
-         countdownFor, bookingEndMin, toMin, isoDate, orderRef } from './assets/mc-common.js';
+         countdownFor, bookingEndMin, toMin, isoDate, addDays, orderRef } from './assets/mc-common.js';
 import { auth, A } from './assets/mc-firebase.js';
 import { watchMyBookings, watchMyRegistrations, registrationStatusText,
          BOOKING_STATUS_TEXT } from './assets/mc-data.js';
@@ -204,86 +267,229 @@ const svg = kind => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="cu
   ICON[kind] || ICON.pending}</svg>`;
 
 /* ============================================== REZERWACJE BAWIALNI ====== */
-function renderBookings(list) {
-  if (!list.length) {
-    $('#bookings').innerHTML = `<div class="empty">
-      Nie masz jeszcze żadnej rezerwacji bawialni.<br>
-      <a href="rezerwacja-bawialni.html">Zarezerwuj miejsce →</a></div>`;
-    return;
-  }
-
-  $('#bookings').innerHTML = list.map(b => {
-    const st = b.status || 'pending';
-    const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
-    return `
-      <article class="order">
-        <div class="order-head">
-          <div>
-            <h3>Wstęp do bawialni</h3>
-            <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}</div>
-          </div>
-          <div class="order-price">${esc(money(b.total))}</div>
+/** Jedna karta rezerwacji bawialni. Listę składa z nich renderPane(). */
+function bookingCard(b) {
+  const st = b.status || 'pending';
+  const kids = (b.children || []).map(c => esc(c.name || '')).filter(Boolean).join(', ');
+  return `
+    <article class="order">
+      <div class="order-head">
+        <div>
+          <h3>Wstęp do bawialni</h3>
+          <div class="order-when">${esc(longDate(b.date))}${b.start ? `, od ${esc(b.start)}` : ''}</div>
         </div>
-        ${refBlock(b.id)}
-        <div class="order-meta">
-          <span>${esc(b.durationLabel || b.duration || '')}</span>
-          <span>${esc(plDzieci(b.qty || 1))}</span>
-          ${b.siblingApplies ? '<span>rodzeństwo −20%</span>' : ''}
-        </div>
-        ${kids ? `<div class="kids-line">Dzieci: ${kids}</div>` : ''}
-        <div class="status ${esc(st)}">
-          ${svg(st)}
-          <span><b>${esc(BOOKING_STATUS_TEXT[st] || BOOKING_STATUS_TEXT.pending)}</b>
-          ${b.adminNote ? `<span class="admin-note">${esc(b.adminNote)}</span>` : ''}</span>
-        </div>
-        ${st === 'accepted'
-          ? countdownTag(b.date, toMin(b.start), bookingEndMin(b))
-          : ''}
-      </article>`;
-  }).join('');
+        <div class="order-price">${esc(money(b.total))}</div>
+      </div>
+      ${refBlock(b.id)}
+      <div class="order-meta">
+        <span>${esc(b.durationLabel || b.duration || '')}</span>
+        <span>${esc(plDzieci(b.qty || 1))}</span>
+        ${b.siblingApplies ? '<span>rodzeństwo −20%</span>' : ''}
+      </div>
+      ${kids ? `<div class="kids-line">Dzieci: ${kids}</div>` : ''}
+      <div class="status ${esc(st)}">
+        ${svg(st)}
+        <span><b>${esc(BOOKING_STATUS_TEXT[st] || BOOKING_STATUS_TEXT.pending)}</b>
+        ${b.adminNote ? `<span class="admin-note">${esc(b.adminNote)}</span>` : ''}</span>
+      </div>
+      ${st === 'accepted'
+        ? countdownTag(b.date, toMin(b.start), bookingEndMin(b))
+        : ''}
+    </article>`;
 }
 
 /* ==================================================== ZAPISY NA ZAJĘCIA == */
-function renderClasses(list) {
-  if (!list.length) {
-    $('#classes').innerHTML = `<div class="empty">
-      Nie masz jeszcze żadnego zapisu na zajęcia.<br>
-      <a href="kalendarz-zajec.html">Zobacz grafik zajęć →</a></div>`;
-    return;
+/** Jedna karta zapisu na zajęcia. */
+function classCard(r) {
+  const st = registrationStatusText(r);
+  const kids = Array.isArray(r.children) && r.children.length
+    ? r.children.map(c => `${c.firstName || ''} ${c.lastName || ''}`.trim()).filter(Boolean)
+    : [`${r.childFirstName || ''} ${r.childLastName || ''}`.trim()].filter(Boolean);
+  return `
+    <article class="order">
+      <div class="order-head">
+        <div>
+          <h3>${esc(r.eventTitle || 'Zajęcia')}</h3>
+          <div class="order-when">${esc(longDate(r.eventDate))}${
+            r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}</div>
+        </div>
+        <div class="order-price">${esc(money(r.total))}</div>
+      </div>
+      ${refBlock(r.id)}
+      <div class="order-meta">
+        <span>${esc(plDzieci(r.qty || 1))}</span>
+        <span>${esc(r.paymentMethod || '')}</span>
+      </div>
+      ${kids.length ? `<div class="kids-line">${kids.length > 1 ? 'Dzieci' : 'Dziecko'}: ${
+        esc(kids.join(', '))}</div>` : ''}
+      <div class="status ${esc(st.kind)}">
+        ${svg(st.kind === 'ok' ? 'accepted' : 'pending')}
+        <span><b>${esc(st.text)}</b></span>
+      </div>
+      ${countdownTag(r.eventDate, toMin(r.eventStart), toMin(r.stayUntil || r.eventEnd))}
+    </article>`;
+}
+
+/* ==========================================================================
+   KOLEJNOŚĆ I FILTRY
+   --------------------------------------------------------------------------
+   Jeden stan filtrów dla obu zakładek — wybór „Dziś" albo „Odrzucone" nie gubi
+   się przy przeskoku z bawialni na zajęcia. Surowe listy z bazy siedzą w RAW,
+   a na ekran idzie za każdym razem świeżo posortowana i przefiltrowana kopia.
+   Dzięki temu nasłuch z Firestore może przyjść w dowolnym momencie i nie
+   skasuje tego, co klient sobie ustawił.
+   ========================================================================== */
+const FILTER = { when: 'all', status: 'all' };
+const RAW    = { booking: null, class: null };   // null = dane jeszcze w drodze
+
+/* Te same pola nazywają się inaczej w rezerwacji bawialni (date/start)
+   i w zapisie na zajęcia (eventDate/eventStart) — stąd te dwa skróty. */
+const dateOf  = (kind, r) => (kind === 'booking' ? r.date : r.eventDate) || '';
+const startOf = (kind, r) => toMin(kind === 'booking' ? r.start : r.eventStart);
+
+/** createdAt bywa Timestampem z Firestore, bywa i surowym obiektem — oba na ms. */
+function createdMs(r) {
+  const c = r.createdAt;
+  if (!c) return 0;
+  if (typeof c.toMillis === 'function') return c.toMillis();
+  if (typeof c.seconds === 'number') return c.seconds * 1000;
+  const t = Date.parse(c);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/**
+ * Od najnowszego do najstarszego — tak samo dla bawialni i dla zajęć.
+ * Przy tej samej dacie rozstrzyga godzina, a na samym końcu moment złożenia
+ * zgłoszenia: bez tego dwie karty z jednego dnia zamieniały się miejscami
+ * przy każdym odświeżeniu nasłuchu.
+ */
+const sortNewestFirst = (kind, list) => [...list].sort((a, b) =>
+  dateOf(kind, b).localeCompare(dateOf(kind, a)) ||
+  startOf(kind, b) - startOf(kind, a) ||
+  createdMs(b) - createdMs(a));
+
+/**
+ * Wspólny status dla obu list: 'pending' | 'accepted' | 'rejected'.
+ * Rezerwacja bawialni ma go wpisanego w dokumencie. Zapisu na zajęcia obsługa
+ * nie odrzuca — albo go potwierdza, albo usuwa — więc wpada tylko do dwóch
+ * pierwszych kubełków.
+ */
+function statusOf(kind, r) {
+  if (kind === 'booking') {
+    const st = r.status || 'pending';
+    return st === 'accepted' || st === 'rejected' ? st : 'pending';
+  }
+  if (r.status === 'confirmed' || r.paid || r.attended) return 'accepted';
+  return 'pending';
+}
+
+/**
+ * Czy data wpada w wybrane okno czasu.
+ * „Nadchodzące" jest osobną pozycją, bo rezerwacja czekająca na decyzję jest
+ * z natury z przyszłości — w oknach liczonych wstecz nie byłoby jej widać.
+ */
+function inWindow(dateISO) {
+  const when = FILTER.when;
+  if (when === 'all') return true;
+  if (!dateISO) return false;                  // bez daty nie ma czego porównać
+  const today = todayISO();
+  if (when === 'today')    return dateISO === today;
+  if (when === 'upcoming') return dateISO >= today;
+  const back = when === 'week' ? 6 : 29;       // „ostatnie 7 dni" razem z dzisiejszym
+  return dateISO >= isoDate(addDays(new Date(), -back)) && dateISO <= today;
+}
+
+/** Lista gotowa na ekran: najpierw kolejność, potem filtry. */
+const visible = (kind, list) => sortNewestFirst(kind, list).filter(r =>
+  (FILTER.status === 'all' || statusOf(kind, r) === FILTER.status) &&
+  inWindow(dateOf(kind, r)));
+
+const filtersOn = () => FILTER.when !== 'all' || FILTER.status !== 'all';
+
+/** Odmiana: 1 zamówienie / 2 zamówienia / 5 zamówień */
+function plZamowienia(n) {
+  n = Number(n) || 0;
+  if (n === 1) return '1 zamówienie';
+  const l2 = n % 100, l1 = n % 10;
+  if (l1 >= 2 && l1 <= 4 && !(l2 >= 12 && l2 <= 14)) return `${n} zamówienia`;
+  return `${n} zamówień`;
+}
+
+/* W każdym rzędzie wybrana jest dokładnie jedna pastylka. Stan trzyma
+   aria-pressed: czytnik ekranu mówi wtedy „wciśnięty", a CSS ma po czym malować. */
+function wireChips(boxId, key) {
+  const chips = $$(`#${boxId} .chip`);
+  chips.forEach(btn => btn.onclick = () => {
+    FILTER[key] = btn.dataset[key];
+    chips.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    renderAll();
+  });
+}
+wireChips('chipsWhen', 'when');
+wireChips('chipsStatus', 'status');
+
+$('#filterClear').onclick = () => {
+  FILTER.when = FILTER.status = 'all';
+  $$('.chip').forEach(b => b.setAttribute('aria-pressed',
+    String(b.dataset.when === 'all' || b.dataset.status === 'all')));
+  renderAll();
+};
+
+/* ==========================================================================
+   RYSOWANIE LIST
+   ========================================================================== */
+const PANE = {
+  booking: {
+    box: '#bookings', card: bookingCard, count: '#cntBookings',
+    none: 'Nie masz jeszcze żadnej rezerwacji bawialni.<br>' +
+          '<a href="rezerwacja-bawialni.html">Zarezerwuj miejsce →</a>'
+  },
+  class: {
+    box: '#classes', card: classCard, count: '#cntClasses',
+    none: 'Nie masz jeszcze żadnego zapisu na zajęcia.<br>' +
+          '<a href="kalendarz-zajec.html">Zobacz grafik zajęć →</a>'
+  }
+};
+
+/**
+ * Pusty ekran musi mówić, CZEGO nie ma: „nic tu nigdy nie było" to zupełnie
+ * inna sytuacja niż „filtry nic nie przepuściły". W pierwszej klient ma co
+ * kliknąć, w drugiej — ma poluzować filtry.
+ */
+function emptyFiltered(kind) {
+  const extra = kind === 'class' && FILTER.status === 'rejected'
+    ? '<br>Zapisów na zajęcia nie odrzucamy — gdyby zajęcia nie mogły się odbyć, dzwonimy.'
+    : '';
+  return `<div class="empty">Żadne zamówienie nie pasuje do wybranych filtrów.${extra}</div>`;
+}
+
+function renderPane(kind) {
+  const cfg = PANE[kind], all = RAW[kind];
+  if (!all) return;                                  // czekamy na pierwszy odczyt
+  const box = $(cfg.box);
+  if (!all.length)  { box.innerHTML = `<div class="empty">${cfg.none}</div>`; return; }
+  const rows = visible(kind, all);
+  if (!rows.length) { box.innerHTML = emptyFiltered(kind); return; }
+  box.innerHTML = rows.map(cfg.card).join('');
+}
+
+function renderAll() {
+  renderPane('booking');
+  renderPane('class');
+
+  /* Liczba przy zakładce pokazuje to, co zostaje po filtrach — żeby nie trzeba
+     było przeskakiwać na drugą zakładkę, by sprawdzić, czy tam coś jeszcze jest. */
+  let shown = 0, total = 0;
+  for (const kind of ['booking', 'class']) {
+    const all = RAW[kind];
+    const n = all ? visible(kind, all).length : 0;
+    shown += n;
+    total += all ? all.length : 0;
+    $(PANE[kind].count).textContent = all && all.length ? ` · ${n}` : '';
   }
 
-  $('#classes').innerHTML = list.map(r => {
-    const st = registrationStatusText(r);
-    return `
-      <article class="order">
-        <div class="order-head">
-          <div>
-            <h3>${esc(r.eventTitle || 'Zajęcia')}</h3>
-            <div class="order-when">${esc(longDate(r.eventDate))}${
-              r.eventStart ? `, ${esc(r.eventStart)}–${esc(r.eventEnd || '')}` : ''}</div>
-          </div>
-          <div class="order-price">${esc(money(r.total))}</div>
-        </div>
-        ${refBlock(r.id)}
-        <div class="order-meta">
-          <span>${esc(plDzieci(r.qty || 1))}</span>
-          <span>${esc(r.paymentMethod || '')}</span>
-        </div>
-        ${(() => {
-          const list = Array.isArray(r.children) && r.children.length
-            ? r.children.map(c => `${c.firstName || ''} ${c.lastName || ''}`.trim()).filter(Boolean)
-            : [`${r.childFirstName || ''} ${r.childLastName || ''}`.trim()].filter(Boolean);
-          if (!list.length) return '';
-          return `<div class="kids-line">${list.length > 1 ? 'Dzieci' : 'Dziecko'}: ${
-            esc(list.join(', '))}</div>`;
-        })()}
-        <div class="status ${esc(st.kind)}">
-          ${svg(st.kind === 'ok' ? 'accepted' : 'pending')}
-          <span><b>${esc(st.text)}</b></span>
-        </div>
-        ${countdownTag(r.eventDate, toMin(r.eventStart), toMin(r.stayUntil || r.eventEnd))}
-      </article>`;
-  }).join('');
+  $('#filterFoot').hidden = !filtersOn();
+  $('#filterSum').textContent = `Widzisz ${shown} z ${plZamowienia(total)}.`;
 }
 
 /* ------------------------------------------------------- stan logowania -- */
@@ -295,6 +501,9 @@ A.onAuthStateChanged(auth, user => {
   if (offR) { offR(); offR = null; }
 
   if (!user) {
+    /* Czyścimy dane poprzedniego konta, żeby po ponownym zalogowaniu
+       nie mrugnęła na ekranie lista kogoś innego. */
+    RAW.booking = RAW.class = null;
     $('#app').hidden = true;
     $('#anon').hidden = false;
     return;
@@ -314,8 +523,10 @@ A.onAuthStateChanged(auth, user => {
     document.getElementById(where).innerHTML =
       `<div class="alert alert-bad">${esc(authError(err))}</div>`;
   };
-  offB = watchMyBookings(user.uid, renderBookings, fail('bookings'));
-  offR = watchMyRegistrations(user.uid, renderClasses, fail('classes'));
+  offB = watchMyBookings(user.uid,
+    list => { RAW.booking = list; renderAll(); }, fail('bookings'));
+  offR = watchMyRegistrations(user.uid,
+    list => { RAW.class = list; renderAll(); }, fail('classes'));
 });
 </script>
 </body>
