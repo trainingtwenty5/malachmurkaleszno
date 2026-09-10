@@ -146,7 +146,14 @@ import { auth, A, isAdmin } from './assets/mc-firebase.js';
 
 mountChrome({ crumb: 'Logowanie' });
 
-const nextUrl = new URLSearchParams(location.search).get('next');
+/* Dokąd wrócić po zalogowaniu. Bierzemy `next` tylko wtedy, gdy wskazuje na
+   naszą własną stronę: sam ukośnik na początku, ale nie „//" (to już adres
+   w innej domenie). Bez tego zastrzeżenia wystarczyłoby podrzucić komuś link
+   z `next=https://…`, żeby po wpisaniu hasła wylądował na cudzej stronie. */
+const nextUrl = (() => {
+  const raw = new URLSearchParams(location.search).get('next') || '';
+  return raw.startsWith('/') && !raw.startsWith('//') ? raw : '';
+})();
 let mode = 'login';
 
 const msg = $('#msg');

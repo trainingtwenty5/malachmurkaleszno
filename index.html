@@ -253,12 +253,29 @@
         <li><a href="#materialy">Oferty</a></li>
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
+        <!-- POZYCJE KONTA — dwa sloty, każdy w dwóch wersjach.
+             Widocznością steruje updateNavAuth() przez atrybut data-nav-auth:
+             gość widzi pierwszą pozycję pary, zalogowany drugą.
+
+               slot 1:  Zaloguj się      ->  Historia zamówień
+               slot 2:  Zarejestruj się  ->  Wyloguj się
+
+             „Zaloguj się" i „Wyloguj się" mają klasę .nav-only-mobile, więc
+             pokazują się wyłącznie w menu rozwijanym na telefonie (css/style.css).
+             Na szerokim pasku zostaje sama para „Zarejestruj się"/„Historia
+             zamówień" — tak jak było, zanim doszło menu na telefon.
+
+             `next=/` sprawia, że po zalogowaniu wracamy prosto na stronę główną,
+             a nie zostajemy na ekranie logowania. Bez tego łatwo pomyśleć, że
+             menu się nie przełączyło — bo nikt na nie w tym momencie nie patrzy. -->
+
+        <!-- slot 1 -->
+        <li class="nav-only-mobile" data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?next=/">Zaloguj się</a></li>
         <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
-        <!-- „Zaloguj się" tylko w menu rozwijanym na telefonie (patrz .nav-only-mobile
-             w css/style.css). Na szerokim pasku zostaje samo „Zarejestruj się". -->
-        <li class="nav-only-mobile" data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html">Zaloguj się</a></li>
-        <li class="nav-only-mobile" data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj</button></li>
-        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
+
+        <!-- slot 2 -->
+        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register&amp;next=/">Zarejestruj się</a></li>
+        <li class="nav-only-mobile" data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>

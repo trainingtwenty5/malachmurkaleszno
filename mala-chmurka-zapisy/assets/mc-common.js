@@ -324,7 +324,11 @@ export function watchNavAuth() {
   wireNavLogout();
   import('./mc-firebase.js')
     .then(({ auth, A }) => A.onAuthStateChanged(auth, updateNavAuth))
-    .catch(() => { /* bez Firebase zostaje widok dla niezalogowanych */ });
+    /* Bez Firebase menu zostaje w widoku dla niezalogowanych — i słusznie, bo
+       nie wiemy, kto ogląda. Ale cicha porażka wygląda dokładnie tak samo jak
+       zepsuty przełącznik, więc niech chociaż zostawi ślad w konsoli. */
+    .catch(err => console.warn('watchNavAuth: nie udało się wczytać Firebase, '
+      + 'menu zostaje w widoku dla niezalogowanych.', err));
 }
 
 /* ==========================================================================
