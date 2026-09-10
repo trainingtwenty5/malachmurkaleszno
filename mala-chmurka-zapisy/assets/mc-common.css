@@ -82,6 +82,24 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .nav a:hover,.nav a.is-current{background:var(--sky-pale);color:var(--navy-deep);text-decoration:none}
 .nav .nav-cta{background:var(--wood);color:#fff;margin-left:8px;padding-inline:1.3em}
 .nav .nav-cta:hover{background:var(--wood-dark);color:#fff}
+/* Wariant dla „Nowego wejścia" — ten sam przycisk, tylko czerwony, żeby przy
+   ladzie rzucał się w oczy. Ceglasty, nie sygnalizacyjny: obok niego stoi
+   drugi przycisk (Zarezerwuj miejsce) i dwa krzyczące kolory zaczęłyby ze
+   sobą walczyć. */
+.nav .nav-cta-red{background:var(--bad)}
+.nav .nav-cta-red:hover{background:#9C3A33;color:#fff}
+
+/* Plakietka z liczbą spraw czekających na obsługę — przy zakładce w panelu
+   i przy pozycji w menu. Czerwone kółko, bo to jedyne miejsce w panelu,
+   które ma prawo dopominać się uwagi. */
+.tab-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
+  margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;
+  font-family:var(--font-head);font-size:.75rem;font-weight:700;line-height:1;
+  vertical-align:middle}
+/* W menu plakietka siedzi na kolorowym tle przycisku — biały krążek czyta się
+   tam lepiej niż czerwony na czerwonym. */
+.nav-cta .tab-badge{background:#fff;color:var(--bad)}
+
 .nav-auth{display:flex;gap:14px;align-items:center}
 .nav-auth a{white-space:nowrap}
 @media (max-width:860px){
@@ -145,6 +163,10 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .btn-soft:hover{background:var(--sky-pale)}
 .btn-danger{background:var(--bad-pale);color:var(--bad);border:1px solid rgba(181,68,60,.25)}
 .btn-danger:hover{background:#f7d8d5}
+/* Pełny czerwony przycisk — „+ Nowe wejście" w panelu. `btn-danger` to wersja
+   blada, do akcji, które kasują; ta jest do akcji wykonywanej najczęściej. */
+.btn-red{background:var(--bad);color:#fff}
+.btn-red:hover{background:#9C3A33;color:#fff}
 .btn-sm{font-size:.86rem;padding:.5em 1.05em}
 .btn-block{width:100%}
 .btn:disabled{background:#DED7CC;color:#8D8579;box-shadow:none;cursor:not-allowed;transform:none}

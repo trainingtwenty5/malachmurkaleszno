@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=6">
+<link rel="stylesheet" href="assets/mc-common.css?v=7">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -182,10 +182,10 @@
       <nav class="admin-tabs" aria-label="Sekcje panelu">
         <span class="is-on">Zarządzanie zajęciami</span>
         <a href="panel-admina.html?tab=cal">1 · Kalendarz zajęć</a>
-        <a href="panel-admina.html?tab=regs">2 · Zapisani</a>
+        <a href="panel-admina.html?tab=regs">2 · Zapisani <span class="tab-badge" id="regsBadge" hidden>0</span></a>
         <a href="panel-admina.html?tab=count">3 · Licznik w bawialni</a>
         <a href="panel-admina.html?tab=rank">4 · Ranking wizyt</a>
-        <a href="panel-admina.html?tab=book">5 · Rezerwacje</a>
+        <a href="panel-admina.html?tab=book">5 · Rezerwacje <span class="tab-badge" id="bookBadge" hidden>0</span></a>
         <a href="panel-admina.html?tab=play">6 · Czas zabawy</a>
         <a href="panel-admina.html?tab=fin">7 · Finanse</a>
       </nav>
@@ -348,7 +348,7 @@ import { mountChrome, toast, $, $$, esc, money, longDate, shortDate, isoDate,
          seriesDates, parseDate, DAY_NAMES, DAY_SHORT } from './assets/mc-common.js';
 import { auth, A, adminStatus, isAdminEmail, authError, ADMIN_EMAILS } from './assets/mc-firebase.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent, repeatOnDates,
-         EMPTY_EVENT, todayISO, refreshEvent, countEventImages } from './assets/mc-data.js';
+         EMPTY_EVENT, todayISO, refreshEvent, countEventImages, watchTodo } from './assets/mc-data.js';
 import { mountGallery } from './assets/mc-galeria.js';
 
 mountChrome({ crumb: 'Administrator' });
@@ -517,6 +517,14 @@ function deniedHtml(st, user) {
    ========================================================================== */
 let EVENTS = [], unsub = null, editingId = null;
 
+/** Czerwone kółko z liczbą spraw czekających na obsługę. */
+function paintBadge(id, ile) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = ile > 99 ? '99+' : String(ile);
+  el.hidden = ile === 0;
+}
+
 function start() {
   $('#from').value = todayISO();
   $('#to').value   = isoDate(addDays(new Date(), 60));
@@ -524,6 +532,13 @@ function start() {
   $('#q').oninput = render;
   $('#addNew').onclick = () => openModal(null);
   subscribe();
+
+  /* Plakietki przy „Zapisani" i „Rezerwacje" — te same liczby, co w pełnym
+     panelu. Stąd też widać, że coś czeka, bez przechodzenia tam i z powrotem. */
+  watchTodo(c => {
+    paintBadge('regsBadge', c.registrations);
+    paintBadge('bookBadge', c.bookings);
+  });
 
   /* próbki kolorów w formularzu */
   $('#swatches').innerHTML = PALETTE
