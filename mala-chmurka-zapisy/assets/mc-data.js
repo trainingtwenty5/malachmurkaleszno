@@ -705,6 +705,17 @@ export async function listBookings({ fromISO, toISO } = {}) {
  * @param {(c: {bookings:number, registrations:number, total:number}) => void} cb
  * @returns {() => void} funkcja odpinająca oba nasłuchy
  */
+/**
+ * Czy wpis czeka na obsługę — jedna definicja dla plakietek przy zakładkach
+ * i dla czerwonych kropek przy pojedynczych wierszach. Gdyby każde miejsce
+ * liczyło po swojemu, plakietka pokazywałaby co innego niż lista pod nią.
+ *
+ *   rezerwacja  → nikt jej jeszcze nie zaakceptował ani nie odrzucił
+ *   zapis       → jeszcze nierozliczony (nie ma „przyszedł + opłacone")
+ */
+export const bookingNeedsAttention = b => ((b && b.status) || 'pending') === 'pending';
+export const registrationNeedsAttention = r => ((r && r.status) || 'new') !== 'confirmed';
+
 export function watchTodo(cb, onError) {
   const stan = { bookings: 0, registrations: 0 };
   const podaj = () => cb({ ...stan, total: stan.bookings + stan.registrations });
@@ -723,7 +734,7 @@ export function watchTodo(cb, onError) {
     s => {
       const dzis = todayISO();
       stan.bookings = s.docs.map(d => d.data())
-        .filter(b => (b.date || '') >= dzis && (b.status || 'pending') === 'pending').length;
+        .filter(b => (b.date || '') >= dzis && bookingNeedsAttention(b)).length;
       podaj();
     }, fail('bookings'));
 
@@ -732,7 +743,7 @@ export function watchTodo(cb, onError) {
     s => {
       const dzis = todayISO();
       stan.registrations = s.docs.map(d => d.data())
-        .filter(r => (r.eventDate || '') >= dzis && (r.status || 'new') !== 'confirmed').length;
+        .filter(r => (r.eventDate || '') >= dzis && registrationNeedsAttention(r)).length;
       podaj();
     }, fail('registrations'));
 

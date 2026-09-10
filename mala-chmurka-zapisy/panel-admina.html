@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=7">
+<link rel="stylesheet" href="assets/mc-common.css?v=8">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -189,11 +189,51 @@
   .wi-cennik .pricelist b{color:var(--navy-deep)}
   @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
 
-  /* ---- karta 0: jeden duży przycisk, nic poza nim ---- */
+  /* Czerwona kropka przy pojedynczym wpisie, który czeka na obsługę.
+     Plakietka przy zakładce mówi „ile", kropka — „który". */
+  .todo-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--bad);
+    margin-right:6px;vertical-align:middle;flex:none}
+  .bk-card .todo-dot{margin:0 0 0 6px}
+
+  /* ---- karta 0: przycisk, a pod nim kto teraz jest w bawialni ---- */
   .entry-hero{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
     box-shadow:var(--shadow-sm);padding:clamp(22px,4vw,40px);text-align:center}
   .entry-hero p{max-width:46ch;margin-inline:auto;color:var(--muted)}
   .entry-hero .btn{margin-top:6px;font-size:1.05rem;padding:.85em 2em}
+
+  /* Kafelki „kto teraz jest w bawialni". Na komputerze siatka kwadratów —
+     obsługa ma je ogarnąć jednym spojrzeniem znad lady, a nie czytać tabelę.
+     Najnowsze wejście ląduje pierwsze, bo o nie najczęściej chodzi. */
+  .entry-now{margin-top:22px}
+  .entry-now h3{font-size:1rem;margin-bottom:10px;display:flex;align-items:baseline;gap:8px}
+  .entry-now h3 .hint{font-weight:400}
+  .now-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .now-tile{aspect-ratio:1;display:flex;flex-direction:column;justify-content:center;
+    align-items:center;text-align:center;gap:4px;padding:12px 10px;
+    border:2px solid var(--line);border-radius:18px;background:var(--white);
+    box-shadow:var(--shadow-sm);overflow:hidden}
+  .now-tile .imie{font-family:var(--font-head);font-weight:700;font-size:1.05rem;
+    color:var(--navy-deep);line-height:1.2;overflow-wrap:anywhere}
+  .now-tile .czas{font-family:var(--font-head);font-weight:700;
+    font-size:clamp(1.2rem,3.4vw,1.6rem);line-height:1;font-variant-numeric:tabular-nums}
+  .now-tile .skad{font-size:.75rem;color:var(--muted);line-height:1.25}
+  /* Kolor mówi, ile zostało: spokojnie, zaraz koniec, po czasie. */
+  .now-tile.playing{border-color:#CBE4EA;background:var(--brand-pale)}
+  .now-tile.playing .czas{color:var(--brand-deep)}
+  .now-tile.soon{border-color:rgba(180,118,28,.45);background:var(--warn-pale)}
+  .now-tile.soon .czas{color:var(--warn)}
+  .now-tile.over,.now-tile.frozen{border-color:rgba(181,68,60,.45);background:var(--bad-pale)}
+  .now-tile.over .czas,.now-tile.frozen .czas{color:var(--bad)}
+  .now-tile.waiting{border-color:var(--line);background:var(--cream)}
+  .now-tile.waiting .czas{color:var(--muted)}
+  /* Na telefonie kwadraty robią się za małe na imię i zegar — kafelki
+     kładą się wtedy w jedną kolumnę, imię obok czasu. */
+  @media (max-width:560px){
+    .now-grid{grid-template-columns:1fr;gap:8px}
+    .now-tile{aspect-ratio:auto;flex-direction:row;justify-content:space-between;
+      text-align:left;padding:12px 14px;border-radius:14px}
+    .now-tile .skad{display:none}
+  }
 
   /* ---- uproszczone wejście: imię + dwa przyciski wieku ---- */
   .ne-kid{border:1px solid var(--line);border-radius:14px;background:var(--white);
@@ -418,10 +458,10 @@
       <nav class="admin-tabs" role="tablist">
         <button data-tab="entry">0 · Nowe wejście</button>
         <button data-tab="cal"   class="is-on">1 · Kalendarz zajęć</button>
-        <button data-tab="regs">2 · Zapisani <span class="tab-badge" id="regsBadge" hidden>0</span></button>
+        <button data-tab="regs">2 · Zapisy na zajęcia <span class="tab-badge" id="regsBadge" hidden>0</span></button>
         <button data-tab="count">3 · Licznik w bawialni</button>
         <button data-tab="rank">4 · Ranking wizyt</button>
-        <button data-tab="book">5 · Rezerwacje <span class="tab-badge" id="bookBadge" hidden>0</span></button>
+        <button data-tab="book">5 · Rezerwacje wizyt <span class="tab-badge" id="bookBadge" hidden>0</span></button>
         <button data-tab="play">6 · Czas zabawy</button>
         <button data-tab="fin">7 · Finanse</button>
       </nav>
@@ -438,6 +478,10 @@
             „Czas zabawy".</p>
           <button class="btn btn-red btn-auto" id="neAdd">+ Nowe wejście</button>
         </div>
+
+        <!-- Kto teraz jest w bawialni — te same pobyty, co w karcie „Czas
+             zabawy", tylko w formie do zerknięcia znad lady. -->
+        <div class="entry-now" id="neNow"></div>
       </section>
 
       <section class="panel is-on" id="tab-cal">
@@ -1077,7 +1121,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          applyVisitToRanking, listGuests, computePresence, pushPresence,
          setPresenceManual, clearPresenceManual, watchPresence, watchStats,
          setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin,
-         watchBookings, watchTodo, setBookingStatus, deleteBooking,
+         watchBookings, watchTodo, bookingNeedsAttention, registrationNeedsAttention,
+         setBookingStatus, deleteBooking,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
          updateBooking, applyBookingToRanking, createWalkin, extendBooking,
@@ -1190,6 +1235,7 @@ $$('.admin-tabs button').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'rank') loadRanking();
   if (b.dataset.tab === 'book') renderBookings();
   if (b.dataset.tab === 'play') { renderPlaytime(); startPlayClock(); } else stopPlayClock();
+  if (b.dataset.tab === 'entry') { renderEntryTiles(); startEntryClock(); } else stopEntryClock();
   if (b.dataset.tab === 'fin') openFinance();
 });
 
@@ -1684,7 +1730,9 @@ function renderRegs() {
   const list = filtered();
   $('#regRows').innerHTML = list.length ? list.map(r => `
     <tr class="reg-row" data-id="${esc(r.id)}">
-      <td><code class="ref" title="Numer rezerwacji — podaj go klientowi">${esc(orderRef(r.id))}</code></td>
+      <td>${registrationNeedsAttention(r)
+        ? '<span class="todo-dot" title="Zapis czeka na obsługę"></span>' : ''}<code
+        class="ref" title="Numer rezerwacji — podaj go klientowi">${esc(orderRef(r.id))}</code></td>
       <td class="num"><strong>${esc(shortDate(r.eventDate || todayISO()))}</strong><br>
         <span class="hint">${esc(r.eventStart || '')}–${esc(r.eventEnd || '')}</span></td>
       <td>${esc(r.eventTitle || '')}<br><span class="hint">${r.qty || 1} × ${money(r.unitPrice)}</span></td>
@@ -2033,7 +2081,9 @@ function bookingCard(b, { withDate = false } = {}) {
         <div class="bk-card ${st}">
           ${withDate ? `<div class="bk-when">${esc(shortDate(b.date || todayISO()))}</div>` : ''}
           <b>${esc(b.start || '—')} · ${esc(b.durationLabel || b.duration || '')}</b>
-          <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code></div>
+          <div class="bk-line"><code class="ref">${esc(orderRef(b.id))}</code>${
+            bookingNeedsAttention(b)
+              ? '<span class="todo-dot" title="Rezerwacja czeka na decyzję"></span>' : ''}</div>
           <div class="bk-line">${esc(`${b.parentFirstName || ''} ${b.parentLastName || ''}`.trim() || '—')}
             · ${esc(plDzieci(b.qty || 1))} · ${esc(money(b.total))}</div>
           ${b.paymentMethod ? `<div class="bk-line">${esc(b.paymentMethod)}</div>` : ''}
@@ -3087,6 +3137,7 @@ $('#neForm').addEventListener('submit', async e => {
     await refreshPresence();
     toast(`Dodano do bawialni: ${plDzieci(kids.length)} · ${money(b.total)}.`);
     neShut();
+    renderEntryTiles();          // nowy kafelek ma być widoczny od razu
   } catch (err) {
     neBad(err.message || 'Nie udało się zapisać.');
   } finally { $('#neSave').disabled = false; }
@@ -3107,6 +3158,67 @@ function paintBadge(id, ile) {
      jej jako liczby — wtedy wystarczy „jest tego dużo". */
   el.textContent = ile > 99 ? '99+' : String(ile);
   el.hidden = ile === 0;
+}
+
+/* ==========================================================================
+   KARTA 0 — KTO TERAZ JEST W BAWIALNI
+   --------------------------------------------------------------------------
+   Jeden kafelek = jedno dziecko: imię i odliczający się czas pobytu. Te same
+   pobyty, co w karcie „Czas zabawy", tylko bez tabeli — przy ladzie liczy się
+   jedno spojrzenie, a nie czytanie ośmiu kolumn.
+
+   Najnowsze wejście jest pierwsze. Kolejność bierzemy z godziny wejścia:
+   dziecko dopisane przed chwilą zaczyna „teraz", więc i tak wypada na górze,
+   a przy okazji kolejność nie skacze przy każdym tyknięciu zegara.
+   ========================================================================== */
+function entryTiles() {
+  return allPlayRows()
+    .filter(r => r.state !== 'frozen' || r.overtime < 60)   // dawno po czasie znika
+    .sort((a, b) => b.startMin - a.startMin)
+    .flatMap(r => {
+      const imiona = r.names.length ? r.names : [plDzieci(r.qty)];
+      return imiona.map(imie => ({ ...r, imie }));
+    });
+}
+
+function renderEntryTiles() {
+  const box = $('#neNow');
+  if (!box) return;
+  const tiles = entryTiles();
+
+  if (!tiles.length) {
+    box.innerHTML = `<h3>Kto teraz jest w bawialni</h3>
+      <div class="empty">Nikogo jeszcze nie ma. Dodaj pierwsze wejście przyciskiem wyżej.</div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <h3>Kto teraz jest w bawialni <span class="hint">${esc(plDzieci(tiles.length))}</span></h3>
+    <div class="now-grid">${tiles.map(t => {
+      const cls = t.frozen ? 'frozen'
+                : t.state === 'overtime' ? 'over'
+                : t.state === 'waiting' ? 'waiting'
+                : t.remaining <= 15 ? 'soon' : 'playing';
+      const czas = t.state === 'waiting' ? `od ${esc(fmtMin(t.startMin))}`
+                 : (t.remaining <= 0 ? 'po czasie ' : '') + esc(fmtCountdown(t.shown));
+      return `<div class="now-tile ${cls}">
+          <span class="imie">${esc(t.imie)}</span>
+          <span class="czas">${czas}</span>
+          <span class="skad">${esc(t.sourceLabel || '')}${
+            t.state === 'waiting' ? '' : ` · do ${esc(fmtMin(t.endMin))}`}</span>
+        </div>`;
+    }).join('')}</div>`;
+}
+
+/* Osobny zegar, taki sam jak w karcie „Czas zabawy": chodzi tylko wtedy, gdy
+   karta 0 jest na wierzchu — po co przeliczać coś, czego nikt nie widzi. */
+let entryTimer = null;
+function startEntryClock() {
+  stopEntryClock();
+  entryTimer = setInterval(renderEntryTiles, 1000);
+}
+function stopEntryClock() {
+  if (entryTimer) { clearInterval(entryTimer); entryTimer = null; }
 }
 
 function startTodoBadges() {
