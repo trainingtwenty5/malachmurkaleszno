@@ -272,6 +272,27 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .nav .nav-cta-red:hover,
 .site-header.is-scrolled .nav .nav-cta-red:hover { background: var(--brick-dark); color: #fff; }
 
+/* Plakietka z liczbą spraw czekających w panelu, przy pozycji „Panel admina".
+   Ta sama co przy zakładkach w panelu — ale strona główna nie ładuje
+   mc-common.css, więc regułę trzeba powtórzyć tutaj. Bez tego `var()` z nieznaną
+   zmienną po cichu wychodzi na przezroczyste i plakietki po prostu nie widać. */
+.nav .tab-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--brick);
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: .75rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+
 /* Pozycja wyłącznie dla menu rozwijanego na telefonie („Zaloguj się").
    Na szerokim ekranie pasek ma już „Zarejestruj się" i obie pozycje obok
    siebie tylko go rozpychały — a prowadzą na ten sam ekran logowania.

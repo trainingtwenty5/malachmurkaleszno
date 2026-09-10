@@ -35,7 +35,9 @@ const NAV_SIGNED = ['Historia zamówień',  URLS.history];
    sprawdzeniu uprawnień — to samo, co decyduje o wejściu do panelu.
    Tu chodzi tylko o to, co widać; wejścia pilnują reguły Firestore. */
 const NAV_ADMIN = [
-  { label: 'Panel admina', href: URLS.admin },
+  /* Plakietkę wypełnia updateNavAdmin() — dzięki niej widać z każdej podstrony
+     (i ze strony głównej), że w panelu coś czeka, bez wchodzenia tam. */
+  { label: 'Panel admina', href: URLS.admin, badge: true },
   /* Czerwony przycisk, jak „Zarezerwuj miejsce" obok — to pozycja, po którą
      obsługa sięga najczęściej i w największym pośpiechu. */
   { label: 'Nowe wejście', href: URLS.admin + '?tab=entry', cls: 'nav-cta nav-cta-red' }
@@ -119,9 +121,10 @@ export function mountChrome(opts = {}) {
           ${NAV.map(([label, href]) =>
             `<li><a href="${href}"${label === opts.current ? ' class="is-current"' : ''}>${label}</a></li>`).join('')}
           <li class="nav-auth" id="mcNavAuth"><a href="${NAV_GUEST[1]}">${NAV_GUEST[0]}</a></li>
-          ${NAV_ADMIN.map(({ label, href, cls }) =>
+          ${NAV_ADMIN.map(({ label, href, cls, badge }) =>
             `<li data-nav-admin hidden><a href="${href}"${
-              cls ? ` class="${cls}"` : ''}>${label}</a></li>`).join('')}
+              cls ? ` class="${cls}"` : ''}>${label}${
+              badge ? '<span class="tab-badge" data-nav-todo hidden></span>' : ''}</a></li>`).join('')}
           <li><a href="${URLS.booking}" class="nav-cta">Zarezerwuj miejsce</a></li>
         </ul>
       </nav>
@@ -322,8 +325,32 @@ function updateNavAdmin(user) {
 
   import('./mc-firebase.js')
     .then(({ adminStatus }) => adminStatus(user))
-    .then(s => pokaz(!!(s && s.ok)))
+    .then(s => { pokaz(!!(s && s.ok)); if (s && s.ok) startNavTodo(); })
     .catch(() => pokaz(false));
+}
+
+/* Nasłuch na liczbę spraw czekających w panelu. Podpinamy go raz na życie
+   strony: `updateNavAuth` bywa wołane przy każdej zmianie stanu logowania,
+   a drugi nasłuch znaczyłby drugi rachunek za odczyty z bazy. */
+let navTodoOff = null;
+
+function startNavTodo() {
+  if (navTodoOff) return;
+  if (!document.querySelector('[data-nav-todo]')) return;
+  navTodoOff = true;                                   // blokada na czas ładowania
+  import('./mc-data.js')
+    .then(({ watchTodo }) => {
+      navTodoOff = watchTodo(c => {
+        document.querySelectorAll('[data-nav-todo]').forEach(el => {
+          el.textContent = c.total > 99 ? '99+' : String(c.total);
+          el.hidden = c.total === 0;
+        });
+      });
+    })
+    .catch(err => {
+      navTodoOff = null;                               // spróbujemy jeszcze raz
+      console.warn('Nie udało się policzyć spraw czekających w panelu.', err);
+    });
 }
 
 /**
