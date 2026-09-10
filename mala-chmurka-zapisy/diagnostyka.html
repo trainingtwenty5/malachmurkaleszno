@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=11">
+<link rel="stylesheet" href="assets/mc-common.css?v=12">
 <style>
   .diag{max-width:780px;margin-inline:auto}
   .verdict{border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;display:flex;gap:14px;
@@ -88,7 +88,7 @@
     <p class="hint" style="text-align:center;margin-top:18px">
       <a href="rezerwacja-bawialni.html">Formularz rezerwacji</a> ·
       <a href="panel-admina.html">Panel admina</a> ·
-      <a href="admin.html">Logowanie administratora</a>
+      <a href="panel-admina.html">Logowanie administratora</a>
     </p>
   </div>
 </main>
@@ -184,7 +184,7 @@ async function writeTest(user, isAdmin) {
 
   if (!user) {
     box.innerHTML = `<div class="alert alert-info">Zaloguj się kontem administratora, żeby
-      uruchomić test zapisu. <a href="admin.html?next=${encodeURIComponent(location.pathname)}">Przejdź do logowania →</a></div>`;
+      uruchomić test zapisu. <a href="panel-admina.html?next=${encodeURIComponent(location.pathname)}">Przejdź do logowania →</a></div>`;
     return null;
   }
   if (!isAdmin) {

@@ -16,6 +16,9 @@
   /* Dwa kolory wyłącznie dla przycisków obsługi — żeby „Nowe zajęcia"
      i „Wykluczenia" dało się rozróżnić w menu jednym rzutem oka. */
   --plum:#7E5A8C; --plum-dark:#6A4A77;
+  /* Pastelowa zieleń — druga rodzina zakładek w panelu (sprawy zajęć).
+     Para dla --sky-pale, które niesie pierwszą (sprawy bawialni). */
+  --mint-pale:#E3F1E6;
   --font-head:'Quicksand','Trebuchet MS',system-ui,sans-serif;
   --font-body:'Nunito','Segoe UI',system-ui,sans-serif;
   --radius:18px; --radius-lg:28px; --radius-xl:44px;
@@ -192,6 +195,10 @@ body.has-admin-nav .nav ul{flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
    w panelu, która ZABIERA coś klientowi; nie powinna wyglądać jak reszta. */
 .btn-plum{background:var(--plum);color:#fff}
 .btn-plum:hover{background:var(--plum-dark);color:#fff}
+/* Morski — zajęcia. Ten sam kolor, co przycisk „Nowe zajęcia" w menu, żeby
+   ta sama akcja wyglądała tak samo wszędzie. */
+.btn-teal{background:var(--brand-deep);color:#fff}
+.btn-teal:hover{background:#33636D;color:#fff}
 .btn-sm{font-size:.86rem;padding:.5em 1.05em}
 .btn-block{width:100%}
 .btn:disabled{background:#DED7CC;color:#8D8579;box-shadow:none;cursor:not-allowed;transform:none}

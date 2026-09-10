@@ -23,7 +23,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `dziekujemy-rezerwacja.html` | Podziękowanie po rezerwacji + 3 kroki „co dalej". |
 | `logowanie.html` | Logowanie klienta (e-mail + hasło, Google, reset hasła). |
 | `dziekujemy.html` | Podziękowanie: podsumowanie, numer konta, kontakt. |
-| **`admin.html`** | **Ekran logowania administratora + zarządzanie zajęciami.** |
+| `admin.html` | Samo przekierowanie do panelu. Zarządzanie zajęciami przeniosło się do **karty 6** panelu; plik zostaje, żeby stare zakładki i adres `/admin` nie dawały 404. |
 | `panel-admina.html` | Pełny panel z 7 zakładkami (kalendarz, zapisani, licznik, ranking, rezerwacje, czas zabawy, finanse). |
 | `assets/firebase-config.js` | Konfiguracja Firebase **i lista administratorów**. |
 | `assets/mc-firebase.js` | Inicjalizacja SDK + sprawdzanie uprawnień. |
@@ -70,7 +70,7 @@ Potem w przeglądarce:
 |---|---|
 | `http://localhost:5500/` | strona główna z licznikiem i nowymi przyciskami |
 | `http://localhost:5500/mala-chmurka-zapisy/kalendarz-zajec.html` | grafik zajęć |
-| `http://localhost:5500/mala-chmurka-zapisy/admin.html` | logowanie administratora |
+| `http://localhost:5500/mala-chmurka-zapisy/panel-admina.html` | panel administratora (logowanie, zajęcia, rezerwacje, finanse) |
 
 Żeby logowanie działało z `localhost`, w Firebase Console →
 **Authentication → Settings → Authorized domains** musi być wpis `localhost`
@@ -116,7 +116,7 @@ buchar123@gmail.com
 
 Żeby wejść do panelu:
 
-1. Otwórz `admin.html`.
+1. Otwórz `panel-admina.html`.
 2. Kliknij **„Zaloguj przez Google”** i wybierz konto Gmail z listy — **to
    najprostsza droga**, bo Google od razu potwierdza adres e-mail.
 3. Panel pojawia się natychmiast.
@@ -132,7 +132,7 @@ konto na nieużywany jeszcze adres z listy i wejść do panelu.
 
 ## Krok 4 — pierwsze zajęcia
 
-W `admin.html` kliknij **„+ Nowe zajęcia”**: nazwa, kolor, liczba miejsc, cena,
+W panelu, w karcie **6 · Zarządzaj zajęciami**, kliknij **„+ Nowe zajęcia”**: nazwa, kolor, liczba miejsc, cena,
 wiek, opisy, zdjęcia, metody płatności. Pole **„Powiel na kolejne tygodnie”**
 tworzy od razu np. 12 kolejnych terminów.
 
@@ -304,7 +304,7 @@ kto i od kiedy ma dostęp.
 
 ---
 
-## Panel administratora (`admin.html`)
+## Panel administratora (`panel-admina.html`)
 
 * Wejście na stronę bez zalogowania → widać **tylko ekran logowania**, panel jest ukryty.
 * Logowanie: **Google** (zalecane) albo e-mail + hasło, z resetem hasła i zakładaniem konta.
@@ -338,7 +338,7 @@ nie zrobiło setek terminów.
 Same daty liczy czysta funkcja `seriesDates` z `mc-common.js` — bez przeglądarki, więc
 da się ją sprawdzić testem (`node tools/test-zapisy.mjs`).
 
-**To samo jest w „Zarządzaniu zajęciami"** (`admin.html`) — ta strona ma własną kopię okna
+**To samo jest w karcie „Zarządzaj zajęciami"** — lista i kalendarz otwierają jedno okno
 zajęć, więc sekcja powtarzania musiała trafić w oba miejsca. Dodatkowo w wierszu tabeli
 obok „Duplikuj" stoi **„Powiel"**:
 
@@ -366,7 +366,7 @@ można zostawić puste.
 
 ## Zdjęcia zajęć
 
-W oknie edycji zajęć (w `admin.html` i w zakładce 1 panelu) jest galeria:
+W oknie edycji zajęć (karta 6 i karta 7 panelu otwierają to samo okno) jest galeria:
 
 * **przeciągnij pliki** na jasne pole albo kliknij i wybierz je z dysku;
   działa też **Ctrl+V** — wklejenie zdjęcia prosto ze schowka,

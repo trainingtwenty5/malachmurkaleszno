@@ -17,7 +17,7 @@
       { "source": "/grafik-zajec",     "destination": "/kalendarz-zajec.html" },
       { "source": "/zapisz-sie",       "destination": "/zapisz-sie-na-zajecia.html" },
       { "source": "/panel",            "destination": "/panel-admina.html" },
-      { "source": "/admin",            "destination": "/admin.html" }
+      { "source": "/admin",            "destination": "/panel-admina.html" }
     ]
   }
 }
