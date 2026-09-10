@@ -189,6 +189,31 @@
   .wi-cennik .pricelist b{color:var(--navy-deep)}
   @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
 
+  /* ---- karta 0: jeden duży przycisk, nic poza nim ---- */
+  .entry-hero{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);padding:clamp(22px,4vw,40px);text-align:center}
+  .entry-hero p{max-width:46ch;margin-inline:auto;color:var(--muted)}
+  .entry-hero .btn{margin-top:6px;font-size:1.05rem;padding:.85em 2em}
+
+  /* ---- uproszczone wejście: imię + dwa przyciski wieku ---- */
+  .ne-kid{border:1px solid var(--line);border-radius:14px;background:var(--white);
+    padding:10px 12px;margin-bottom:10px}
+  .ne-kid-top{display:grid;grid-template-columns:1fr 38px;gap:8px;align-items:center}
+  .ne-kid-del{width:38px;height:44px;border-radius:11px;color:var(--bad);
+    background:var(--bad-pale);border:1px solid rgba(181,68,60,.25);font-size:1.1rem;line-height:1}
+  .ne-kid-del:hover{filter:brightness(.97)}
+  .ne-kid-del:disabled{opacity:.35;cursor:not-allowed}
+  /* Dwa przyciski wieku. Żaden wciśnięty = pełna cena, czyli zwykłe dziecko —
+     dlatego nie ma trzeciego przycisku „powyżej roku". */
+  .ne-tiers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .ne-tier{padding:.6em .8em;border-radius:12px;border:1px solid var(--line);
+    background:var(--cream);color:var(--navy-deep);font-family:var(--font-head);
+    font-weight:600;font-size:.86rem;line-height:1.3;transition:.18s var(--ease)}
+  .ne-tier:hover{background:var(--cream-deep)}
+  .ne-tier[aria-pressed="true"]{background:var(--brand-deep);border-color:var(--brand-deep);color:#fff}
+  .ne-tier small{display:block;font-size:.76rem;font-weight:700;opacity:.75}
+  @media (max-width:560px){ .ne-tiers{grid-template-columns:1fr} }
+
   /* ---- nowe wejście: dzieci wierszami + wycena na żywo ---- */
   .wi-kid{display:grid;grid-template-columns:1fr 150px 38px;gap:8px;align-items:end;margin-bottom:8px}
   .wi-kid .hint{font-size:.78rem;margin:0 0 3px}
@@ -392,6 +417,7 @@
       </div>
 
       <nav class="admin-tabs" role="tablist">
+        <button data-tab="entry">0 · Nowe wejście</button>
         <button data-tab="cal"   class="is-on">1 · Kalendarz zajęć</button>
         <button data-tab="regs">2 · Zapisani</button>
         <button data-tab="count">3 · Licznik w bawialni</button>
@@ -402,6 +428,19 @@
       </nav>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
+      <!-- ============================== 0. NOWE WEJŚCIE ============================== -->
+      <!-- Karta pod ladę: jedno kliknięcie i okno z imionami. Wszystko, co da się
+           policzyć samo — godziny, cena, opłata — liczy się bez pytania. -->
+      <section class="panel" id="tab-entry">
+        <div class="entry-hero">
+          <h2 style="margin-bottom:.35em">Ktoś przyszedł bez zapisu?</h2>
+          <p>Wpisz imiona i wybierz czas pobytu. Wejście liczy się od teraz, zapisuje
+            się od razu jako opłacone i wchodzi do licznika na stronie oraz na listę
+            „Czas zabawy".</p>
+          <button class="btn btn-primary btn-auto" id="neAdd">+ Nowe wejście</button>
+        </div>
+      </section>
+
       <section class="panel is-on" id="tab-cal">
         <div class="cal-toolbar">
           <button class="cal-nav" id="prev" aria-label="Poprzedni tydzień">‹</button>
@@ -866,6 +905,41 @@
       <div class="modal-foot">
         <button type="button" class="btn btn-outline btn-sm" id="wiCancel">Anuluj</button>
         <button type="submit" class="btn btn-primary btn-sm" id="wiSave">Dodaj do bawialni</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODAL: nowe wejście (uproszczone, karta 0) ============ -->
+<!-- Wersja pod ladę: tylko imiona, wiek dwoma przyciskami i czas pobytu.
+     Godziny, forma płatności i odhaczenie opłaty biorą się same — przy kolejce
+     przy drzwiach liczy się to, czego NIE trzeba klikać. Pełne okno, z datą
+     urodzenia i godzinami co do minuty, zostaje w karcie „Czas zabawy". -->
+<div class="modal" id="neModal" role="dialog" aria-modal="true" aria-labelledby="neTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="neTitle">Nowe wejście</h2>
+      <button class="modal-close" id="neClose" aria-label="Zamknij">×</button>
+    </div>
+    <form id="neForm">
+      <div id="neMsg"></div>
+
+      <div class="field">
+        <span class="lbl">Dzieci *</span>
+        <p class="hint" style="margin:-2px 0 8px">Przyciski pod imieniem są dla maluchów:
+          do 6. miesiąca wstęp gratis, do 1. roku połowa ceny. Bez zaznaczenia liczy się
+          pełna cena. Od dwojga dzieci sama nalicza się zniżka rodzeństwa.</p>
+        <div id="neKids"></div>
+        <button type="button" class="day-add" id="neAddKid">+ Dodaj kolejne dziecko</button>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Czas pobytu</span>
+        <div class="durations" id="neDurations"></div>
+      </div>
+
+      <div class="modal-foot">
+        <button type="submit" class="btn btn-primary btn-block" id="neSave">Dodaj do bawialni</button>
       </div>
     </form>
   </div>
@@ -2843,6 +2917,176 @@ $('#wiForm').addEventListener('submit', async e => {
   } catch (err) {
     wiBad(err.message || 'Nie udało się zapisać.');
   } finally { $('#wiSave').disabled = false; }
+});
+
+
+/* ==========================================================================
+   KARTA 0 — NOWE WEJŚCIE (uproszczone)
+   --------------------------------------------------------------------------
+   Ta sama operacja co „+ Nowe wejście" w karcie „Czas zabawy", tylko obrana
+   z wszystkiego, czego przy ladzie nie ma czasu wpisywać:
+
+     • wiek zamiast daty urodzenia — dwa przyciski, bo tylko dwa progi zmieniają
+       cenę (do 6. miesiąca gratis, do 1. roku połowa); brak zaznaczenia to
+       zwykłe dziecko w pełnej cenie,
+     • godziny liczą się same: od teraz, do końca wybranego czasu pobytu
+       (a „Bez limitu" — do zamknięcia),
+     • wejście zapisuje się od razu jako opłacone, formą płatności z ustawień.
+
+   Cena leci tym samym `quote()`, co rezerwacja ze strony — to samo wejście nie
+   może mieć dwóch cen zależnie od tego, którym okienkiem je wpisano.
+   ========================================================================== */
+const neModal = $('#neModal');
+
+const neDuration = () =>
+  ($('#neDurations input[name=neDur]:checked') || {}).value || 'open';
+
+/** Kafelki z ceną — te same, co w pełnym oknie, liczone taryfą dzisiejszego dnia. */
+function neRenderDurations() {
+  const t = tariffFor(todayISO());
+  const wybrany = neDuration();
+  /* Pobyt nie może wyjść poza zamknięcie: o 18:00 w dzień do 19:00 dwie godziny
+     się nie zmieszczą. „Bez limitu" mieści się zawsze — kończy się z zamknięciem. */
+  const o = openingFor(todayISO());
+  const od = Math.floor(nowMinFloat());
+  const mieści = d => !o || d.minutes === null || od + d.minutes <= o.closeMin;
+
+  $('#neDurations').innerHTML = DURATIONS.map(d => `
+    <label class="dur">
+      <input type="radio" name="neDur" value="${esc(d.id)}"
+             ${d.id === wybrany ? 'checked' : ''} ${mieści(d) ? '' : 'disabled'}>
+      <span>${esc(d.label)}<b>${esc(money(PRICES[t][d.id]))}</b>${
+        mieści(d) ? '' : '<em class="dur-no">nie zmieści się przed zamknięciem</em>'}</span>
+    </label>`).join('');
+
+  if (!DURATIONS.filter(mieści).some(d => d.id === wybrany)) {
+    const pierwszy = DURATIONS.find(mieści);
+    const el = pierwszy && $(`#neDurations input[value="${pierwszy.id}"]`);
+    if (el) el.checked = true;
+  }
+  $$('#neDurations input[name=neDur]').forEach(r => r.onchange = neQuoteRender);
+}
+
+/** Wiersz dziecka: imię, krzyżyk i dwa przyciski wieku. */
+function neKidRow() {
+  const row = document.createElement('div');
+  row.className = 'ne-kid';
+  row.innerHTML = `
+    <div class="ne-kid-top">
+      <input class="control ne-kid-name" placeholder="np. Zosia" aria-label="Imię dziecka">
+      <button type="button" class="ne-kid-del" aria-label="Usuń dziecko">×</button>
+    </div>
+    <div class="ne-tiers" role="group" aria-label="Wiek dziecka">
+      <button type="button" class="ne-tier" data-tier="free" aria-pressed="false">
+        ${esc(AGE_TIERS.free.label)}<small>${esc(AGE_TIERS.free.short)}</small></button>
+      <button type="button" class="ne-tier" data-tier="half" aria-pressed="false">
+        ${esc(AGE_TIERS.half.label)}<small>${esc(AGE_TIERS.half.short)}</small></button>
+    </div>`;
+
+  row.querySelector('.ne-kid-del').onclick = () => { row.remove(); neSyncKids(); };
+  row.querySelector('.ne-kid-name').addEventListener('input', neQuoteRender);
+
+  /* Dwa przyciski, trzy stany. Kliknięcie we wciśnięty zdejmuje zaznaczenie
+     i dziecko wraca do pełnej ceny — inaczej pomyłki nie dałoby się cofnąć. */
+  row.querySelectorAll('.ne-tier').forEach(b => b.onclick = () => {
+    const był = b.getAttribute('aria-pressed') === 'true';
+    row.querySelectorAll('.ne-tier').forEach(x => x.setAttribute('aria-pressed', 'false'));
+    b.setAttribute('aria-pressed', String(!był));
+    neQuoteRender();
+  });
+  return row;
+}
+
+/** Ostatniego wiersza nie da się usunąć — wejście bez dziecka nie ma sensu. */
+function neSyncKids() {
+  const rows = $$('#neKids .ne-kid');
+  if (!rows.length) $('#neKids').appendChild(neKidRow());
+  $$('#neKids .ne-kid-del').forEach((b, _, all) => { b.disabled = all.length <= 1; });
+  neQuoteRender();
+}
+
+const neKids = () => $$('#neKids .ne-kid').map(r => {
+  const wybrany = r.querySelector('.ne-tier[aria-pressed="true"]');
+  return {
+    name: r.querySelector('.ne-kid-name').value.trim(),
+    tier: wybrany ? wybrany.dataset.tier : 'full'
+  };
+}).filter(k => k.name);
+
+/* Kwota ląduje na przycisku zapisu. Karta ma mieć jeden przycisk, a obsługa
+   i tak musi wiedzieć, ile zainkasować — osobna ramka z ceną byłaby tu
+   piątym elementem do przeczytania. */
+function neQuoteRender() {
+  const kids = neKids();
+  const q = quote({ date: todayISO(), duration: neDuration(), children: kids });
+  $('#neSave').textContent = kids.length
+    ? `Dodaj do bawialni · ${money(q.total)}`
+    : 'Dodaj do bawialni';
+}
+
+$('#neAddKid').onclick = () => {
+  $('#neKids').appendChild(neKidRow());
+  neSyncKids();
+  const ostatnie = $$('#neKids .ne-kid-name').pop();
+  if (ostatnie) ostatnie.focus();
+};
+
+function neOpen() {
+  $('#neMsg').innerHTML = '';
+  $('#neKids').innerHTML = '';
+  $('#neKids').appendChild(neKidRow());
+  neRenderDurations();
+  neSyncKids();
+  neModal.classList.add('is-open');
+  const pierwsze = $('#neKids .ne-kid-name');
+  if (pierwsze) pierwsze.focus();
+}
+
+const neShut = () => neModal.classList.remove('is-open');
+
+$('#neAdd').onclick   = () => neOpen();
+$('#neClose').onclick = () => neShut();
+neModal.addEventListener('click', e => { if (e.target === neModal) neShut(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && neModal.classList.contains('is-open')) neShut();
+});
+
+const neBad = text => { $('#neMsg').innerHTML = `<div class="alert alert-bad">${esc(text)}</div>`; };
+
+$('#neForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const kids = neKids();
+  if (!kids.length) return neBad('Podaj imię przynajmniej jednego dziecka.');
+
+  $('#neSave').disabled = true;
+  try {
+    /* Godziny bierzemy same: od teraz do końca wybranego czasu pobytu.
+       „Bez limitu" kończy się razem z bawialnią, a dolne 15 minut pilnuje,
+       żeby wejście tuż przed zamknięciem nie wyszło puste. */
+    const od = Math.floor(nowMinFloat());
+    const d = DURATIONS.find(x => x.id === neDuration());
+    const doMin = d && d.minutes ? od + d.minutes : closingMinFor(todayISO());
+
+    const b = await createWalkin({
+      children: kids,
+      start: fmtMin(od),
+      stayUntil: fmtMin(Math.min(Math.max(doMin, od + 15), 23 * 60 + 59)),
+      duration: neDuration(),
+      paymentMethod: (SETTINGS.paymentMethods || ['Płatność na miejscu'])[0],
+      paid: true
+    });
+
+    /* Opłacone wejście od razu liczy się do rankingu — tak samo jak po
+       odhaczeniu „Opłacone" w pełnym oknie. */
+    await applyBookingToRanking(b, +1).catch(() => {});
+    await markBookingCounted(b.id, true).catch(() => {});
+    invalidateFinanceData();
+    await refreshPresence();
+    toast(`Dodano do bawialni: ${plDzieci(kids.length)} · ${money(b.total)}.`);
+    neShut();
+  } catch (err) {
+    neBad(err.message || 'Nie udało się zapisać.');
+  } finally { $('#neSave').disabled = false; }
 });
 
 /* ==========================================================================
