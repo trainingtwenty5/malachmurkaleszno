@@ -116,6 +116,22 @@ body.has-admin-nav .nav ul{flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
 /* Plakietka z liczbą spraw czekających na obsługę — przy zakładce w panelu
    i przy pozycji w menu. Czerwone kółko, bo to jedyne miejsce w panelu,
    które ma prawo dopominać się uwagi. */
+/* Przełącznik widoku kalendarza (Dzień / Tydzień / Miesiąc). Mieszkał
+   w kalendarz-zajec.html; od kiedy używa go też panel, stoi tu — jeden
+   wygląd zamiast dwóch kopii, które i tak zaczęłyby się rozjeżdżać. */
+.view-switch{display:flex;gap:4px;background:var(--cream-deep);padding:4px;border-radius:999px}
+.view-switch button{padding:.38em .95em;border-radius:999px;font-family:var(--font-head);
+  font-weight:600;font-size:.86rem;color:var(--navy-deep);white-space:nowrap}
+.view-switch button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+
+/* Przełącznik widoku kalendarza (Dzień / Tydzień / Miesiąc). Mieszkał
+   w kalendarz-zajec.html; od kiedy używa go też panel, stoi tu — jeden
+   wygląd zamiast dwóch kopii, które i tak zaczęłyby się rozjeżdżać. */
+.view-switch{display:flex;gap:4px;background:var(--cream-deep);padding:4px;border-radius:999px}
+.view-switch button{padding:.38em .95em;border-radius:999px;font-family:var(--font-head);
+  font-weight:600;font-size:.88rem;color:var(--navy-deep);white-space:nowrap}
+.view-switch button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+
 .tab-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
   margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;
   font-family:var(--font-head);font-size:.75rem;font-weight:700;line-height:1;

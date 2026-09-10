@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=12">
+<link rel="stylesheet" href="assets/mc-common.css?v=13">
 <style>
   /* ---- dwa najbliższe terminy ---- */
   .soon{margin:0 0 22px}
@@ -28,10 +28,7 @@
   .soon-in{color:var(--brand-deep);font-weight:700}
 
   /* ---- przełącznik widoku ---- */
-  .view-switch{display:flex;gap:4px;background:var(--cream-deep);padding:4px;border-radius:999px}
-  .view-switch button{padding:.38em .95em;border-radius:999px;font-family:var(--font-head);
-    font-weight:600;font-size:.86rem;color:var(--navy-deep);white-space:nowrap}
-  .view-switch button.is-on{background:var(--white);box-shadow:var(--shadow-sm);color:var(--brand-deep)}
+  /* `.view-switch` mieszka w mc-common.css — używa go też panel administratora. */
 
   /* ---- widok miesiąca ---- */
   .month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
