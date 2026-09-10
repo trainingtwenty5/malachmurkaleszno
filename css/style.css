@@ -244,6 +244,13 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .site-header.is-scrolled .nav .nav-cta { background: var(--wood); color: #fff; }
 .site-header.is-scrolled .nav .nav-cta:hover { background: var(--wood-dark); }
 
+/* Pozycja wyłącznie dla menu rozwijanego na telefonie („Zaloguj się").
+   Na szerokim ekranie pasek ma już „Zarejestruj się" i obie pozycje obok
+   siebie tylko go rozpychały — a prowadzą na ten sam ekran logowania.
+   W menu rozwijanym miejsca nie brakuje, więc tam pokazujemy obie.
+   Odsłania ją reguła w @media (max-width: 860px) niżej w pliku. */
+.nav-only-mobile { display: none; }
+
 /* Hamburger */
 .nav-toggle {
   display: none;
@@ -1125,6 +1132,13 @@ body.cookie-open { overflow: hidden; }
   }
   .nav.is-open { transform: translateY(0); }
   .nav ul { flex-direction: column; align-items: stretch; gap: 2px; }
+
+  /* `:not([hidden])` jest tu konieczne. Reguła autorska z klasą wygrywa
+     z domyślnym [hidden]{display:none} przeglądarki, więc bez tego zastrzeżenia
+     „Zaloguj się" wracałoby na ekran po zalogowaniu — mimo że updateNavAuth()
+     ustawia mu atrybut `hidden`. Ta sama pułapka co przy .lightbox
+     i .cookie-panel niżej w pliku. */
+  .nav-only-mobile:not([hidden]) { display: block; }
   .nav a { color: var(--navy-deep); padding: .85em 1em; font-size: 1.08rem; border-radius: var(--radius); }
   .nav a:hover, .nav a.is-current { background: var(--sky-pale); }
   .nav .nav-cta { margin: 10px 0 0; text-align: center; }

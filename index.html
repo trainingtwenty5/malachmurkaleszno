@@ -254,6 +254,9 @@
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
         <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
+        <!-- „Zaloguj się" tylko w menu rozwijanym na telefonie (patrz .nav-only-mobile
+             w css/style.css). Na szerokim pasku zostaje samo „Zarejestruj się". -->
+        <li class="nav-only-mobile" data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html">Zaloguj się</a></li>
         <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
