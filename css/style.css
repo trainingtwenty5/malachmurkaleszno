@@ -216,7 +216,14 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .site-header.is-scrolled .logo-mark { background-color: var(--brand-deep); width: 108px; }
 
 /* Nawigacja */
+/* Menu klienta zostaje w jednym rzędzie — tak jak było. Przy `nowrap` pozycje
+   ściskają się i mieszczą; gdyby zawijały się zawsze, każdy klient dostałby
+   dwupiętrowy nagłówek za darmo.
+   Dopiero trzy przyciski obsługi rozpychają menu ponad szerokość strony
+   (na 1440 px chciałoby 1754 px), więc zawijanie włączamy wyłącznie wtedy, gdy
+   te przyciski są widoczne. Klasę ustawia updateNavAdmin() w mc-common.js. */
 .nav ul { display: flex; align-items: center; gap: 6px; }
+body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
 .nav a,
 .nav .nav-btn {
   display: block;
@@ -292,6 +299,21 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   line-height: 1;
   vertical-align: middle;
 }
+
+/* Na kolorowym przycisku czerwone kółko na brązowym tle się gubi — odwracamy
+   je: biały krążek z ceglastym napisem. Ta sama sztuczka co w mc-common.css. */
+.nav .nav-cta .tab-badge { background: #fff; color: var(--brick); }
+/* `display:inline-grid` wyżej to reguła autorska z klasą — wygrywa
+   z domyślnym [hidden]{display:none} przeglądarki, więc bez tego zastrzeżenia
+   plakietka świeciłaby „0", kiedy nie ma żadnych spraw. Ten sam powód, co przy
+   .nav-only-mobile niżej w pliku (mc-common.css ma na to globalne
+   [hidden]{display:none!important}, style.css — nie). */
+.nav .tab-badge[hidden] { display: none; }
+
+/* Przyciski obsługi stoją obok siebie — bez własnego odstępu skleiłyby się
+   w jeden pasek. */
+.nav .nav-cta + .nav-cta,
+.nav li + li > .nav-cta { margin-left: 6px; }
 
 /* Pozycja wyłącznie dla menu rozwijanego na telefonie („Zaloguj się").
    Na szerokim ekranie pasek ma już „Zarejestruj się" i obie pozycje obok

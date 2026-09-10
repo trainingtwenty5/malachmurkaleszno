@@ -201,7 +201,7 @@
      arkusz i skrypty na nowo. Bez tego można trafić na stary CSS
      doklejony do nowego HTML-a i rozjechany układ. Podbijamy numer
      przy każdej zmianie w css/ lub js/. -->
-<link rel="stylesheet" href="css/style.css?v=17">
+<link rel="stylesheet" href="css/style.css?v=20">
 
 <!-- ============================================================
      Zgody — Google Consent Mode v2
@@ -253,16 +253,36 @@
         <li><a href="#materialy">Oferty</a></li>
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
-        <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
-        <!-- „Zaloguj się" tylko w menu rozwijanym na telefonie (patrz .nav-only-mobile
-             w css/style.css). Na szerokim pasku zostaje samo „Zarejestruj się". -->
-        <li class="nav-only-mobile" data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html">Zaloguj się</a></li>
-        <li class="nav-only-mobile" data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj</button></li>
-        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
+        <!-- POZYCJE KONTA — dwa sloty, każdy w dwóch wersjach.
+             Widocznością steruje updateNavAuth() przez atrybut data-nav-auth:
+             gość widzi pierwszą pozycję pary, zalogowany drugą.
 
-        <!-- Tylko dla obsługi. Odsłania je updateNavAuth() po sprawdzeniu
-             uprawnień - patrz updateNavAdmin() w mc-common.js. -->
-        <li data-nav-admin hidden><a href="/mala-chmurka-zapisy/panel-admina.html">Panel admina<span class="tab-badge" data-nav-todo hidden></span></a></li>
+               slot 1:  Zaloguj się      ->  Historia zamówień
+               slot 2:  Zarejestruj się  ->  Wyloguj się
+
+             „Zaloguj się" i „Wyloguj się" mają klasę .nav-only-mobile, więc
+             pokazują się wyłącznie w menu rozwijanym na telefonie (css/style.css).
+             Na szerokim pasku zostaje sama para „Zarejestruj się"/„Historia
+             zamówień" — tak jak było, zanim doszło menu na telefon.
+
+             `next=/` sprawia, że po zalogowaniu wracamy prosto na stronę główną,
+             a nie zostajemy na ekranie logowania. Bez tego łatwo pomyśleć, że
+             menu się nie przełączyło — bo nikt na nie w tym momencie nie patrzy. -->
+
+        <!-- slot 1 -->
+        <li class="nav-only-mobile" data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?next=/">Zaloguj się</a></li>
+        <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
+
+        <!-- slot 2 -->
+        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register&amp;next=/">Zarejestruj się</a></li>
+        <li class="nav-only-mobile" data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
+
+        <!-- POZYCJE DLA OBSŁUGI — wszystkie trzy jako przyciski, żeby dało się
+             je znaleźć jednym rzutem oka w menu pełnym pozycji. Odsłania je
+             updateNavAuth() po sprawdzeniu uprawnień (updateNavAdmin()
+             w mc-common.js), więc klient nie zobaczy ich nigdy. -->
+        <li data-nav-admin hidden><a class="nav-cta" href="/mala-chmurka-zapisy/panel-admina.html">Panel admina<span class="tab-badge" data-nav-todo hidden></span></a></li>
+        <li data-nav-admin hidden><a class="nav-cta" href="/mala-chmurka-zapisy/admin.html">Zarządzanie zajęciami</a></li>
         <li data-nav-admin hidden><a class="nav-cta nav-cta-red" href="/mala-chmurka-zapisy/panel-admina.html?tab=entry">Nowe wejście</a></li>
 
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
