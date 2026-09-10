@@ -163,6 +163,40 @@ service cloud.firestore {
        O tym, czy rezerwacja zostanie przyjęta, decyduje wyłącznie
        administrator — klient nie może sobie sam zmienić statusu.
        ================================================================ */
+    /* ================================================================
+       WYKLUCZENIA REZERWACJI
+       Dzień, w którym nie przyjmujemy rezerwacji bawialni: remont, impreza
+       na wyłączność, wolne. Identyfikatorem dokumentu jest sama data
+       ('2026-09-20') — dzięki temu regułą niżej można zajrzeć wprost po
+       dacie z rezerwacji, bez żadnego zapytania.
+
+       READ jest publiczny i tak ma być: formularz rezerwacji musi wiedzieć,
+       że dzień odpada, ZANIM ktoś wypełni pół strony. Nie ma tu nic
+       prywatnego — najwyżej powód, który i tak pokazujemy tylko obsłudze.
+       ================================================================ */
+    function validExclusion(exclusionDate) {
+      return request.resource.data.date is string
+        &&   request.resource.data.date.size() == 10
+        /* id dokumentu i pole `date` muszą się zgadzać — inaczej wykluczenie
+           dałoby się schować pod inną datą i blokada niżej by go nie znalazła */
+        &&   request.resource.data.date == exclusionDate
+        &&   request.resource.data.get('reason', '').size() <= 200
+        &&   request.resource.data.keys().size() < 10;
+    }
+
+    match /exclusions/{exclusionDate} {
+      allow read:            if true;
+      allow create, update:  if isAdmin() && validExclusion(exclusionDate);
+      allow delete:          if isAdmin();
+    }
+
+    /* Czy na ten dzień jest wykluczenie. `exists()` kosztuje jeden odczyt
+       doliczany do zapisu — akceptowalna cena za to, że blokady nie da się
+       obejść konsolą przeglądarki. */
+    function dayExcluded(dateISO) {
+      return exists(/databases/$(database)/documents/exclusions/$(dateISO));
+    }
+
     match /bookings/{id} {
       allow read: if isAdmin()
                   || (isSignedIn() && resource.data.uid == request.auth.uid);
@@ -171,8 +205,12 @@ service cloud.firestore {
          i ewentualnie opłaconą. Klient przez formularz nadal tylko `pending`. */
       allow create: if isAdmin();
 
+      /* TU JEST PRAWDZIWA BLOKADA WYKLUCZONEGO DNIA.
+         Formularz też o nią pyta i wygasza przycisk, ale to tylko wygoda —
+         ktokolwiek wywoła zapis z konsoli, dostanie odmowę stąd. */
       allow create: if
-            request.resource.data.status          == 'pending'
+            !dayExcluded(request.resource.data.date)
+        &&  request.resource.data.status          == 'pending'
         &&  request.resource.data.adminNote       == ''
         /* o rozliczeniu i rankingu decyduje wyłącznie administrator —
            klient nie zgłosi się sam jako opłacony ani policzony.

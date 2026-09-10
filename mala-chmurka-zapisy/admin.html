@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=10">
+<link rel="stylesheet" href="assets/mc-common.css?v=11">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -532,6 +532,11 @@ function start() {
   $('#q').oninput = render;
   $('#addNew').onclick = () => openModal(null);
   subscribe();
+
+  /* „Nowe zajęcia" z menu prowadzi tu z `?new=1` — otwieramy okno od razu,
+     żeby pozycja w menu robiła to, co obiecuje, a nie tylko przenosiła
+     na stronę, na której trzeba jeszcze czegoś poszukać. */
+  if (new URLSearchParams(location.search).get('new') === '1') openModal(null);
 
   /* Plakietki przy „Zapisani" i „Rezerwacje" — te same liczby, co w pełnym
      panelu. Stąd też widać, że coś czeka, bez przechodzenia tam i z powrotem. */

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=10">
+<link rel="stylesheet" href="assets/mc-common.css?v=11">
 <style>
   .signup{max-width:660px;margin-inline:auto}
   .steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;
@@ -206,7 +206,21 @@ import { mountChrome, toast, $, $$, esc, money, longDate, params, URLS, SETTINGS
          DAY_NAMES } from './assets/mc-common.js';
 import { quote, discountSummary, DURATIONS, PRICES, tariffFor, tariffLabel, isHoliday, AGE_TIERS, ageTier }
   from './assets/mc-cennik.js';
-import { createBooking, todayISO, myRegistrations, myBookings } from './assets/mc-data.js';
+import { createBooking, todayISO, myRegistrations, myBookings, listExclusions }
+  from './assets/mc-data.js';
+
+/* Dni, w które obsługa nie przyjmuje rezerwacji (remont, impreza na wyłączność).
+   Czytamy raz przy wejściu — lista jest krótka i nie zmienia się w trakcie
+   wypełniania formularza. Gdyby odczyt się nie udał, zostaje pusty zbiór:
+   formularz zachowa się jak dotąd, a i tak nie przepuści zapisu, bo blokada
+   siedzi w regułach bazy. */
+const EXCLUDED = new Set();
+listExclusions(todayISO())
+  .then(list => {
+    list.forEach(e => EXCLUDED.add(e.date));
+    if (EXCLUDED.size) syncTimeLimits();      // data mogła być wybrana wcześniej
+  })
+  .catch(err => console.warn('Nie udało się pobrać wykluczonych dni.', err));
 import { knownChildren, rememberChildren, childLabel } from './assets/mc-dzieci.js';
 import { auth, A, authError } from './assets/mc-firebase.js';
 
@@ -273,6 +287,22 @@ function syncTimeLimits() {
   const date = $('#date').value || todayISO();
   const today = date === todayISO();
   const o = openingFor(date);
+
+  /* Dzień wyłączony przez obsługę — remont, impreza na wyłączność, wolne.
+     Powodu nie pokazujemy: to notatka wewnętrzna. Prawdziwa blokada i tak
+     siedzi w regułach bazy, tutaj chodzi tylko o to, żeby nikt nie wypełniał
+     formularza na darmo. */
+  if (EXCLUDED.has(date)) {
+    $('#lateNote').innerHTML =
+      '<strong>W ten dzień nie przyjmujemy rezerwacji.</strong> Wybierz inny termin.' +
+      '<button class="btn btn-outline btn-sm btn-block" type="button" id="goTomorrow" ' +
+      'style="margin-top:10px">Zarezerwuj na jutro</button>';
+    $('#lateNote').hidden = false;
+    bindTomorrow();
+    $('#start').disabled = true;
+    $('#submit').disabled = true;
+    return;
+  }
 
   /* dzień zamknięty na głucho albo dzisiaj już po godzinach */
   const closed = !o || (today && nowMin() >= o.closeMin);
@@ -486,6 +516,8 @@ $('#form').addEventListener('submit', async e => {
   if (slotInPast(date, $('#start').value, todayISO(), nowMin()))
     return show('bad', `<strong>Ta godzina już minęła.</strong> Jest ${fmtMin(nowMin())} — ` +
       'wybierz późniejszą godzinę albo inny dzień.');
+  if (EXCLUDED.has(date))
+    return show('bad', '<strong>W ten dzień nie przyjmujemy rezerwacji.</strong> Wybierz inny termin.');
   const open = openingFor(date);
   if (!open) return show('bad', '<strong>W ten dzień bawialnia jest nieczynna.</strong> Wybierz inny termin.');
   if (!withinOpening(date, $('#start').value))
