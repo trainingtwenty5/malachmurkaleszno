@@ -689,6 +689,57 @@ export async function listBookings({ fromISO, toISO } = {}) {
 }
 
 /** Nasłuch na żywo — panel admina odświeża się, gdy ktoś zarezerwuje miejsce. */
+/**
+ * Ile spraw czeka na obsługę — NIEZALEŻNIE od tego, który tydzień jest akurat
+ * otwarty na ekranie. Stąd osobny nasłuch: listy w panelu ciągną tylko jeden
+ * tydzień, więc plakietka licząca z nich gubiła wszystko, co ktoś zarezerwował
+ * dalej niż siedem dni naprzód.
+ *
+ *   bookings       status 'pending'          → rezerwacja czeka na decyzję
+ *   registrations  status inny niż 'confirmed' → zapis jeszcze nierozliczony
+ *
+ * Liczymy od dzisiaj w przód: plakietka ma mówić „ktoś się wybiera", a nie
+ * ciągnąć za sobą całą historię. Dzień odczytujemy przy każdym odczycie, więc
+ * panel otwarty przez północ sam przeskakuje na nową datę.
+ *
+ * @param {(c: {bookings:number, registrations:number, total:number}) => void} cb
+ * @returns {() => void} funkcja odpinająca oba nasłuchy
+ */
+export function watchTodo(cb, onError) {
+  const stan = { bookings: 0, registrations: 0 };
+  const podaj = () => cb({ ...stan, total: stan.bookings + stan.registrations });
+  const fail = gdzie => err => {
+    console.error('watchTodo/' + gdzie, err);
+    if (onError) onError(err);
+  };
+
+  /* Zapytania biorą szeroko (od dnia podpięcia), a właściwy dzień i status
+     odsiewamy już u siebie — inaczej trzeba by złożonego indeksu w Firestore
+     na każdą parę pól. */
+  const od = todayISO();
+
+  const offB = F.onSnapshot(
+    F.query(col(PATHS.bookings), F.where('date', '>=', od)),
+    s => {
+      const dzis = todayISO();
+      stan.bookings = s.docs.map(d => d.data())
+        .filter(b => (b.date || '') >= dzis && (b.status || 'pending') === 'pending').length;
+      podaj();
+    }, fail('bookings'));
+
+  const offR = F.onSnapshot(
+    F.query(col(PATHS.registrations), F.where('eventDate', '>=', od)),
+    s => {
+      const dzis = todayISO();
+      stan.registrations = s.docs.map(d => d.data())
+        .filter(r => (r.eventDate || '') >= dzis && (r.status || 'new') !== 'confirmed').length;
+      podaj();
+    }, fail('registrations'));
+
+  podaj();
+  return () => { offB(); offR(); };
+}
+
 export function watchBookings({ fromISO, toISO } = {}, cb) {
   let q = col(PATHS.bookings);
   q = (fromISO && toISO)

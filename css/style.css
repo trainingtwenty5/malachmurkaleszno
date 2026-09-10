@@ -28,6 +28,13 @@
   --line:        #E3D9CB;
   --white:       #FFFFFF;
 
+  /* Ceglasty — przycisk „Nowe wejście" dla obsługi. Ten sam odcień co --bad
+     w mc-common.css, żeby ta sama pozycja menu wyglądała tak samo na stronie
+     głównej i na podstronach. Ceglasty, nie sygnalizacyjny: obok stoi drugi
+     przycisk i dwa krzyczące kolory zaczęłyby ze sobą walczyć. */
+  --brick:       #B5443C;
+  --brick-dark:  #9C3A33;
+
   --font-head: 'Quicksand', 'Trebuchet MS', system-ui, sans-serif;
   --font-body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 
@@ -253,6 +260,17 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
 .nav .nav-cta:hover,
 .site-header.is-scrolled .nav .nav-cta { background: var(--wood); color: #fff; }
 .site-header.is-scrolled .nav .nav-cta:hover { background: var(--wood-dark); }
+
+/* „Nowe wejście" — ten sam przycisk co „Zarezerwuj miejsce", tylko czerwony.
+   Ceglasty, nie sygnalizacyjny: oba stoją obok siebie w tym samym pasku
+   i dwa krzyczące kolory zaczęłyby ze sobą walczyć. Reguły powtarzają się dla
+   stanu `is-scrolled`, bo tam nagłówek przemalowuje pozycje menu na granat —
+   przycisk musi zostać czerwony w obu stanach. */
+.nav .nav-cta-red,
+.nav .nav-cta-red:hover,
+.site-header.is-scrolled .nav .nav-cta-red { background: var(--brick); color: #fff; }
+.nav .nav-cta-red:hover,
+.site-header.is-scrolled .nav .nav-cta-red:hover { background: var(--brick-dark); color: #fff; }
 
 /* Pozycja wyłącznie dla menu rozwijanego na telefonie („Zaloguj się").
    Na szerokim ekranie pasek ma już „Zarejestruj się" i obie pozycje obok
