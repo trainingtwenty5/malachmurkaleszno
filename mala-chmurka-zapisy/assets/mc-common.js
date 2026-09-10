@@ -290,11 +290,38 @@ export function updateNavAuth(user) {
 }
 
 /**
+ * Podpina wylogowanie pod każdy element z atrybutem `data-nav-logout`.
+ *
+ * Firebase dociągamy dopiero przy kliknięciu, a nie z góry: pozycja „Wyloguj"
+ * i tak pokazuje się wyłącznie komuś, kto jest zalogowany — czyli SDK już się
+ * wtedy wczytało. Nie ma po co ciągnąć go przy każdym wejściu na stronę główną.
+ */
+export function wireNavLogout() {
+  $$('[data-nav-logout]').forEach(el => {
+    if (el.dataset.navLogoutOn) return;      // drugie wywołanie nie dokłada nasłuchu
+    el.dataset.navLogoutOn = '1';
+    el.addEventListener('click', async e => {
+      e.preventDefault();
+      try {
+        const { auth, A } = await import('./mc-firebase.js');
+        await A.signOut(auth);
+        toast('Wylogowano.');
+      } catch {
+        /* Menu samo wróci do stanu „zalogowany", bo nic się nie zmieniło —
+           trzeba tylko powiedzieć, że kliknięcie nie zadziałało. */
+        toast('Nie udało się wylogować. Sprawdź połączenie i spróbuj ponownie.');
+      }
+    });
+  });
+}
+
+/**
  * Podpina menu do stanu logowania na stronach BEZ mountChrome (np. index.html).
  * Wywołanie: import('./assets/mc-common.js').then(m => m.watchNavAuth());
  */
 export function watchNavAuth() {
   updateNavAuth(null);
+  wireNavLogout();
   import('./mc-firebase.js')
     .then(({ auth, A }) => A.onAuthStateChanged(auth, updateNavAuth))
     .catch(() => { /* bez Firebase zostaje widok dla niezalogowanych */ });
