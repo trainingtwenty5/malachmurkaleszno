@@ -74,6 +74,8 @@ async function seed() {
     await setDoc(doc(db, 'bookings/b-other'), { ...BOOKING, uid: 'ktos-inny' });
     await setDoc(doc(db, 'eventImages/img1'), IMAGE);
     await setDoc(doc(db, 'eventImages/img2'), { ...IMAGE, order: 1, name: 'domki.jpg' });
+    /* 2026-09-11 jest wykluczony, 2026-09-10 (data z BOOKING) nie jest. */
+    await setDoc(doc(db, 'exclusions/2026-09-11'), { date: '2026-09-11', reason: 'remont' });
     await setDoc(doc(db, 'sekrety/x'), { a: 1 });
   });
 }
@@ -353,6 +355,53 @@ await t('Nieznana kolekcja jest zamknięta dla wszystkich → NIE', async () => 
   await assertFails(getDoc(doc(anon(), 'sekrety/x')));
   await assertFails(getDoc(doc(user('a1', ADMIN, true), 'sekrety/x')));
 });
+
+console.log('\n=== WYKLUCZENIA REZERWACJI (exclusions) ===');
+
+const WYKL = { date: '2026-10-01', reason: 'impreza na wylacznosc' };
+
+await t('Wykluczenia czyta kazdy (formularz musi wiedziec, ze dzien odpada) -> TAK', async () =>
+  assertSucceeds(getDoc(doc(anon(), 'exclusions/2026-09-11'))));
+await t('Anonim NIE wyklucza dnia -> NIE', async () =>
+  assertFails(setDoc(doc(anon(), 'exclusions/2026-10-01'), WYKL)));
+await t('Zalogowany klient NIE wyklucza dnia -> NIE', async () =>
+  assertFails(setDoc(doc(user('klient', 'k@example.com'), 'exclusions/2026-10-01'), WYKL)));
+await t('Admin wyklucza dzien -> TAK', async () =>
+  assertSucceeds(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'), WYKL)));
+await t('Admin z custom claim tez wyklucza -> TAK', async () =>
+  assertSucceeds(setDoc(doc(claimed('a2'), 'exclusions/2026-10-01'), WYKL)));
+await t('Admin cofa wykluczenie -> TAK', async () =>
+  assertSucceeds(deleteDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-09-11'))));
+await t('Anonim NIE cofnie wykluczenia -> NIE', async () =>
+  assertFails(deleteDoc(doc(anon(), 'exclusions/2026-09-11'))));
+await t('Data w dokumencie musi zgadzac sie z jego id -> NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
+    { ...WYKL, date: '2026-12-24' })));
+await t('Powod dluzszy niz 200 znakow -> NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
+    { ...WYKL, reason: 'x'.repeat(201) })));
+
+console.log('\n=== BLOKADA REZERWACJI W WYKLUCZONY DZIEN ===');
+
+/* To jest sedno calej funkcji: w wykluczony dzien nikt z ulicy nie zapisze sie
+   na rezerwacje, nawet omijajac formularz. */
+await t('Anonim NIE zarezerwuje w wykluczony dzien -> NIE', async () =>
+  assertFails(addDoc(collection(anon(), 'bookings'), { ...BOOKING, date: '2026-09-11' })));
+await t('Zalogowany klient tez NIE zarezerwuje w wykluczony dzien -> NIE', async () =>
+  assertFails(addDoc(collection(user('klient', 'k@example.com'), 'bookings'),
+    { ...BOOKING, date: '2026-09-11', uid: 'klient' })));
+await t('W dzien BEZ wykluczenia rezerwacja przechodzi jak dotad -> TAK', async () =>
+  assertSucceeds(addDoc(collection(anon(), 'bookings'), { ...BOOKING, date: '2026-09-10' })));
+await t('Po cofnieciu wykluczenia dzien znowu przyjmuje rezerwacje -> TAK', async () => {
+  await testEnv.withSecurityRulesDisabled(async ctx =>
+    deleteDoc(doc(ctx.firestore(), 'exclusions/2026-09-11')));
+  return assertSucceeds(addDoc(collection(anon(), 'bookings'), { ...BOOKING, date: '2026-09-11' }));
+});
+/* Obsluga wpuszcza kogos, kto mimo wszystko przyszedl pod drzwi - swiadomie
+   nie blokujemy tej sciezki, zeby zamkniety dzien nie unieruchomil lady. */
+await t('Admin MOZE dopisac wejscie z ulicy w wykluczony dzien -> TAK', async () =>
+  assertSucceeds(addDoc(collection(user('a1', ADMIN, true), 'bookings'),
+    { ...BOOKING, date: '2026-09-11', status: 'accepted', source: 'walkin' })));
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 await testEnv.cleanup();

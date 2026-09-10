@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=10">
+<link rel="stylesheet" href="assets/mc-common.css?v=11">
 <!-- Zwykły skrypt (nie moduł): działa nawet wtedy, gdy moduły się nie wczytają. -->
 <script src="assets/mc-boot.js"></script>
 <style>
@@ -188,6 +188,27 @@
   .wi-cennik .pricelist{font-size:.85rem;line-height:1.75;color:var(--muted);margin-top:8px}
   .wi-cennik .pricelist b{color:var(--navy-deep)}
   @media (max-width:560px){ .durations{grid-template-columns:1fr} .dur span{flex-direction:row;gap:10px} }
+
+  /* ---- wykluczenia rezerwacji ---- */
+  /* Dzień wyłączony z rezerwacji. Czerwony pas nad kolumną w kalendarzu widzi
+     wyłącznie obsługa — klient nie ma wstępu do panelu, a w formularzu dostaje
+     zwykły komunikat „nieczynne", bez powodu. */
+  .day-head.is-excluded{background:var(--bad-pale);border-radius:10px 10px 0 0}
+  .day-head.is-excluded .day-num,
+  .day-head.is-excluded .day-name{color:var(--bad)}
+  .day-head .excl-mark{display:block;font-size:.66rem;font-weight:700;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--bad);line-height:1.2;margin-top:2px}
+  .day-head.clickable{cursor:pointer}
+  .day-head.clickable:hover{background:var(--cream-deep)}
+  .day-head.is-excluded.clickable:hover{background:#f7d8d5}
+
+  .excl-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+  .excl-item{display:flex;align-items:flex-start;gap:10px;border:1px solid rgba(181,68,60,.35);
+    border-left-width:4px;border-radius:12px;background:var(--bad-pale);padding:10px 12px}
+  .excl-item .grow{flex:1;min-width:0}
+  .excl-item b{display:block;font-family:var(--font-head);color:var(--navy-deep)}
+  .excl-item .powod{font-size:.85rem;color:var(--muted);overflow-wrap:anywhere}
+  .excl-item .dzien{font-size:.8rem;color:var(--bad);font-weight:700}
 
   /* Czerwona kropka przy pojedynczym wpisie, który czeka na obsługę.
      Plakietka przy zakładce mówi „ile", kropka — „który". */
@@ -464,7 +485,32 @@
         <button data-tab="book">5 · Rezerwacje wizyt <span class="tab-badge" id="bookBadge" hidden>0</span></button>
         <button data-tab="play">6 · Czas zabawy</button>
         <button data-tab="fin">7 · Finanse</button>
+        <button data-tab="excl">8 · Wykluczenia <span class="tab-badge" id="exclBadge" hidden>0</span></button>
       </nav>
+
+      <!-- ============================== 8. WYKLUCZENIA ============================== -->
+      <!-- Dni, w których nie przyjmujemy rezerwacji bawialni. Klient nie
+           zapisze się na taki dzień — pilnuje tego reguła w firestore.rules,
+           nie sam formularz. -->
+      <section class="panel" id="tab-excl">
+        <div class="bar">
+          <button class="btn btn-plum btn-sm btn-auto" id="exAdd">+ Wyklucz dzień</button>
+        </div>
+
+        <p class="hint" style="margin:-6px 0 14px">
+          Remont, impreza na wyłączność, wolne — zaznacz dzień, a formularz rezerwacji
+          przestanie go przyjmować. Blokada siedzi w regułach bazy, więc obowiązuje
+          także wtedy, gdyby ktoś próbował ominąć formularz.<br>
+          Wykluczone dni są <strong>czerwone w kalendarzu zajęć</strong> (karta 1) — możesz
+          kliknąć tam w nagłówek dnia, żeby wykluczyć go albo cofnąć wykluczenie.<br>
+          <strong>Zajęcia idą swoim trybem</strong> — wykluczenie dotyczy wyłącznie
+          rezerwacji wstępu do bawialni. Obsługa nadal może dopisać wejście z ulicy
+          w karcie 0, gdyby ktoś mimo wszystko przyszedł.
+        </p>
+
+        <div id="exclList"></div>
+        <p class="hint" id="exclCount" style="margin-top:12px"></p>
+      </section>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
       <!-- ============================== 0. NOWE WEJŚCIE ============================== -->
@@ -988,6 +1034,63 @@
   </div>
 </div>
 
+<!-- ======================= MODAL: wykluczenie dnia ======================= -->
+<div class="modal" id="exModal" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="exTitle">Wyklucz dzień z rezerwacji</h2>
+      <button class="modal-close" id="exClose" aria-label="Zamknij">×</button>
+    </div>
+    <form id="exForm">
+      <div id="exMsg"></div>
+
+      <div class="field">
+        <label for="exDate">Dzień *</label>
+        <input class="control" id="exDate" type="date" required>
+      </div>
+
+      <div class="field">
+        <label for="exReason">Powód (dla obsługi, nieobowiązkowy)</label>
+        <input class="control" id="exReason" maxlength="200" placeholder="np. urodzinki na wyłączność">
+        <p class="hint">Klient go nie zobaczy — w formularzu dostaje tylko informację,
+          że w ten dzień nie przyjmujemy rezerwacji.</p>
+      </div>
+
+      <!-- Powtarzanie działa tak samo jak przy zajęciach: te same przyciski dni
+           i ten sam seriesDates(), więc nie ma dwóch różnych sposobów liczenia. -->
+      <fieldset class="rep">
+        <legend>Powtarzanie</legend>
+        <label class="check rep-main"><input type="checkbox" id="exRepeatOn"><span>Powtarza się</span></label>
+
+        <div id="exRepeatBox" hidden>
+          <span class="lbl">Powtarzaj w</span>
+          <div class="rep-days" id="exRepeatDays" role="group" aria-label="Dni tygodnia"></div>
+          <p class="hint" style="margin:6px 0 12px">Nic nie zaznaczone = co tydzień w ten sam
+            dzień, co pierwszy wykluczony.</p>
+
+          <span class="lbl">Kończy się</span>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="exRepeatEnd" id="exRepeatEndDate" value="date" checked><span>W dniu</span></label>
+            <input class="control" id="exRepeatUntil" type="date" aria-label="Ostatni dzień serii">
+          </div>
+          <div class="rep-end">
+            <label class="check"><input type="radio" name="exRepeatEnd" id="exRepeatEndCount" value="count"><span>Po wystąpieniu</span></label>
+            <input class="control" id="exRepeatCount" type="number" min="2" max="120" value="4" aria-label="Ile wystąpień">
+          </div>
+
+          <p class="hint" id="exRepeatInfo" style="margin:10px 0 0"></p>
+        </div>
+      </fieldset>
+
+      <div class="modal-foot">
+        <button type="button" class="btn btn-danger btn-sm" id="exDelete" hidden>Cofnij wykluczenie</button>
+        <button type="button" class="btn btn-outline btn-sm" id="exCancel">Anuluj</button>
+        <button type="submit" class="btn btn-plum btn-sm" id="exSave">Wyklucz</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ======================= MODAL: zajęcia ======================= -->
 <div class="modal" id="evModal" role="dialog" aria-modal="true" aria-labelledby="evModalTitle">
   <div class="modal-box">
@@ -1112,7 +1215,7 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          askConfirm, askText, orderRef, matchesRef,
          seriesDates, openingFor, closingMinFor,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
-import { auth, A, adminStatus, ADMIN_EMAILS } from './assets/mc-firebase.js';
+import { auth, A, adminStatus, ADMIN_EMAILS, authError } from './assets/mc-firebase.js';
 import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
 import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
@@ -1122,6 +1225,7 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          setPresenceManual, clearPresenceManual, watchPresence, watchStats,
          setVisitsBase, ensureSettings, EMPTY_EVENT, todayISO, nowMin,
          watchBookings, watchTodo, bookingNeedsAttention, registrationNeedsAttention,
+         watchExclusions, addExclusion, addExclusions, removeExclusion,
          setBookingStatus, deleteBooking,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
@@ -1249,6 +1353,7 @@ function start() {
   loadWeek();
   startBookings();
   startTodoBadges();
+  startExclusions();
   const from = isoDate(addDays(new Date(), -120));
   const to   = isoDate(addDays(new Date(),  120));
   if (unsubReg) unsubReg();
@@ -1303,10 +1408,21 @@ function renderCal() {
 
   const head = $('#head');
   head.innerHTML = '<div class="gut"></div>';
+  const wykluczone = exclSet();
   days.forEach((d, i) => {
+    const iso = isoDate(d);
+    const wykl = wykluczone.has(iso);
     const el = document.createElement('div');
-    el.className = 'day-head' + (i >= 5 ? ' is-weekend' : '') + (isoDate(d) === todayIso ? ' is-today' : '');
-    el.innerHTML = `<div class="day-num">${d.getDate()}</div><div class="day-name">${DAY_NAMES[i]}</div>`;
+    el.className = 'day-head clickable' + (i >= 5 ? ' is-weekend' : '')
+                 + (iso === todayIso ? ' is-today' : '') + (wykl ? ' is-excluded' : '');
+    el.innerHTML = `<div class="day-num">${d.getDate()}</div><div class="day-name">${DAY_NAMES[i]}</div>`
+      + (wykl ? '<span class="excl-mark">bez rezerwacji</span>' : '');
+    /* Kliknięcie w nagłówek dnia wyklucza go albo pokazuje istniejące
+       wykluczenie — to samo okno, co przycisk w karcie 8. Same godziny niżej
+       dalej zakładają zajęcia, więc nic się tu nie gryzie. */
+    el.title = wykl ? 'Dzień wykluczony z rezerwacji — kliknij, żeby to zmienić'
+                    : 'Kliknij, żeby wykluczyć ten dzień z rezerwacji';
+    el.onclick = () => exOpen(iso);
     head.appendChild(el);
   });
 
@@ -3142,6 +3258,184 @@ $('#neForm').addEventListener('submit', async e => {
     neBad(err.message || 'Nie udało się zapisać.');
   } finally { $('#neSave').disabled = false; }
 });
+
+
+/* ==========================================================================
+   WYKLUCZENIA REZERWACJI
+   --------------------------------------------------------------------------
+   Dzień, w którym nie przyjmujemy rezerwacji bawialni. Identyfikatorem
+   dokumentu jest sama data, więc jeden dzień da się wykluczyć tylko raz,
+   a reguła w firestore.rules potrafi go znaleźć po dacie z rezerwacji
+   i odrzucić zapis. To okno tylko wygodnie tym steruje.
+
+   Zajęcia zostają nietknięte — wykluczenie dotyczy wyłącznie wstępu
+   do bawialni.
+   ========================================================================== */
+let EXCL = [];                       // [{ id, date, reason }]
+let unsubExcl = null;
+const exclSet = () => new Set(EXCL.map(e => e.date));
+
+const exModal = $('#exModal');
+const exRepDays = new Set();         // 0 = poniedziałek … 6 = niedziela
+let exEditing = null;                // data, którą właśnie edytujemy (albo null)
+
+$('#exRepeatDays').innerHTML = DAY_SHORT
+  .map((d, i) => `<button type="button" data-day="${i}" aria-pressed="false"
+                    title="${esc(DAY_NAMES[i])}">${esc(d[0].toUpperCase())}</button>`).join('');
+
+$$('#exRepeatDays button').forEach(b => b.onclick = () => {
+  const i = Number(b.dataset.day);
+  if (exRepDays.has(i)) exRepDays.delete(i); else exRepDays.add(i);
+  exRepRender();
+});
+
+/** Daty serii — ten sam seriesDates(), co przy powtarzaniu zajęć. */
+function exRepDates(startISO) {
+  if (!$('#exRepeatOn').checked || !startISO) return [];
+  return seriesDates({
+    startISO,
+    weekdays: [...exRepDays],
+    endMode: $('#exRepeatEndCount').checked ? 'count' : 'date',
+    endDate: $('#exRepeatUntil').value,
+    count: Number($('#exRepeatCount').value) || 2
+  });
+}
+
+function exRepRender() {
+  const on = $('#exRepeatOn').checked;
+  $('#exRepeatBox').hidden = !on;
+  $$('#exRepeatDays button').forEach(b =>
+    b.setAttribute('aria-pressed', String(exRepDays.has(Number(b.dataset.day)))));
+  $('#exRepeatUntil').disabled = !$('#exRepeatEndDate').checked;
+  $('#exRepeatCount').disabled = !$('#exRepeatEndCount').checked;
+
+  if (!on) { $('#exRepeatInfo').textContent = ''; return; }
+  const start = $('#exDate').value;
+  if (!start) { $('#exRepeatInfo').textContent = 'Najpierw podaj dzień.'; return; }
+  /* Pusta data końca dawałaby „nie powstanie żaden termin", zanim ktokolwiek
+     cokolwiek źle ustawił — proponujemy cztery tygodnie do przodu. */
+  if (!$('#exRepeatUntil').value) $('#exRepeatUntil').value = isoDate(addDays(parseDateISO(start), 28));
+  const daty = exRepDates(start);
+  $('#exRepeatInfo').textContent = daty.length
+    ? `Wykluczysz ${daty.length + 1} dni, ostatni ${shortDate(daty[daty.length - 1])}.`
+    : 'Przy tych ustawieniach nie powstanie żaden dodatkowy dzień.';
+}
+
+['#exRepeatOn', '#exRepeatEndDate', '#exRepeatEndCount', '#exRepeatUntil',
+ '#exRepeatCount', '#exDate'].forEach(sel =>
+  $(sel).addEventListener('change', exRepRender));
+
+function exOpen(dateISO = '') {
+  const istnieje = EXCL.find(e => e.date === dateISO);
+  exEditing = istnieje ? istnieje.date : null;
+
+  $('#exMsg').innerHTML = '';
+  $('#exDate').value = dateISO || todayISO();
+  $('#exDate').min = '';                       // wolno wykluczyć też wstecz — historia bywa potrzebna
+  $('#exReason').value = istnieje ? (istnieje.reason || '') : '';
+  $('#exTitle').textContent = istnieje ? 'Wykluczony dzień' : 'Wyklucz dzień z rezerwacji';
+  $('#exSave').textContent  = istnieje ? 'Zapisz powód' : 'Wyklucz';
+  $('#exDelete').hidden = !istnieje;
+
+  $('#exRepeatOn').checked = false;
+  exRepDays.clear();
+  $('#exRepeatUntil').value = '';
+  exRepRender();
+
+  exModal.classList.add('is-open');
+  $('#exReason').focus();
+}
+
+const exShut = () => exModal.classList.remove('is-open');
+const exBad = t => { $('#exMsg').innerHTML = `<div class="alert alert-bad">${esc(t)}</div>`; };
+
+$('#exAdd').onclick    = () => exOpen();
+$('#exClose').onclick  = () => exShut();
+$('#exCancel').onclick = () => exShut();
+exModal.addEventListener('click', e => { if (e.target === exModal) exShut(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && exModal.classList.contains('is-open')) exShut();
+});
+
+$('#exDelete').onclick = async () => {
+  const d = $('#exDate').value;
+  if (!d) return;
+  $('#exDelete').disabled = true;
+  try {
+    await removeExclusion(d);
+    toast(`${shortDate(d)} znowu przyjmuje rezerwacje.`);
+    exShut();
+  } catch (err) { exBad(authError(err)); }
+  finally { $('#exDelete').disabled = false; }
+};
+
+$('#exForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const d = $('#exDate').value;
+  if (!d) return exBad('Podaj dzień.');
+
+  $('#exSave').disabled = true;
+  try {
+    const seria = exRepDates(d);
+    await addExclusion(d, $('#exReason').value);
+    if (seria.length) await addExclusions(seria, $('#exReason').value);
+    toast(seria.length
+      ? `Wykluczono ${seria.length + 1} dni, od ${shortDate(d)}.`
+      : `${shortDate(d)} nie przyjmuje już rezerwacji.`);
+    exShut();
+  } catch (err) {
+    exBad(authError(err));
+  } finally { $('#exSave').disabled = false; }
+});
+
+/** Lista wykluczonych dni w karcie 8. */
+function renderExclusions() {
+  const dzis = todayISO();
+  const box = $('#exclList');
+  if (!box) return;
+
+  paintBadge('exclBadge', EXCL.filter(e => e.date >= dzis).length);
+
+  if (!EXCL.length) {
+    box.innerHTML = `<div class="empty">Żaden dzień nie jest wykluczony —
+      formularz przyjmuje rezerwacje na wszystkie otwarte terminy.</div>`;
+    $('#exclCount').textContent = '';
+    return;
+  }
+
+  box.className = 'excl-list';
+  box.innerHTML = EXCL.map(e => `
+    <div class="excl-item">
+      <div class="grow">
+        <b>${esc(longDate(e.date))}</b>
+        <span class="dzien">${e.date < dzis ? 'minęło' : 'nie przyjmujemy rezerwacji'}</span>
+        ${e.reason ? `<span class="powod">${esc(e.reason)}</span>` : ''}
+      </div>
+      <button class="btn btn-danger btn-sm btn-auto" data-excl-del="${esc(e.date)}"
+        type="button" title="Cofnij wykluczenie">Cofnij</button>
+    </div>`).join('');
+
+  $$('#exclList [data-excl-del]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try {
+      await removeExclusion(b.dataset.exclDel);
+      toast(`${shortDate(b.dataset.exclDel)} znowu przyjmuje rezerwacje.`);
+    } catch (err) { toast(authError(err)); b.disabled = false; }
+  });
+
+  $('#exclCount').textContent = `${EXCL.length} wykluczonych dni w kartotece.`;
+}
+
+function startExclusions() {
+  if (unsubExcl) unsubExcl();
+  /* Sięgamy 120 dni wstecz, żeby w kalendarzu widać było także wykluczenia
+     z niedawnej przeszłości — obsługa cofa się po tygodniach. */
+  unsubExcl = watchExclusions(isoDate(addDays(new Date(), -120)), list => {
+    EXCL = list;
+    renderExclusions();
+    renderCal();                    // kalendarz maluje wykluczone dni na czerwono
+  });
+}
 
 /* ==========================================================================
    PLAKIETKI PRZY ZAKŁADKACH

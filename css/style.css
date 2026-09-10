@@ -35,6 +35,13 @@
   --brick:       #B5443C;
   --brick-dark:  #9C3A33;
 
+  /* Kolory przycisków dla obsługi — te same odcienie, co w mc-common.css,
+     żeby ta sama pozycja menu wyglądała tak samo na każdej stronie. */
+  --teal:        #3E7C89;
+  --teal-dark:   #33636D;
+  --plum:        #7E5A8C;
+  --plum-dark:   #6A4A77;
+
   --font-head: 'Quicksand', 'Trebuchet MS', system-ui, sans-serif;
   --font-body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 
@@ -278,6 +285,20 @@ body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap
 .site-header.is-scrolled .nav .nav-cta-red { background: var(--brick); color: #fff; }
 .nav .nav-cta-red:hover,
 .site-header.is-scrolled .nav .nav-cta-red:hover { background: var(--brick-dark); color: #fff; }
+
+/* „Nowe zajęcia" (morski) i „Wykluczenia" (śliwkowy). Każdy przycisk obsługi
+   ma własny kolor — w menu z czterema przyciskami sam napis to za mało, żeby
+   trafić w ten właściwy bez czytania. Reguły powtórzone dla `is-scrolled`
+   z tego samego powodu, co przy czerwonym: nagłówek po przewinięciu
+   przemalowuje pozycje menu na granat. */
+.nav .nav-cta-teal,
+.site-header.is-scrolled .nav .nav-cta-teal { background: var(--teal); color: #fff; }
+.nav .nav-cta-teal:hover,
+.site-header.is-scrolled .nav .nav-cta-teal:hover { background: var(--teal-dark); color: #fff; }
+.nav .nav-cta-plum,
+.site-header.is-scrolled .nav .nav-cta-plum { background: var(--plum); color: #fff; }
+.nav .nav-cta-plum:hover,
+.site-header.is-scrolled .nav .nav-cta-plum:hover { background: var(--plum-dark); color: #fff; }
 
 /* Plakietka z liczbą spraw czekających w panelu, przy pozycji „Panel admina".
    Ta sama co przy zakładkach w panelu — ale strona główna nie ładuje

@@ -48,6 +48,7 @@ export const PATHS = {
   eventImages:   'eventImages',     // zdjęcia zajęć (1 dokument = 1 zdjęcie)
   registrations: 'registrations',   // zapisy klientów na zajęcia
   bookings:      'bookings',        // rezerwacje samego wstępu do bawialni
+  exclusions:    'exclusions',      // dni wyłączone z rezerwacji (id = data)
   guests:        'guests',          // ranking: 1 dokument = 1 dziecko
   settings:      'settings',        // settings/presence, settings/stats
   admins:        'admins'           // opcjonalna kartoteka administratorów

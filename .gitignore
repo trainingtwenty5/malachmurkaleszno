@@ -5,3 +5,6 @@
 *firebase-adminsdk*.json
 .firebase/
 node_modules/
+
+# log emulatora Firestore (powstaje przy uruchomieniu testow regul)
+firestore-debug.log

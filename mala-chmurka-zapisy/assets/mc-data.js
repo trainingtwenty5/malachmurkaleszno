@@ -751,6 +751,64 @@ export function watchTodo(cb, onError) {
   return () => { offB(); offR(); };
 }
 
+/* ==========================================================================
+   WYKLUCZENIA REZERWACJI
+   --------------------------------------------------------------------------
+   Dzień, w którym nie przyjmujemy rezerwacji bawialni — remont, impreza na
+   wyłączność, wolne. Admin zaznacza go w panelu, klient nie może się na niego
+   zapisać.
+
+   IDENTYFIKATOREM DOKUMENTU JEST DATA ('2026-09-20'). To nie jest kosmetyka:
+     • jeden dzień może być wykluczony tylko raz — duplikaty są niemożliwe
+       z definicji, bez żadnego sprawdzania w kodzie,
+     • reguła w firestore.rules potrafi zajrzeć po samej dacie
+       (`exists(/exclusions/$(data.date))`) i odrzucić rezerwację po stronie
+       serwera. Blokada w formularzu jest wygodą; ta reguła jest zabezpieczeniem.
+
+   Odczyt jest publiczny — formularz rezerwacji musi wiedzieć, że dzień
+   odpada, zanim ktoś wypełni pół strony. Zapis: tylko administrator.
+   ========================================================================== */
+
+/** Kształt dokumentu, jeden na dzień. `reason` widzi wyłącznie obsługa. */
+const exclusionDoc = (dateISO, reason) => ({
+  date:      dateISO,
+  reason:    String(reason || '').trim().slice(0, 200),
+  createdAt: F.serverTimestamp()
+});
+
+/** Wyklucza jeden dzień. Powtórzone wywołanie tylko nadpisuje powód. */
+export const addExclusion = (dateISO, reason = '') =>
+  F.setDoc(ref(PATHS.exclusions, dateISO), exclusionDoc(dateISO, reason));
+
+/** Wyklucza całą serię dni. Zapisujemy pojedynczo — serie są krótkie
+    (kilkanaście dni), a jeden nieudany zapis nie ma psuć reszty. */
+export async function addExclusions(dates = [], reason = '') {
+  const ok = [];
+  for (const d of [...new Set(dates)].filter(Boolean).slice(0, 120)) {
+    await addExclusion(d, reason);
+    ok.push(d);
+  }
+  return ok;
+}
+
+export const removeExclusion = dateISO => F.deleteDoc(ref(PATHS.exclusions, dateISO));
+
+/** Nasłuch na wszystkie wykluczenia od podanego dnia w przód. */
+export function watchExclusions(fromISO, cb, onError) {
+  const q = F.query(col(PATHS.exclusions), F.where('date', '>=', fromISO || todayISO()));
+  return F.onSnapshot(q,
+    s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
+             .sort((a, b) => (a.date || '').localeCompare(b.date || ''))),
+    err => { console.error('watchExclusions', err); if (onError) onError(err); });
+}
+
+/** Jednorazowy odczyt — formularz rezerwacji nie potrzebuje nasłuchu. */
+export async function listExclusions(fromISO) {
+  const q = F.query(col(PATHS.exclusions), F.where('date', '>=', fromISO || todayISO()));
+  const snap = await F.getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 export function watchBookings({ fromISO, toISO } = {}, cb) {
   let q = col(PATHS.bookings);
   q = (fromISO && toISO)
