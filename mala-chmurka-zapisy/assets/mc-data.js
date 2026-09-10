@@ -47,7 +47,7 @@ import { db, F, PATHS, SETTINGS } from './mc-firebase.js';
 import { toMin, isoDate, normPhone, bookingEndMin } from './mc-common.js';
 /* Wejscie przy drzwiach wycenia sie tym samym cennikiem, co rezerwacja
    ze strony — inaczej to samo wejscie mialoby dwie ceny. */
-import { quote, DURATIONS } from './mc-cennik.js';
+import { quote, DURATIONS, isAgeTier } from './mc-cennik.js';
 
 const col = name => F.collection(db, name);
 const ref = (name, id) => F.doc(db, name, id);
@@ -724,7 +724,13 @@ export async function createWalkin({ children = [], start, stayUntil, duration =
      opcjonalna, ale to ona decyduje o progu wiekowym w cenniku — bez niej
      dziecko liczy się jako pełnopłatne. */
   const kids = (Array.isArray(children) ? children : [])
-    .map(c => ({ name: String(c.name || '').trim(), dob: c.dob || '' }))
+    .map(c => ({
+      name: String(c.name || '').trim(),
+      dob:  c.dob || '',
+      /* Próg wiekowy podany wprost — tak pyta o niego karta „Nowe wejście"
+         w panelu (dwa przyciski zamiast daty). Bez niego decyduje data. */
+      ...(isAgeTier(c.tier) ? { tier: c.tier } : {})
+    }))
     .filter(c => c.name || c.dob)
     .slice(0, 10);
   if (!kids.length) throw new Error('Podaj imię przynajmniej jednego dziecka.');

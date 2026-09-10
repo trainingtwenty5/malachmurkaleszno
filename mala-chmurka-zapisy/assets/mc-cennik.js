@@ -37,6 +37,16 @@ export const AGE_TIERS = {
   full: { id: 'full', factor: 1,   label: 'powyżej 1. roku życia', short: 'pełna cena' }
 };
 
+/**
+ * Czy `id` to jeden z progów cennika.
+ *
+ * Osobna funkcja, a nie zwykłe `AGE_TIERS[id]`, bo to drugie jest prawdziwe
+ * także dla nazw dziedziczonych po Object ('toString', 'constructor'). Taki
+ * „próg" nie ma pola `factor`, więc cena wychodziła z niego jako NaN —
+ * i wjeżdżała do bazy jako kwota do zapłaty.
+ */
+export const isAgeTier = id => Object.prototype.hasOwnProperty.call(AGE_TIERS, id);
+
 /* ------------------------------------------------------------- ŚWIĘTA ----- */
 
 /** Niedziela Wielkanocna dla danego roku (algorytm Meeusa/Jonesa/Butchera). */
@@ -133,7 +143,10 @@ const round2 = n => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
  * @param {object} o
  * @param {string} o.date      'YYYY-MM-DD' — dzień wizyty (decyduje o taryfie)
  * @param {string} o.duration  '1h' | '2h' | 'open'
- * @param {Array}  o.children  [{ name?, dob? }] — jedno wejście = jedno dziecko
+ * @param {Array}  o.children  [{ name?, dob?, tier? }] — jedno wejście = jedno dziecko.
+ *                  `tier` ('free'|'half'|'full') ustawia próg wprost i ma
+ *                  pierwszeństwo przed datą urodzenia — okno „Nowe wejście"
+ *                  w panelu pyta o wiek dwoma przyciskami, bez daty.
  * @param {boolean} [o.siblingDiscount]  wymusza/wyłącza zniżkę rodzeństwa;
  *                  domyślnie włącza się sama, gdy dzieci jest 2 lub więcej
  * @returns {{ tariff, tariffLabel, holiday, base, siblingApplies, lines, total }}
@@ -147,7 +160,10 @@ export function quote({ date, duration, children, siblingDiscount } = {}) {
   const siblingApplies = siblingDiscount === undefined ? kids.length >= 2 : !!siblingDiscount;
 
   const lines = kids.map((child, i) => {
-    const tier = ageTier(child.dob, date);
+    /* Próg podany wprost wygrywa z datą urodzenia. Nieznaną wartość ignorujemy
+       i wracamy do liczenia z daty — literówka w `tier` nie może po cichu
+       zrobić komuś wstępu za darmo. */
+    const tier = isAgeTier(child.tier) ? child.tier : ageTier(child.dob, date);
     const afterAge = round2(base * AGE_TIERS[tier].factor);
     /* dziecko za darmo zostaje za darmo — zniżki się nie kumulują na zerze */
     const sibling = siblingApplies && afterAge > 0;

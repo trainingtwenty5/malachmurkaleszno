@@ -8,7 +8,8 @@
    Bez zależności — sam Node.
    ========================================================================== */
 
-import { quote, tariffFor, isHoliday, ageTier, ageInMonths, easterSunday, PRICES }
+import { quote, tariffFor, isHoliday, ageTier, ageInMonths, easterSunday, PRICES,
+         AGE_TIERS, isAgeTier, SIBLING_DISCOUNT }
   from '../assets/mc-cennik.js';
 
 let pass = 0, fail = 0;
@@ -116,6 +117,62 @@ ok('można wyłączyć zniżkę rodzeństwa mimo dwojga dzieci',
      children: [{ dob: '2022-01-01' }, { dob: '2023-01-01' }], siblingDiscount: false }).total === 80);
 ok('kwoty są zaokrąglone do groszy',
    Number.isFinite(quote({ date: '2026-09-12', duration: '2h', children: [{ dob: '2026-01-07' }] }).total));
+
+/* ============================== PROG PODANY WPROST ======================= */
+/* Karta „0 · Nowe wejście" w panelu nie pyta o datę urodzenia — obsługa
+   wybiera próg dwoma przyciskami. Cena musi wyjść identycznie jak wtedy,
+   gdy ten sam próg policzy się z daty. */
+console.log('\n=== PRÓG WIEKOWY PODANY WPROST (przyciski w panelu) ===');
+
+const dzien = '2026-09-08';                    // wtorek → taryfa weekday
+const bezLimitu = PRICES.weekday.open;         // 50 zł
+const zaProg = tier => quote({ date: dzien, duration: 'open', children: [{ name: 'A', tier }] }).total;
+
+eq('pełna cena',            zaProg('full'), bezLimitu);
+eq('do 1. roku = połowa',   zaProg('half'), bezLimitu / 2);
+eq('do 6. miesiąca gratis', zaProg('free'), 0);
+eq('brak progu i brak daty = pełna cena',
+   quote({ date: dzien, duration: 'open', children: [{ name: 'A' }] }).total, bezLimitu);
+
+ok('próg z przycisku liczy się tak samo jak z daty urodzenia (niemowlę)',
+   zaProg('free') === quote({ date: dzien, duration: 'open',
+     children: [{ dob: '2026-07-01' }] }).total);
+ok('próg z przycisku liczy się tak samo jak z daty urodzenia (9 miesięcy)',
+   zaProg('half') === quote({ date: dzien, duration: 'open',
+     children: [{ dob: '2026-01-01' }] }).total);
+
+eq('próg podany wprost ma pierwszeństwo przed datą urodzenia',
+   quote({ date: dzien, duration: 'open',
+     children: [{ dob: '2020-01-01', tier: 'free' }] }).total, 0);
+
+/* Najważniejszy z tych testów: `AGE_TIERS[id]` jest prawdziwe także dla nazw
+   dziedziczonych po Object, więc „próg" o nazwie 'toString' przechodził dalej
+   i wyliczał cenę jako NaN. */
+eq('literówka w progu → pełna cena, nie zniżka', zaProg('gratis'), bezLimitu);
+eq('pusty próg → pełna cena', zaProg(''), bezLimitu);
+eq('nazwa z prototypu Object nie udaje progu', zaProg('toString'), bezLimitu);
+eq('constructor też nie', zaProg('constructor'), bezLimitu);
+ok('isAgeTier przepuszcza tylko prawdziwe progi',
+   isAgeTier('free') && isAgeTier('half') && isAgeTier('full') &&
+   !isAgeTier('toString') && !isAgeTier('constructor') && !isAgeTier('') && !isAgeTier(undefined));
+
+/* Zniżka rodzeństwa działa na progach z przycisków tak samo jak na datach. */
+const dwoje = quote({ date: dzien, duration: 'open',
+  children: [{ name: 'A', tier: 'full' }, { name: 'B', tier: 'full' }] });
+eq('dwoje pełnopłatnych: −20% na każdym', dwoje.total,
+   2 * bezLimitu * (1 - SIBLING_DISCOUNT));
+
+const zNiemowlakiem = quote({ date: dzien, duration: 'open',
+  children: [{ name: 'A', tier: 'full' }, { name: 'B', tier: 'free' }] });
+eq('niemowlę zostaje gratis', zNiemowlakiem.lines[1].price, 0);
+eq('starsze dziecko dostaje zniżkę rodzeństwa', zNiemowlakiem.lines[0].price,
+   bezLimitu * (1 - SIBLING_DISCOUNT));
+
+eq('próg wraca w wycenie (trafia do bazy)',
+   quote({ date: dzien, duration: 'open', children: [{ tier: 'half' }] }).lines[0].tier, 'half');
+ok('etykiety progów to te same napisy, co na przyciskach w panelu',
+   AGE_TIERS.free.label === 'do 6. miesiąca życia' &&
+   AGE_TIERS.half.label === 'od 6. miesiąca do 1. roku');
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

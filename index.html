@@ -259,6 +259,12 @@
         <li class="nav-only-mobile" data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html">Zaloguj się</a></li>
         <li class="nav-only-mobile" data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj</button></li>
         <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
+
+        <!-- Tylko dla obsługi. Odsłania je updateNavAuth() po sprawdzeniu
+             uprawnień - patrz updateNavAdmin() w mc-common.js. -->
+        <li data-nav-admin hidden><a href="/mala-chmurka-zapisy/panel-admina.html">Panel admina</a></li>
+        <li data-nav-admin hidden><a href="/mala-chmurka-zapisy/panel-admina.html?tab=entry">Nowe wejście</a></li>
+
         <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>
