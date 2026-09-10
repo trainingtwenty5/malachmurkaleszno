@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=8">
+<link rel="stylesheet" href="assets/mc-common.css?v=10">
 <style>
   .auth-wrap{max-width:440px;margin-inline:auto}
   .auth-head{text-align:center;margin-bottom:22px}
@@ -146,7 +146,14 @@ import { auth, A, isAdmin } from './assets/mc-firebase.js';
 
 mountChrome({ crumb: 'Logowanie' });
 
-const nextUrl = new URLSearchParams(location.search).get('next');
+/* Dokąd wrócić po zalogowaniu. Bierzemy `next` tylko wtedy, gdy wskazuje na
+   naszą własną stronę: sam ukośnik na początku, ale nie „//" (to już adres
+   w innej domenie). Bez tego zastrzeżenia wystarczyłoby podrzucić komuś link
+   z `next=https://…`, żeby po wpisaniu hasła wylądował na cudzej stronie. */
+const nextUrl = (() => {
+  const raw = new URLSearchParams(location.search).get('next') || '';
+  return raw.startsWith('/') && !raw.startsWith('//') ? raw : '';
+})();
 let mode = 'login';
 
 const msg = $('#msg');
