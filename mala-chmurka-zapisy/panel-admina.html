@@ -268,7 +268,6 @@
   /* ---- karta 0: przycisk, a pod nim kto teraz jest w bawialni ---- */
   .entry-hero{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
     box-shadow:var(--shadow-sm);padding:clamp(22px,4vw,40px);text-align:center}
-  .entry-hero p{max-width:46ch;margin-inline:auto;color:var(--muted)}
   .entry-hero .btn{margin-top:6px;font-size:1.05rem;padding:.85em 2em}
 
   /* Kafelki „kto teraz jest w bawialni". Na komputerze siatka kwadratów —
@@ -320,8 +319,10 @@
     font-weight:600;font-size:.86rem;line-height:1.3;transition:.18s var(--ease)}
   .ne-tier:hover{background:var(--cream-deep)}
   .ne-tier[aria-pressed="true"]{background:var(--brand-deep);border-color:var(--brand-deep);color:#fff}
-  .ne-tier small{display:block;font-size:.76rem;font-weight:700;opacity:.75}
-  @media (max-width:560px){ .ne-tiers{grid-template-columns:1fr} }
+  /* Trzy stawki zostają obok siebie także na telefonie — od kiedy na przyciskach
+     są same kwoty, mieszczą się w jednym rzędzie, a ułożone w słupek zjadały
+     pół ekranu przy każdym dziecku. */
+  @media (max-width:560px){ .ne-tier{padding:.6em .3em} }
 
   /* ---- nowe wejście: dzieci wierszami + wycena na żywo ---- */
   .wi-kid{display:grid;grid-template-columns:1fr 150px 38px;gap:8px;align-items:end;margin-bottom:8px}
@@ -613,9 +614,6 @@
       <section class="panel" id="tab-entry">
         <div class="entry-hero">
           <h2 style="margin-bottom:.35em">Ktoś przyszedł bez zapisu?</h2>
-          <p>Wpisz imiona i wybierz czas pobytu. Wejście liczy się od teraz, zapisuje
-            się od razu jako opłacone i wchodzi do licznika na stronie oraz na listę
-            „Czas zabawy".</p>
           <button class="btn btn-red btn-auto" id="neAdd">+ Nowe wejście</button>
         </div>
 
@@ -1115,9 +1113,6 @@
 
       <div class="field">
         <span class="lbl">Dzieci *</span>
-        <p class="hint" style="margin:-2px 0 8px">Pod imieniem wybierz wiek — ustawiony jest
-          „od 1 roku do 6 lat", czyli pełna cena. Młodsze mają taniej: do 6. miesiąca wstęp
-          gratis, do 1. roku połowa. Od dwojga dzieci sama nalicza się zniżka rodzeństwa.</p>
         <div id="neKids"></div>
         <button type="button" class="day-add" id="neAddKid">+ Dodaj kolejne dziecko</button>
       </div>
@@ -1421,11 +1416,29 @@ function openTabFromUrl() {
   const btn = want && document.querySelector(`.admin-tabs button[data-tab="${want}"]`);
   if (btn) btn.click();
 
-  /* „Nowe zajęcia" z menu prowadzi tu z `?tab=events&new=1` — otwieramy okno
-     od razu, żeby pozycja w menu robiła to, co obiecuje, a nie tylko
+  /* „Nowe wejście" i „Nowe zajęcia" z menu prowadzą tu z `&new=1` — otwieramy
+     okno od razu, żeby pozycja w menu robiła to, co obiecuje, a nie tylko
      przenosiła na kartę, na której trzeba jeszcze czegoś poszukać. */
-  if (new URLSearchParams(location.search).get('new') === '1') openEvent(null);
+  if (new URLSearchParams(location.search).get('new') === '1') {
+    if (want === 'entry') neOpen(); else openEvent(null);
+  }
 }
+
+/* Skrót Ctrl+D (na Macu ⌘D) z dowolnej strony serwisu. Nasłuch siedzi
+   w mc-common.js — jest wszędzie i wie, kto jest obsługą. Tutaj zostaje samo
+   otwarcie okna, bo panel ma je pod ręką i nie ma po co się przeładowywać.
+   Gdy okno już stoi otwarte, tylko wracamy do pierwszego pola: `neOpen()`
+   czyści formularz, a to skasowałoby wpisane imiona. */
+window.mcNoweWejscie = () => {
+  const karta = document.querySelector('.admin-tabs button[data-tab="entry"]');
+  if (karta && !karta.classList.contains('is-on')) karta.click();
+  if (neModal.classList.contains('is-open')) {
+    const pierwsze = $('#neKids .ne-kid-name');
+    if (pierwsze) pierwsze.focus();
+    return;
+  }
+  neOpen();
+};
 
 $$('.admin-tabs button').forEach(b => b.onclick = () => {
   $$('.admin-tabs button').forEach(x => x.classList.toggle('is-on', x === b));
@@ -3370,12 +3383,16 @@ function neKidRow() {
       <button type="button" class="ne-kid-del" aria-label="Usuń dziecko">×</button>
     </div>
     <div class="ne-tiers" role="group" aria-label="Wiek dziecka">
-      <button type="button" class="ne-tier" data-tier="free" aria-pressed="false">
-        ${esc(AGE_TIERS.free.label)}<small>${esc(AGE_TIERS.free.short)}</small></button>
-      <button type="button" class="ne-tier" data-tier="half" aria-pressed="false">
-        ${esc(AGE_TIERS.half.label)}<small>${esc(AGE_TIERS.half.short)}</small></button>
-      <button type="button" class="ne-tier" data-tier="full" aria-pressed="true">
-        od 1 roku do 6 lat<small>${esc(AGE_TIERS.full.short)}</small></button>
+      <!-- Sama stawka, bez opisu progu. Kto stoi za ladą, zna cennik na pamięć
+           i szuka wzrokiem kwoty, a nie zdania o miesiącach życia. Pełny opis
+           („do 6. miesiąca", „od 6. miesiąca do 1. roku") zostaje w oknie
+           w karcie „Czas zabawy", gdzie wpisuje się datę urodzenia. -->
+      <button type="button" class="ne-tier" data-tier="free" aria-pressed="false"
+        title="${esc(AGE_TIERS.free.label)}">${esc(AGE_TIERS.free.short)}</button>
+      <button type="button" class="ne-tier" data-tier="half" aria-pressed="false"
+        title="${esc(AGE_TIERS.half.label)}">${esc(AGE_TIERS.half.short)}</button>
+      <button type="button" class="ne-tier" data-tier="full" aria-pressed="true"
+        title="${esc(AGE_TIERS.full.label)}">${esc(AGE_TIERS.full.short)}</button>
     </div>`;
 
   row.querySelector('.ne-kid-del').onclick = () => { row.remove(); neSyncKids(); };
