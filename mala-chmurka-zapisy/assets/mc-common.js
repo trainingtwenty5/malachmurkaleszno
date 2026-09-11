@@ -117,7 +117,7 @@ function stosujStanNaStarcie() {
 }
 
 /* ==========================================================================
-   SKRÓT: Ctrl+D → NOWE WEJŚCIE
+   SKRÓT: Ctrl+X → NOWE WEJŚCIE
    --------------------------------------------------------------------------
    Z dowolnej strony serwisu, pod warunkiem że patrzy obsługa. Przy kolejce
    u drzwi liczy się to, czego NIE trzeba klikać: jeden chwyt zamiast szukania
@@ -127,17 +127,27 @@ function stosujStanNaStarcie() {
    `window.mcNoweWejscie` — więc nic się nie przeładowuje. Wszędzie indziej
    przechodzimy pod adres, który sam otwiera formularz.
 
-   Ctrl+D to w przeglądarce „dodaj do zakładek", dlatego `preventDefault()`.
-   Zabieramy ten skrót wyłącznie obsłudze i wyłącznie na tej stronie; klient
-   nigdy nie zauważy różnicy.
+   Ctrl+X to normalnie „wytnij", dlatego JEDNO zastrzeżenie jest tu konieczne:
+   kiedy kursor stoi w polu tekstowym, nie ruszamy skrótu. Inaczej obsługa
+   poprawiająca imię w formularzu zamiast wyciąć zaznaczenie otwierałaby nowe
+   okno — i traciła to, co już wpisała. Poza polami wycinanie i tak nic nie
+   robi, więc tam skrót jest wolny.
    ========================================================================== */
 let jestAdmin = false;   // ustawiają: stosujStanNaStarcie() i updateNavAdmin()
+
+/** Czy kursor stoi w czymś, w czym „wytnij" ma sens. */
+function wPoluTekstowym(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  return /^(input|textarea|select)$/i.test(el.tagName);
+}
 
 function wireSkrotWejscie() {
   document.addEventListener('keydown', e => {
     if (!jestAdmin) return;
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-    if (String(e.key).toLowerCase() !== 'd') return;
+    if (String(e.key).toLowerCase() !== 'x') return;
+    if (wPoluTekstowym(e.target) || wPoluTekstowym(document.activeElement)) return;
     e.preventDefault();
     if (typeof window.mcNoweWejscie === 'function') window.mcNoweWejscie();
     else location.href = URLS.adminEntry;
