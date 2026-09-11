@@ -54,6 +54,63 @@ const NAV_ADMIN = [
   { label: 'Nowe zajęcia',  href: URLS.adminEvents + '&new=1', cls: 'nav-cta nav-cta-teal' }
 ];
 
+/* ==========================================================================
+   FIREBASE DLA MENU — Z PONAWIANIEM
+   --------------------------------------------------------------------------
+   mc-firebase.js pobiera SDK z gstatic i po 15 s bez odpowiedzi przerywa.
+   Na telefonie, przy słabym zasięgu i stronie pełnej zdjęć, ten limit potrafi
+   minąć — a dotąd kończyło się to jedną, cichą nieudaną próbą: menu zostawało
+   w wersji dla gościa i ktoś zalogowany od tygodnia widział „Zaloguj się".
+
+   Powtórny `import()` tego samego adresu NIC by nie dał: moduł, który raz padł,
+   oddaje przy kolejnym imporcie ten sam błąd, bez ponownego pobierania.
+   Dlatego każda następna próba dostaje własny adres (`?proba=N`). To nowa
+   instancja modułu, ale ten sam obiekt Firebase — mc-firebase.js pyta
+   `getApps()`, zanim cokolwiek utworzy — więc nic się nie dubluje.
+   ========================================================================== */
+let fbModul = null;      // udana instancja — od tego momentu oddajemy ją wszystkim
+let fbWToku = null;      // próba w locie, żeby dwa wywołania nie ciągnęły dwóch kopii
+let fbProba = 0;
+
+function firebase() {
+  if (fbModul) return Promise.resolve(fbModul);
+  if (fbWToku) return fbWToku;
+  const adres = fbProba ? `./mc-firebase.js?proba=${fbProba}` : './mc-firebase.js';
+  fbProba++;
+  fbWToku = import(adres)
+    .then(m => { fbModul = m; fbWToku = null; return m; })
+    .catch(e => { fbWToku = null; throw e; });
+  return fbWToku;
+}
+
+/* Odstępy kolejnych prób. Rosnące, bo jeśli nie udało się za trzecim razem,
+   to zwykle nie chodzi o chwilowy brak zasięgu. */
+const PONOWIENIA = [5000, 20000, 60000];
+
+/**
+ * Podpina menu pod stan logowania i nie odpuszcza po pierwszej porażce.
+ * Ponawia też, gdy telefon złapie zasięg albo wróci z kieszeni — to dwa
+ * momenty, w których nieudana próba ma realną szansę się udać.
+ */
+function watchAuth(cb) {
+  let podpiete = false;
+
+  const sprobuj = (nr = 0) => {
+    if (podpiete) return;
+    firebase()
+      .then(({ auth, A }) => { podpiete = true; A.onAuthStateChanged(auth, cb); })
+      .catch(err => {
+        console.warn(`Menu: nie udało się wczytać Firebase (próba ${nr + 1}). ` +
+                     'Menu zostaje w wersji dla gościa.', err);
+        if (nr < PONOWIENIA.length) setTimeout(() => sprobuj(nr + 1), PONOWIENIA[nr]);
+      });
+  };
+
+  sprobuj();
+  addEventListener('online', () => sprobuj());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) sprobuj(); });
+}
+
 const IG_PATH = 'M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.43.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.43.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.8 3.8 0 0 1-1.38-.9 3.8 3.8 0 0 1-.9-1.38c-.16-.43-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.43-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.3-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.67 1.34 1.08 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.3 1.46-.71 2.13-1.38.67-.67 1.08-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.79-.71-1.46-1.38-2.13C21.32 1.35 20.65.94 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.85-10.41a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0z';
 const FB_PATH = 'M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.02 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.09 24 12.07z';
 
@@ -140,25 +197,33 @@ export function mountChrome(opts = {}) {
       </button>
       <nav class="nav" id="mcNav" aria-label="Menu główne">
         <ul>
-          ${NAV.map(([label, href]) => `<li><a href="${href}">${label}</a></li>`).join('')}
+          <!-- Atrybut data-nav-klient znaczy: „to jest menu dla odwiedzającego".
+               Obsłudze chowa je updateNavAdmin() — przy ladzie liczy się jedno
+               kliknięcie w to, po co się tu sięga. -->
+          ${NAV.map(([label, href]) => `<li data-nav-klient><a href="${href}">${label}</a></li>`).join('')}
 
           <!-- POZYCJE KONTA — dwa sloty, każdy w dwóch wersjach; przełącza je
                updateNavAuth() po atrybucie data-nav-auth. Dokładnie ta sama
                czwórka co w index.html:
 
                  slot 1:  Zaloguj się      ->  Historia zamówień
-                 slot 2:  Zarejestruj się  ->  Wyloguj się -->
+                 slot 2:  Zarejestruj się  ->  Wyloguj się
+
+               „Wyloguj się" stoi niżej — po pozycjach obsługi — żeby adminowi
+               wylogowanie wypadło na samym dole menu. Klient tego nie zauważy:
+               przyciski obsługi są wtedy schowane. -->
           <li data-nav-auth="guest"><a href="${loginUrl()}">Zaloguj się</a></li>
-          <li data-nav-auth="signed" hidden><a href="${URLS.history}">Historia zamówień</a></li>
+          <li data-nav-auth="signed" data-nav-klient hidden><a href="${URLS.history}">Historia zamówień</a></li>
           <li data-nav-auth="guest"><a href="${loginUrl('tab=register')}">Zarejestruj się</a></li>
-          <li data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
 
           ${NAV_ADMIN.map(({ label, href, cls, badge }) =>
             `<li data-nav-admin hidden><a href="${href}"${
               cls ? ` class="${cls}"` : ''}>${label}${
               badge ? '<span class="tab-badge" data-nav-todo hidden></span>' : ''}</a></li>`).join('')}
 
-          <li><a href="${SETTINGS.homeUrl}#kontakt" class="nav-cta">Kontakt</a></li>
+          <li data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
+
+          <li data-nav-klient><a href="${SETTINGS.homeUrl}#kontakt" class="nav-cta">Kontakt</a></li>
         </ul>
       </nav>
     </div>`;
@@ -302,12 +367,10 @@ export function mountChrome(opts = {}) {
   addEventListener('resize', () => { if (navOpen() && innerWidth > 860) setNav(false); });
 
   /* Menu wie, czy ktoś jest zalogowany. Firebase dociągamy dynamicznie i bez
-     blokowania — gdyby się nie wczytał, w menu zostają zwykłe linki do konta.
-     Do czasu odpowiedzi pokazujemy wersję dla gościa, bo taka jest w HTML. */
+     blokowania — do czasu odpowiedzi widać wersję dla gościa, bo taka jest
+     w HTML. Gdyby pierwsza próba nie wyszła, watchAuth() ponawia. */
   wireNavLogout();
-  import('./mc-firebase.js')
-    .then(({ auth, A }) => A.onAuthStateChanged(auth, updateNavAuth))
-    .catch(() => { /* brak Firebase nie może psuć nagłówka */ });
+  watchAuth(updateNavAuth);
 
   /* Gdyby pliku logo nie było pod podanym adresem — pokaż nazwę tekstem,
      żeby nagłówek nigdy nie wyglądał na pusty. */
@@ -354,20 +417,32 @@ export function updateNavAuth(user) {
  * odsłonił je sobie w konsoli, panel i baza i tak go nie wpuszczą.
  */
 function updateNavAdmin(user) {
-  const items = document.querySelectorAll('[data-nav-admin]');
+  const items  = document.querySelectorAll('[data-nav-admin]');
+  const klient = document.querySelectorAll('[data-nav-klient]');
   if (!items.length) return;
 
   const pokaz = ok => {
     items.forEach(el => { el.hidden = !ok; });
-    /* Menu z przyciskami obsługi nie mieści się w jednym rzędzie — tej klasy
-       czepia się reguła zawijania. Klient jej nigdy nie dostaje, więc jego
-       nagłówek zostaje jednopiętrowy. */
+
+    /* Obsługa dostaje samo swoje: trzy przyciski i „Wyloguj się". Cennik,
+       galeria czy historia zamówień to menu dla odwiedzającego — przy ladzie
+       tylko wydłużają listę, przez którą trzeba przejechać wzrokiem.
+       Pozycje ze slotem konta (data-nav-auth) mają już ustawiony stan przez
+       updateNavAuth(), więc poza trybem admina ich nie ruszamy — inaczej
+       „Zaloguj się" wracałoby zalogowanemu użytkownikowi. */
+    klient.forEach(el => {
+      if (ok) el.hidden = true;
+      else if (!el.hasAttribute('data-nav-auth')) el.hidden = false;
+    });
+
+    /* Przy dłuższym menu przyciski obsługi nie mieszczą się w jednym rzędzie —
+       tej klasy czepia się reguła zawijania. */
     document.body.classList.toggle('has-admin-nav', ok);
   };
   pokaz(false);
   if (!user) return;
 
-  import('./mc-firebase.js')
+  firebase()
     .then(({ adminStatus }) => adminStatus(user))
     .then(s => { pokaz(!!(s && s.ok)); if (s && s.ok) startNavTodo(); })
     .catch(() => pokaz(false));
@@ -411,7 +486,7 @@ export function wireNavLogout() {
     el.addEventListener('click', async e => {
       e.preventDefault();
       try {
-        const { auth, A } = await import('./mc-firebase.js');
+        const { auth, A } = await firebase();
         await A.signOut(auth);
         toast('Wylogowano.');
       } catch {
@@ -430,9 +505,7 @@ export function wireNavLogout() {
 export function watchNavAuth() {
   updateNavAuth(null);
   wireNavLogout();
-  import('./mc-firebase.js')
-    .then(({ auth, A }) => A.onAuthStateChanged(auth, updateNavAuth))
-    .catch(() => { /* bez Firebase zostaje widok dla niezalogowanych */ });
+  watchAuth(updateNavAuth);
 }
 
 /* ==========================================================================
