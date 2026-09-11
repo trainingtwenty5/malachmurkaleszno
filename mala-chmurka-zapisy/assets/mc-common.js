@@ -24,7 +24,11 @@ export const URLS = {
      nie sięga się najczęściej i to one mają plakietkę obok nazwy. Sam adres
      `admin` zostaje bez parametru — używają go inne miejsca, którym chodzi
      o panel jako taki. */
-  adminBookings: 'panel-admina.html?tab=book'
+  adminBookings: 'panel-admina.html?tab=book',
+  /* `new=1` otwiera okno od razu po wejściu — kliknięcie „Nowe wejście" ma
+     postawić przed obsługą formularz, a nie kartę, na której trzeba jeszcze
+     poszukać przycisku. */
+  adminEntry:    'panel-admina.html?tab=entry&new=1'
 };
 
 /* ==========================================================================
@@ -54,7 +58,7 @@ const NAV = [
    updateNavAdmin(): widać z każdej podstrony, że coś czeka, bez wchodzenia
    tam. */
 const NAV_ADMIN = [
-  { label: 'Nowe wejście',  href: URLS.admin + '?tab=entry',   cls: 'nav-cta nav-cta-red' },
+  { label: 'Nowe wejście',  href: URLS.adminEntry,             cls: 'nav-cta nav-cta-red' },
   { label: 'Panel admina',  href: URLS.adminBookings,          cls: 'nav-cta', badge: true },
   { label: 'Nowe zajęcia',  href: URLS.adminEvents + '&new=1', cls: 'nav-cta nav-cta-teal' }
 ];
@@ -109,6 +113,35 @@ function stosujStanNaStarcie() {
     else if (!el.hasAttribute('data-nav-auth')) el.hidden = false;
   });
   document.body.classList.toggle('has-admin-nav', admin);
+  jestAdmin = admin;
+}
+
+/* ==========================================================================
+   SKRÓT: Ctrl+D → NOWE WEJŚCIE
+   --------------------------------------------------------------------------
+   Z dowolnej strony serwisu, pod warunkiem że patrzy obsługa. Przy kolejce
+   u drzwi liczy się to, czego NIE trzeba klikać: jeden chwyt zamiast szukania
+   pozycji w menu i czekania na wczytanie panelu.
+
+   Na stronie panelu okno otwieramy w miejscu — panel wystawia na to
+   `window.mcNoweWejscie` — więc nic się nie przeładowuje. Wszędzie indziej
+   przechodzimy pod adres, który sam otwiera formularz.
+
+   Ctrl+D to w przeglądarce „dodaj do zakładek", dlatego `preventDefault()`.
+   Zabieramy ten skrót wyłącznie obsłudze i wyłącznie na tej stronie; klient
+   nigdy nie zauważy różnicy.
+   ========================================================================== */
+let jestAdmin = false;   // ustawiają: stosujStanNaStarcie() i updateNavAdmin()
+
+function wireSkrotWejscie() {
+  document.addEventListener('keydown', e => {
+    if (!jestAdmin) return;
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    if (String(e.key).toLowerCase() !== 'd') return;
+    e.preventDefault();
+    if (typeof window.mcNoweWejscie === 'function') window.mcNoweWejscie();
+    else location.href = URLS.adminEntry;
+  });
 }
 
 /* ==========================================================================
@@ -431,6 +464,7 @@ export function mountChrome(opts = {}) {
      blokowania — do czasu odpowiedzi widać wersję dla gościa, bo taka jest
      w HTML. Gdyby pierwsza próba nie wyszła, watchAuth() ponawia. */
   wireNavLogout();
+  wireSkrotWejscie();
   watchAuth(updateNavAuth);
 
   /* Gdyby pliku logo nie było pod podanym adresem — pokaż nazwę tekstem,
@@ -506,6 +540,7 @@ function updateNavAdmin(user) {
     /* Przy dłuższym menu przyciski obsługi nie mieszczą się w jednym rzędzie —
        tej klasy czepia się reguła zawijania. */
     document.body.classList.toggle('has-admin-nav', ok);
+    jestAdmin = ok;
   };
   /* Gdy z poprzedniego wejścia wiemy, że to obsługa — zostawiamy menu zapalone
      na czas sprawdzania. Po to je zapamiętaliśmy. Każdy inny przypadek zaczyna
@@ -585,6 +620,7 @@ export function watchNavAuth() {
      co tamten skrypt, a prawdziwy stan przyjdzie z watchAuth(). */
   stosujStanNaStarcie();
   wireNavLogout();
+  wireSkrotWejscie();
   watchAuth(updateNavAuth);
 }
 
