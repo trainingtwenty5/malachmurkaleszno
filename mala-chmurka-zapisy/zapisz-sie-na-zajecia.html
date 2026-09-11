@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=13">
+<link rel="stylesheet" href="assets/mc-common.css?v=14">
 <style>
   .signup{max-width:620px;margin-inline:auto}
   .steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;
@@ -180,7 +180,7 @@ import { listEvents, getEvent, createRegistration, todayISO,
 import { knownChildren, rememberChildren, childLabel, mergeChildren } from './assets/mc-dzieci.js';
 import { auth, A, authError } from './assets/mc-firebase.js';
 
-mountChrome({ current: 'Grafik zajęć', crumb: 'Zapisy' });
+mountChrome({ crumb: 'Zapisy' });
 
 const P = params();
 const preEventId = P.get('event');

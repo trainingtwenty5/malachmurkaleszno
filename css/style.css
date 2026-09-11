@@ -35,12 +35,10 @@
   --brick:       #B5443C;
   --brick-dark:  #9C3A33;
 
-  /* Kolory przycisków dla obsługi — te same odcienie, co w mc-common.css,
+  /* Kolor przycisku „Nowe zajęcia" — ten sam odcień, co w mc-common.css,
      żeby ta sama pozycja menu wyglądała tak samo na każdej stronie. */
   --teal:        #3E7C89;
   --teal-dark:   #33636D;
-  --plum:        #7E5A8C;
-  --plum-dark:   #6A4A77;
 
   --font-head: 'Quicksand', 'Trebuchet MS', system-ui, sans-serif;
   --font-body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
@@ -248,7 +246,8 @@ body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap
    odstępy, żeby pozycje zostały w jednej linii. */
 @media (min-width: 861px) and (max-width: 1080px) {
   .nav ul { gap: 0; }
-  .nav a { font-size: .9rem; padding: .5em .58em; }
+  .nav a,
+  .nav .nav-btn { font-size: .9rem; padding: .5em .58em; }
   .nav .nav-cta { margin-left: 6px; padding-inline: .95em; }
 }
 .nav a:hover, .nav a.is-current,
@@ -257,13 +256,6 @@ body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap
 .site-header.is-scrolled .nav .nav-btn { color: var(--navy-deep); }
 .site-header.is-scrolled .nav a:hover,
 .site-header.is-scrolled .nav a.is-current { background: var(--sky-pale); color: var(--navy-deep); }
-
-/* „Wyloguj" jest przyciskiem, nie linkiem — nigdzie nie prowadzi, tylko wykonuje
-   akcję. Wygląd bierze z reguł `.nav a` wyżej; tutaj tylko to, czego przycisk nie
-   dostaje sam z siebie: pełna szerokość kolumny (żeby dało się trafić w całą
-   pozycję, a nie w sam napis) i wyrównanie do lewej, bo przycisk domyślnie
-   centruje tekst, a sąsiednie pozycje menu są do lewej. */
-.nav .nav-btn { width: 100%; text-align: left; }
 
 .nav .nav-cta {
   background: var(--wood);
@@ -286,19 +278,14 @@ body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap
 .nav .nav-cta-red:hover,
 .site-header.is-scrolled .nav .nav-cta-red:hover { background: var(--brick-dark); color: #fff; }
 
-/* „Nowe zajęcia" (morski) i „Wykluczenia" (śliwkowy). Każdy przycisk obsługi
-   ma własny kolor — w menu z czterema przyciskami sam napis to za mało, żeby
-   trafić w ten właściwy bez czytania. Reguły powtórzone dla `is-scrolled`
-   z tego samego powodu, co przy czerwonym: nagłówek po przewinięciu
-   przemalowuje pozycje menu na granat. */
+/* „Nowe zajęcia" — morski. Każdy z trzech przycisków obsługi ma własny kolor,
+   bo w pasku pełnym pozycji sam napis to za mało, żeby trafić w ten właściwy
+   bez czytania. Reguły powtórzone dla `is-scrolled` z tego samego powodu,
+   co przy czerwonym: nagłówek po przewinięciu przemalowuje pozycje na granat. */
 .nav .nav-cta-teal,
 .site-header.is-scrolled .nav .nav-cta-teal { background: var(--teal); color: #fff; }
 .nav .nav-cta-teal:hover,
 .site-header.is-scrolled .nav .nav-cta-teal:hover { background: var(--teal-dark); color: #fff; }
-.nav .nav-cta-plum,
-.site-header.is-scrolled .nav .nav-cta-plum { background: var(--plum); color: #fff; }
-.nav .nav-cta-plum:hover,
-.site-header.is-scrolled .nav .nav-cta-plum:hover { background: var(--plum-dark); color: #fff; }
 
 /* Plakietka z liczbą spraw czekających w panelu, przy pozycji „Panel admina".
    Ta sama co przy zakładkach w panelu — ale strona główna nie ładuje
@@ -326,22 +313,15 @@ body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap
 .nav .nav-cta .tab-badge { background: #fff; color: var(--brick); }
 /* `display:inline-grid` wyżej to reguła autorska z klasą — wygrywa
    z domyślnym [hidden]{display:none} przeglądarki, więc bez tego zastrzeżenia
-   plakietka świeciłaby „0", kiedy nie ma żadnych spraw. Ten sam powód, co przy
-   .nav-only-mobile niżej w pliku (mc-common.css ma na to globalne
-   [hidden]{display:none!important}, style.css — nie). */
+   plakietka świeciłaby „0", kiedy nie ma żadnych spraw. Ta sama pułapka
+   co przy .lightbox i .cookie-panel niżej w pliku (mc-common.css ma na to
+   globalne [hidden]{display:none!important}, style.css — nie). */
 .nav .tab-badge[hidden] { display: none; }
 
 /* Przyciski obsługi stoją obok siebie — bez własnego odstępu skleiłyby się
    w jeden pasek. */
 .nav .nav-cta + .nav-cta,
 .nav li + li > .nav-cta { margin-left: 6px; }
-
-/* Pozycja wyłącznie dla menu rozwijanego na telefonie („Zaloguj się").
-   Na szerokim ekranie pasek ma już „Zarejestruj się" i obie pozycje obok
-   siebie tylko go rozpychały — a prowadzą na ten sam ekran logowania.
-   W menu rozwijanym miejsca nie brakuje, więc tam pokazujemy obie.
-   Odsłania ją reguła w @media (max-width: 860px) niżej w pliku. */
-.nav-only-mobile { display: none; }
 
 /* Hamburger */
 .nav-toggle {
@@ -1225,14 +1205,12 @@ body.cookie-open { overflow: hidden; }
   .nav.is-open { transform: translateY(0); }
   .nav ul { flex-direction: column; align-items: stretch; gap: 2px; }
 
-  /* `:not([hidden])` jest tu konieczne. Reguła autorska z klasą wygrywa
-     z domyślnym [hidden]{display:none} przeglądarki, więc bez tego zastrzeżenia
-     „Zaloguj się" wracałoby na ekran po zalogowaniu — mimo że updateNavAuth()
-     ustawia mu atrybut `hidden`. Ta sama pułapka co przy .lightbox
-     i .cookie-panel niżej w pliku. */
-  .nav-only-mobile:not([hidden]) { display: block; }
   .nav a,
   .nav .nav-btn { color: var(--navy-deep); padding: .85em 1em; font-size: 1.08rem; border-radius: var(--radius); }
+  /* Przycisk („Wyloguj się") domyślnie centruje tekst i zwęża się do napisu —
+     sąsiednie pozycje są do lewej i na całą szerokość, więc dorównujemy,
+     żeby dało się trafić w całą pozycję, a nie w sam napis. */
+  .nav .nav-btn { width: 100%; text-align: left; }
   .nav a:hover, .nav a.is-current,
   .nav .nav-btn:hover { background: var(--sky-pale); }
   .nav .nav-cta { margin: 10px 0 0; text-align: center; }

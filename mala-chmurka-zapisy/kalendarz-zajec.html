@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=13">
+<link rel="stylesheet" href="assets/mc-common.css?v=14">
 <style>
   /* ---- dwa najbliższe terminy ---- */
   .soon{margin:0 0 22px}
@@ -119,7 +119,7 @@ import { mountChrome, $, $$, esc, DAY_NAMES, DAY_SHORT, MONTHS_GEN,
          URLS, SETTINGS, seatState, signupClosed, money, MONTHS } from './assets/mc-common.js';
 import { watchEvents, listEvents, todayISO } from './assets/mc-data.js';
 
-mountChrome({ current: 'Grafik zajęć', crumb: 'Grafik zajęć' });
+mountChrome({ crumb: 'Grafik zajęć' });
 
 const SLOT = 34;                 // px na 30 minut
 const PXM  = SLOT / 30;
