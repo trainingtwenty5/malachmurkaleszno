@@ -244,13 +244,17 @@
 
     <nav class="nav" id="navMenu" aria-label="Menu główne">
       <ul>
-        <li><a href="#o-nas">O nas</a></li>
-        <li><a href="#strefy">Strefy zabawy</a></li>
-        <li><a href="#kawiarnia">Kawiarnia</a></li>
-        <li><a href="#urodzinki">Urodzinki</a></li>
-        <li><a href="#cennik">Cennik</a></li>
-        <li><a href="#galeria">Galeria</a></li>
-        <li><a href="#materialy">Oferty</a></li>
+        <!-- POZYCJE DLA KLIENTA. Atrybut data-nav-klient znaczy: „to jest menu
+             dla odwiedzającego". Obsłudze chowa je updateNavAdmin() — przy
+             ladzie liczy się jedno kliknięcie w to, po co się tu sięga,
+             a nie przewijanie przez cennik i galerię. -->
+        <li data-nav-klient><a href="#o-nas">O nas</a></li>
+        <li data-nav-klient><a href="#strefy">Strefy zabawy</a></li>
+        <li data-nav-klient><a href="#kawiarnia">Kawiarnia</a></li>
+        <li data-nav-klient><a href="#urodzinki">Urodzinki</a></li>
+        <li data-nav-klient><a href="#cennik">Cennik</a></li>
+        <li data-nav-klient><a href="#galeria">Galeria</a></li>
+        <li data-nav-klient><a href="#materialy">Oferty</a></li>
 
         <!-- POZYCJE KONTA — dwa sloty, każdy w dwóch wersjach.
              Widocznością steruje updateNavAuth() przez atrybut data-nav-auth:
@@ -260,8 +264,13 @@
                slot 2:  Zarejestruj się  ->  Wyloguj się
 
              Oba sloty wyglądają tak samo na telefonie i na komputerze — to
-             jedno menu, nie dwa. Dokładnie te same cztery pozycje buduje
+             jedno menu, nie dwa. Dokładnie te same pozycje buduje
              mountChrome() dla podstron, więc menu nigdzie się nie zmienia.
+
+             „Wyloguj się" stoi niżej niż reszta slotu 2 — po pozycjach
+             obsługi. Dla klienta wychodzi na to samo (przyciski obsługi są
+             wtedy schowane), a obsłudze wylogowanie ląduje tam, gdzie ma być:
+             na samym dole menu.
 
              `next=/` sprawia, że po zalogowaniu wracamy prosto na stronę główną,
              a nie zostajemy na ekranie logowania. Bez tego łatwo pomyśleć, że
@@ -269,11 +278,10 @@
 
         <!-- slot 1 -->
         <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?next=/">Zaloguj się</a></li>
-        <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
+        <li data-nav-auth="signed" data-nav-klient hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
 
-        <!-- slot 2 -->
+        <!-- slot 2, część dla gościa -->
         <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register&amp;next=/">Zarejestruj się</a></li>
-        <li data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
 
         <!-- POZYCJE DLA OBSŁUGI — trzy przyciski, żeby dało się je znaleźć
              jednym rzutem oka. Odsłania je updateNavAuth() po sprawdzeniu
@@ -284,7 +292,10 @@
         <li data-nav-admin hidden><a class="nav-cta" href="/mala-chmurka-zapisy/panel-admina.html">Panel admina<span class="tab-badge" data-nav-todo hidden></span></a></li>
         <li data-nav-admin hidden><a class="nav-cta nav-cta-teal" href="/mala-chmurka-zapisy/panel-admina.html?tab=events&amp;new=1">Nowe zajęcia</a></li>
 
-        <li><a href="#kontakt" class="nav-cta">Kontakt</a></li>
+        <!-- slot 2, część dla zalogowanego -->
+        <li data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
+
+        <li data-nav-klient><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>
 
@@ -959,8 +970,16 @@
      Skrypt sam wstawia się nad sekcję „120 m² / 0–6 lat / 7 dni / 4 domki". -->
 <script type="module" src="/mala-chmurka-zapisy/assets/mc-licznik.js"></script>
 <script type="module">
-  /* Menu główne: „Zarejestruj się" dla gościa, „Historia zamówień" po zalogowaniu. */
-  import('/mala-chmurka-zapisy/assets/mc-common.js').then(m => m.watchNavAuth()).catch(() => {});
+  /* Menu główne: „Zaloguj się" dla gościa, „Historia zamówień" po zalogowaniu,
+     a dla obsługi — przyciski panelu. Stanem steruje watchNavAuth().
+
+     Błąd wypisujemy do konsoli, zamiast go połykać. Cichy `catch` znaczył
+     tyle, że przy nieudanym pobraniu modułu menu zostawało w wersji dla
+     gościa i nie było po czym poznać dlaczego — a na telefonie nie ma jak
+     tego podejrzeć bez podłączenia go do komputera. */
+  import('/mala-chmurka-zapisy/assets/mc-common.js')
+    .then(m => m.watchNavAuth())
+    .catch(err => console.warn('Menu: nie udało się wczytać mc-common.js.', err));
 </script>
 
 </body>
