@@ -13,8 +13,8 @@
   --ok:#2F8F5B; --ok-pale:#E4F3EA;
   --warn:#B4761C; --warn-pale:#FBF0DC;
   --bad:#B5443C; --bad-pale:#FBE7E5;
-  /* Dwa kolory wyłącznie dla przycisków obsługi — żeby „Nowe zajęcia"
-     i „Wykluczenia" dało się rozróżnić w menu jednym rzutem oka. */
+  /* Śliwkowy — przycisk „Wyklucz dzień" w panelu. W menu nie występuje:
+     obsługa ma tam trzy pozycje i trzy kolory (czerwony, brązowy, morski). */
   --plum:#7E5A8C; --plum-dark:#6A4A77;
   /* Pastelowa zieleń — druga rodzina zakładek w panelu (sprawy zajęć).
      Para dla --sky-pale, które niesie pierwszą (sprawy bawialni). */
@@ -87,26 +87,28 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
    te przyciski są widoczne. Klasę ustawia updateNavAdmin() w mc-common.js. */
 .nav ul{display:flex;align-items:center;gap:4px;list-style:none;margin:0;padding:0}
 body.has-admin-nav .nav ul{flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
-.nav a{
+/* „Wyloguj się" jest przyciskiem, nie linkiem — nigdzie nie prowadzi, tylko
+   wykonuje akcję. Wygląd musi mieć identyczny jak pozostałe pozycje, więc
+   obie reguły opisują jedno i drugie naraz. */
+.nav a,
+.nav .nav-btn{
   display:block;font-family:var(--font-head);font-weight:600;font-size:.9rem;
   color:var(--navy-deep);padding:.5em .58em;border-radius:999px;white-space:nowrap;
   transition:background-color .2s var(--ease),color .2s var(--ease);
 }
-.nav a:hover,.nav a.is-current{background:var(--sky-pale);color:var(--navy-deep);text-decoration:none}
+.nav a:hover,.nav a.is-current,
+.nav .nav-btn:hover{background:var(--sky-pale);color:var(--navy-deep);text-decoration:none}
 .nav .nav-cta{background:var(--wood);color:#fff;margin-left:8px;padding-inline:1.3em}
 .nav .nav-cta:hover{background:var(--wood-dark);color:#fff}
 /* Wariant dla „Nowego wejścia" — ten sam przycisk, tylko czerwony, żeby przy
-   ladzie rzucał się w oczy. Ceglasty, nie sygnalizacyjny: obok niego stoi
-   drugi przycisk (Zarezerwuj miejsce) i dwa krzyczące kolory zaczęłyby ze
-   sobą walczyć. */
+   ladzie rzucał się w oczy. Ceglasty, nie sygnalizacyjny: obok stoją kolejne
+   przyciski i dwa krzyczące kolory zaczęłyby ze sobą walczyć. */
 .nav .nav-cta-red{background:var(--bad)}
 .nav .nav-cta-red:hover{background:#9C3A33;color:#fff}
-/* Cztery przyciski obsługi, cztery kolory — brązowy (panel i zajęcia),
-   czerwony (nowe wejście), morski (nowe zajęcia), śliwkowy (wykluczenia). */
+/* Trzy przyciski obsługi, trzy kolory — czerwony (nowe wejście), brązowy
+   (panel admina), morski (nowe zajęcia). */
 .nav .nav-cta-teal{background:var(--brand-deep)}
 .nav .nav-cta-teal:hover{background:#33636D;color:#fff}
-.nav .nav-cta-plum{background:var(--plum)}
-.nav .nav-cta-plum:hover{background:var(--plum-dark);color:#fff}
 /* Przyciski obsługi stoją obok siebie — bez własnego odstępu skleiłyby się
    w jeden pasek. `.nav-cta` ma margines tylko z lewej, więc dokładamy go
    również wtedy, gdy przyciski zawijają się do drugiego rzędu. */
@@ -140,11 +142,6 @@ body.has-admin-nav .nav ul{flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
    tam lepiej niż czerwony na czerwonym. */
 .nav-cta .tab-badge{background:#fff;color:var(--bad)}
 
-.nav-auth{display:flex;gap:14px;align-items:center}
-.nav-auth a{white-space:nowrap}
-@media (max-width:860px){
-  .nav-auth{flex-direction:column;gap:0;align-items:stretch;width:100%}
-}
 .nav-toggle{display:none;width:46px;height:40px;padding:9px 8px;flex-direction:column;justify-content:space-between}
 .nav-toggle span{display:block;height:3px;width:100%;background:var(--navy-deep);border-radius:3px;
   transition:transform .3s var(--ease),opacity .25s var(--ease)}
@@ -474,7 +471,11 @@ table.tbl tbody tr:hover{background:var(--cream)}
     border-radius:0 0 var(--radius-lg) var(--radius-lg)}
   .nav.is-open{transform:translateY(0);z-index:2}
   .nav ul{flex-direction:column;align-items:stretch;gap:2px}
-  .nav a{padding:.85em 1em;font-size:1.05rem;border-radius:var(--radius)}
+  .nav a,
+  .nav .nav-btn{padding:.85em 1em;font-size:1.05rem;border-radius:var(--radius)}
+  /* Przycisk domyślnie centruje tekst i zwęża się do napisu — sąsiednie
+     pozycje są do lewej i na całą szerokość, więc dorównujemy. */
+  .nav .nav-btn{width:100%;text-align:left}
   .nav .nav-cta{margin:10px 0 0;text-align:center}
   /* Przyciemnienie pod menu. Bez niego nie było wiadomo, że wystarczy
      dotknąć obok, żeby zamknąć — a samo menu wisiało nad przewijającą się

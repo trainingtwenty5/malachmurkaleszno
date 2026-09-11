@@ -22,37 +22,36 @@ export const URLS = {
   adminEvents:   'panel-admina.html?tab=events'
 };
 
+/* ==========================================================================
+   MENU — JEDNA LISTA NA CAŁY SERWIS
+   --------------------------------------------------------------------------
+   Te same pozycje, w tej samej kolejności, co w <nav> na stronie głównej
+   (index.html). Menu jest jedno: nie ma osobnej wersji dla podstron ani
+   osobnej dla telefonu. Zmieniasz tutaj — zmień też w index.html.
+   ========================================================================== */
 const NAV = [
-  ['O nas',        SETTINGS.homeUrl + '#o-nas'],
-  ['Cennik',       SETTINGS.homeUrl + '#cennik'],
-  ['Grafik zajęć', URLS.calendar],
-  ['Kontakt',      SETTINGS.homeUrl + '#kontakt']
+  ['O nas',         SETTINGS.homeUrl + '#o-nas'],
+  ['Strefy zabawy', SETTINGS.homeUrl + '#strefy'],
+  ['Kawiarnia',     SETTINGS.homeUrl + '#kawiarnia'],
+  ['Urodzinki',     SETTINGS.homeUrl + '#urodzinki'],
+  ['Cennik',        SETTINGS.homeUrl + '#cennik'],
+  ['Galeria',       SETTINGS.homeUrl + '#galeria'],
+  ['Oferty',        SETTINGS.homeUrl + '#materialy']
 ];
 
-/* Jedna pozycja, dwa stany: niezalogowany widzi „Zarejestruj się",
-   zalogowany — „Historia zamówień". Bez dublowania linków do konta. */
-const NAV_GUEST  = ['Zarejestruj się',  URLS.login + '?tab=register'];
-const NAV_SIGNED = ['Historia zamówień',  URLS.history];
+/* Pozycje dla obsługi — trzy, w tej samej kolejności co w index.html.
+   Odsłania je updateNavAdmin() dopiero po sprawdzeniu uprawnień; to samo,
+   co decyduje o wejściu do panelu. Tu chodzi tylko o to, co widać —
+   wejścia pilnują reguły Firestore.
 
-/* Pozycje wyłącznie dla obsługi. Pokazuje je updateNavAuth() dopiero po
-   sprawdzeniu uprawnień — to samo, co decyduje o wejściu do panelu.
-   Tu chodzi tylko o to, co widać; wejścia pilnują reguły Firestore. */
-/* Wszystkie trzy jako przyciski, nie zwykłe linki: w menu pełnym pozycji
-   obsługa ma trafić w swoje jednym rzutem oka. Dwa pierwsze w tym samym
-   brązie co „Zarezerwuj miejsce", trzeci czerwony — po niego sięga się
-   najczęściej i w największym pośpiechu.
-   Plakietkę przy „Panelu admina" wypełnia updateNavAdmin(): widać z każdej
-   podstrony, że coś czeka, bez wchodzenia tam. */
+   Każdy ma własny kolor, bo trzy przyciski obok siebie rozróżnia się
+   kolorem, nie czytaniem. Plakietkę przy „Panelu admina" wypełnia
+   updateNavAdmin(): widać z każdej podstrony, że coś czeka, bez wchodzenia
+   tam. */
 const NAV_ADMIN = [
-  { label: 'Panel admina',          href: URLS.admin,               cls: 'nav-cta', badge: true },
-  { label: 'Zarządzanie zajęciami', href: URLS.adminEvents,         cls: 'nav-cta' },
-  { label: 'Nowe wejście',          href: URLS.admin + '?tab=entry', cls: 'nav-cta nav-cta-red' },
-  /* Prosto do zakładania zajęć i do wykluczania dni — dwie rzeczy, które
-     obsługa robi z marszu, a które dotąd wymagały wejścia w panel i szukania
-     właściwej karty. Każda ma własny kolor, bo cztery przyciski obok siebie
-     rozróżnia się kolorem, nie czytaniem. */
-  { label: 'Nowe zajęcia',          href: URLS.adminEvents + '&new=1',  cls: 'nav-cta nav-cta-teal' },
-  { label: 'Wykluczenia',           href: URLS.admin + '?tab=excl',     cls: 'nav-cta nav-cta-plum' }
+  { label: 'Nowe wejście',  href: URLS.admin + '?tab=entry',   cls: 'nav-cta nav-cta-red' },
+  { label: 'Panel admina',  href: URLS.admin,                  cls: 'nav-cta', badge: true },
+  { label: 'Nowe zajęcia',  href: URLS.adminEvents + '&new=1', cls: 'nav-cta nav-cta-teal' }
 ];
 
 const IG_PATH = 'M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.43.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.43.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.8 3.8 0 0 1-1.38-.9 3.8 3.8 0 0 1-.9-1.38c-.16-.43-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.43-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.3-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.67 1.34 1.08 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.3 1.46-.71 2.13-1.38.67-.67 1.08-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.79-.71-1.46-1.38-2.13C21.32 1.35 20.65.94 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.85-10.41a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0z';
@@ -110,12 +109,23 @@ export function backTarget(opts = {}) {
 
 /* ==========================================================================
    Wstawia nagłówek, pasek „Powrót do strony głównej" i stopkę.
-   opts.current – która pozycja menu jest aktywna (etykieta)
    opts.crumb   – dopisek obok przycisku powrotu
    opts.backTo  – nadpisuje cel przycisku powrotu (domyślnie strona główna)
    ========================================================================== */
 export function mountChrome(opts = {}) {
   document.documentElement.style.setProperty('--logo-src', `url('${SETTINGS.logoUrl}')`);
+
+  /* Po zalogowaniu wracamy tam, skąd ktoś kliknął — bez tego każde logowanie
+     kończyło się na ekranie logowania i wyglądało, jakby nic się nie stało.
+     `next` musi być ścieżką na naszej stronie; sprawdza to logowanie.html.
+     Na samym ekranie logowania parametru nie dokładamy: wskazywałby sam
+     na siebie. */
+  const loginUrl = (extra = '') => {
+    const next = /logowanie\.html$/.test(location.pathname)
+      ? '' : `next=${encodeURIComponent(location.pathname + location.search)}`;
+    const q = [extra, next].filter(Boolean).join('&');
+    return URLS.login + (q ? `?${q}` : '');
+  };
 
   const header = document.createElement('header');
   header.className = 'site-header';
@@ -130,14 +140,25 @@ export function mountChrome(opts = {}) {
       </button>
       <nav class="nav" id="mcNav" aria-label="Menu główne">
         <ul>
-          ${NAV.map(([label, href]) =>
-            `<li><a href="${href}"${label === opts.current ? ' class="is-current"' : ''}>${label}</a></li>`).join('')}
-          <li class="nav-auth" id="mcNavAuth"><a href="${NAV_GUEST[1]}">${NAV_GUEST[0]}</a></li>
+          ${NAV.map(([label, href]) => `<li><a href="${href}">${label}</a></li>`).join('')}
+
+          <!-- POZYCJE KONTA — dwa sloty, każdy w dwóch wersjach; przełącza je
+               updateNavAuth() po atrybucie data-nav-auth. Dokładnie ta sama
+               czwórka co w index.html:
+
+                 slot 1:  Zaloguj się      ->  Historia zamówień
+                 slot 2:  Zarejestruj się  ->  Wyloguj się -->
+          <li data-nav-auth="guest"><a href="${loginUrl()}">Zaloguj się</a></li>
+          <li data-nav-auth="signed" hidden><a href="${URLS.history}">Historia zamówień</a></li>
+          <li data-nav-auth="guest"><a href="${loginUrl('tab=register')}">Zarejestruj się</a></li>
+          <li data-nav-auth="signed" hidden><button type="button" class="nav-btn" data-nav-logout>Wyloguj się</button></li>
+
           ${NAV_ADMIN.map(({ label, href, cls, badge }) =>
             `<li data-nav-admin hidden><a href="${href}"${
               cls ? ` class="${cls}"` : ''}>${label}${
               badge ? '<span class="tab-badge" data-nav-todo hidden></span>' : ''}</a></li>`).join('')}
-          <li><a href="${URLS.booking}" class="nav-cta">Zarezerwuj miejsce</a></li>
+
+          <li><a href="${SETTINGS.homeUrl}#kontakt" class="nav-cta">Kontakt</a></li>
         </ul>
       </nav>
     </div>`;
@@ -266,7 +287,9 @@ export function mountChrome(opts = {}) {
   const navOpen = () => btn.getAttribute('aria-expanded') === 'true';
 
   btn.addEventListener('click', e => { e.stopPropagation(); setNav(!navOpen()); });
-  nav.addEventListener('click', e => { if (e.target.tagName === 'A') setNav(false); });
+  /* Takze `button`: „Wyloguj się" nie jest linkiem, a po kliknięciu menu ma się
+     zamknąć dokładnie tak samo jak po wybraniu każdej innej pozycji. */
+  nav.addEventListener('click', e => { if (e.target.closest('a, button')) setNav(false); });
   backdrop.addEventListener('click', () => setNav(false));
   /* Dotknięcie czegokolwiek poza menu zamyka je — tak zachowuje się każde
      menu, którego ludzie używają na co dzień. */
@@ -279,7 +302,9 @@ export function mountChrome(opts = {}) {
   addEventListener('resize', () => { if (navOpen() && innerWidth > 860) setNav(false); });
 
   /* Menu wie, czy ktoś jest zalogowany. Firebase dociągamy dynamicznie i bez
-     blokowania — gdyby się nie wczytał, w menu zostają zwykłe linki do konta. */
+     blokowania — gdyby się nie wczytał, w menu zostają zwykłe linki do konta.
+     Do czasu odpowiedzi pokazujemy wersję dla gościa, bo taka jest w HTML. */
+  wireNavLogout();
   import('./mc-firebase.js')
     .then(({ auth, A }) => A.onAuthStateChanged(auth, updateNavAuth))
     .catch(() => { /* brak Firebase nie może psuć nagłówka */ });
@@ -300,21 +325,22 @@ export function mountChrome(opts = {}) {
 }
 
 /**
- * Podmienia linki konta w menu: niezalogowany widzi „Zaloguj się" i
- * „Zarejestruj się", zalogowany — swoje imię i „Wyloguj".
+ * Podmienia pozycje konta w menu: gość widzi „Zaloguj się" i „Zarejestruj się",
+ * zalogowany — „Historia zamówień" i „Wyloguj się".
+ *
+ * Jeden mechanizm na cały serwis: i statyczne menu w index.html, i to
+ * budowane przez mountChrome() mają te same pozycje z atrybutem
+ * `data-nav-auth`, więc wystarczy chować i odsłaniać.
  */
 export function updateNavAuth(user) {
-  const [label, href] = user ? NAV_SIGNED : NAV_GUEST;
-
-  /* menu podstron (budowane przez mountChrome) */
-  const box = document.getElementById('mcNavAuth');
-  if (box) box.innerHTML = `<a href="${href}"${user ? ` title="${esc(user.email || '')}"` : ''}>${label}</a>`;
-
-  /* menu strony głównej — statyczne w index.html, oznaczone atrybutem */
   document.querySelectorAll('[data-nav-auth]').forEach(el => {
     const kind = el.dataset.navAuth;          // 'guest' albo 'signed'
     el.hidden = user ? kind !== 'signed' : kind !== 'guest';
   });
+
+  /* Adres pod „Historią zamówień" — żeby było widać, na czyim koncie się jest. */
+  const konto = document.querySelector('[data-nav-auth="signed"] a');
+  if (konto && user) konto.title = user.email || '';
 
   updateNavAdmin(user);
 }

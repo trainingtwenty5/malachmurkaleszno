@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/mc-common.css?v=13">
+<link rel="stylesheet" href="assets/mc-common.css?v=14">
 <style>
   .hist{max-width:760px;margin-inline:auto}
   .who{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
@@ -193,7 +193,7 @@ import { watchMyBookings, watchMyRegistrations, registrationStatusText,
          BOOKING_STATUS_TEXT } from './assets/mc-data.js';
 import { authError } from './assets/mc-firebase.js';
 
-mountChrome({ current: 'Historia zamówień', crumb: 'Historia zamówień' });
+mountChrome({ crumb: 'Historia zamówień' });
 
 $('#goLogin').href = `${URLS.login}?next=${encodeURIComponent(location.pathname)}`;
 $('#logout').onclick = async () => { await A.signOut(auth); toast('Wylogowano.'); };
