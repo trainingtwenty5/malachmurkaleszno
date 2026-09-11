@@ -60,6 +60,58 @@ const NAV_ADMIN = [
 ];
 
 /* ==========================================================================
+   ZAPAMIĘTANY STAN MENU
+   --------------------------------------------------------------------------
+   Firebase odpowiada dopiero po pobraniu SDK z gstatic. Do tego czasu strona
+   nie ma skąd wiedzieć, kto patrzy — więc pokazywała menu dla gościa i dopiero
+   po sekundzie przestawiała je na wersję obsługi. Ten przeskok widać i trudno
+   w tym czasie w cokolwiek trafić.
+
+   Zapisujemy więc, czym skończyło się ostatnie sprawdzenie, i przy następnym
+   wejściu malujemy menu od razu — bez czekania na sieć. Odpowiedź Firebase
+   i tak przychodzi i to ona decyduje; to jest tylko trafna zgadywanka
+   na pierwszą sekundę. Jeśli się nie zgadza (ktoś się wylogował gdzie indziej,
+   komuś odebrano uprawnienia), menu poprawi się samo.
+
+   To wyłącznie wygląd. Do panelu i do bazy wpuszczają reguły Firestore, więc
+   podmieniony ręcznie wpis w przeglądarce nie daje niczego poza trzema
+   przyciskami, które i tak kończą się ekranem „brak dostępu".
+
+   Pierwsze wejście na danej przeglądarce nie ma czego pamiętać — wtedy jest
+   tak, jak było. Strona główna ma jeszcze własną, malutką kopię tego odczytu
+   w <script> tuż pod menu: musi zadziałać, zanim doładuje się ten moduł.
+   ========================================================================== */
+const STAN_KLUCZ = 'mc-menu-stan';        // 'guest' | 'signed' | 'admin'
+
+function zapiszStan(stan) {
+  try { localStorage.setItem(STAN_KLUCZ, stan); } catch { /* tryb prywatny */ }
+}
+
+/* Odczyt robimy raz, na starcie. Później zapisujemy do pamięci nowe stany,
+   ale decyzja „czy malować obsługę od razu" ma się opierać na tym, co
+   zastaliśmy przy wejściu na stronę. */
+const STAN_NA_STARCIE = (() => {
+  try { return localStorage.getItem(STAN_KLUCZ); } catch { return null; }
+})();
+
+/** Maluje menu według zapamiętanego stanu — synchronicznie, bez sieci. */
+function stosujStanNaStarcie() {
+  const zalogowany = STAN_NA_STARCIE === 'signed' || STAN_NA_STARCIE === 'admin';
+  const admin = STAN_NA_STARCIE === 'admin';
+
+  document.querySelectorAll('[data-nav-auth]').forEach(el => {
+    const kind = el.dataset.navAuth;
+    el.hidden = zalogowany ? kind !== 'signed' : kind !== 'guest';
+  });
+  document.querySelectorAll('[data-nav-admin]').forEach(el => { el.hidden = !admin; });
+  document.querySelectorAll('[data-nav-klient]').forEach(el => {
+    if (admin) el.hidden = true;
+    else if (!el.hasAttribute('data-nav-auth')) el.hidden = false;
+  });
+  document.body.classList.toggle('has-admin-nav', admin);
+}
+
+/* ==========================================================================
    FIREBASE DLA MENU — Z PONAWIANIEM
    --------------------------------------------------------------------------
    mc-firebase.js pobiera SDK z gstatic i po 15 s bez odpowiedzi przerywa.
@@ -305,6 +357,10 @@ export function mountChrome(opts = {}) {
   document.body.prepend(chrome);
   document.body.append(footer);
 
+  /* Zanim ktokolwiek zdąży spojrzeć: menu dostaje wersję z ostatniego wejścia.
+     Firebase i tak potwierdzi albo poprawi ją za chwilę. */
+  stosujStanNaStarcie();
+
   /* ---------------------------------------------------------------- MENU
      Menu na telefonie ma jeden stan i pięć sposobów zamknięcia: przycisk,
      link, dotknięcie obok, Escape i powiększenie okna do wersji desktopowej.
@@ -410,6 +466,13 @@ export function updateNavAuth(user) {
   const konto = document.querySelector('[data-nav-auth="signed"] a');
   if (konto && user) konto.title = user.email || '';
 
+  /* Wylogowanie zapamiętujemy natychmiast — menu obsługi nie ma prawa mignąć
+     następnej osobie przy tym komputerze. Wersję dla zalogowanego zapisuje
+     dopiero updateNavAdmin(), kiedy wiadomo już, czy to obsługa, czy klient;
+     zapis „signed" tutaj tylko zdążyłby nadpisać „admin" i zepsuć następne
+     wejście. */
+  if (!user) zapiszStan('guest');
+
   updateNavAdmin(user);
 }
 
@@ -444,12 +507,21 @@ function updateNavAdmin(user) {
        tej klasy czepia się reguła zawijania. */
     document.body.classList.toggle('has-admin-nav', ok);
   };
-  pokaz(false);
+  /* Gdy z poprzedniego wejścia wiemy, że to obsługa — zostawiamy menu zapalone
+     na czas sprawdzania. Po to je zapamiętaliśmy. Każdy inny przypadek zaczyna
+     się od wersji bez przycisków, żeby nie mignęły komuś, kto nie ma tam
+     czego szukać. */
+  if (!(user && STAN_NA_STARCIE === 'admin')) pokaz(false);
   if (!user) return;
 
   firebase()
     .then(({ adminStatus }) => adminStatus(user))
-    .then(s => { pokaz(!!(s && s.ok)); if (s && s.ok) startNavTodo(); })
+    .then(s => {
+      const ok = !!(s && s.ok);
+      pokaz(ok);
+      zapiszStan(ok ? 'admin' : 'signed');
+      if (ok) startNavTodo();
+    })
     .catch(() => pokaz(false));
 }
 
@@ -508,7 +580,10 @@ export function wireNavLogout() {
  * Wywołanie: import('./assets/mc-common.js').then(m => m.watchNavAuth());
  */
 export function watchNavAuth() {
-  updateNavAuth(null);
+  /* Nie `updateNavAuth(null)`: to zgasiłoby menu obsługi, które chwilę wcześniej
+     zapalił <script> pod nawigacją w index.html. Zaczynamy od tego samego,
+     co tamten skrypt, a prawdziwy stan przyjdzie z watchAuth(). */
+  stosujStanNaStarcie();
   wireNavLogout();
   watchAuth(updateNavAuth);
 }

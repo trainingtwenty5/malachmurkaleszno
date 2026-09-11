@@ -196,6 +196,10 @@
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Stamtąd idzie SDK Firebase (stan logowania, licznik dzieci). Uprzedzenie
+     przeglądarki skraca oczekiwanie o cały handshake — menu obsługi i licznik
+     dostają prawdziwą odpowiedź zauważalnie szybciej. -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <!-- ?v= przy każdym pliku: gdy zmieniamy stronę, przeglądarka pobiera
      arkusz i skrypty na nowo. Bez tego można trafić na stary CSS
@@ -301,6 +305,42 @@
         <li data-nav-klient><a href="#kontakt" class="nav-cta">Kontakt</a></li>
       </ul>
     </nav>
+
+    <!-- ============ MENU OD RAZU W DOBREJ WERSJI ============
+         Stan logowania przychodzi z Firebase, a ten doładowuje się z gstatic —
+         czyli grubo po tym, jak strona się namaluje. Bez tego skryptu obsługa
+         widziała najpierw menu dla gościa i dopiero po sekundzie przeskakiwało
+         ono na wersję z przyciskami panelu.
+
+         Czytamy więc, czym skończyło się ostatnie sprawdzenie (zapisuje to
+         mc-common.js pod kluczem `mc-menu-stan`) i ustawiamy menu od razu,
+         jeszcze zanim przeglądarka cokolwiek pokaże. Odpowiedź Firebase i tak
+         przyjdzie — i to ona rozstrzyga.
+
+         Zwykły <script>, nie moduł: ma wykonać się TERAZ, w trakcie czytania
+         strony. Moduł czeka na koniec parsowania, czyli dokładnie na to,
+         czego chcemy uniknąć.
+
+         To samo, tylko dla podstron, robi stosujStanNaStarcie() w mc-common.js.
+         Te kilka linijek jest zdublowanych świadomie: tam moduł jest już
+         wczytany, tutaj musimy zdążyć przed nim. -->
+    <script>
+      (function () {
+        var stan;
+        /* Safari w trybie prywatnym potrafi rzucić samym dostępem do schowka. */
+        try { stan = localStorage.getItem('mc-menu-stan'); } catch (e) { return; }
+        if (!stan || stan === 'guest') return;      // dla gościa HTML jest już dobry
+
+        document.querySelectorAll('[data-nav-auth]').forEach(function (el) {
+          el.hidden = el.getAttribute('data-nav-auth') !== 'signed';
+        });
+        if (stan !== 'admin') return;
+
+        document.querySelectorAll('[data-nav-admin]').forEach(function (el) { el.hidden = false; });
+        document.querySelectorAll('[data-nav-klient]').forEach(function (el) { el.hidden = true; });
+        document.body.classList.add('has-admin-nav');
+      })();
+    </script>
 
   </div>
 </header>
