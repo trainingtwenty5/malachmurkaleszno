@@ -269,6 +269,10 @@
   .entry-hero{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
     box-shadow:var(--shadow-sm);padding:clamp(22px,4vw,40px);text-align:center}
   .entry-hero .btn{margin-top:6px;font-size:1.05rem;padding:.85em 2em}
+  .entry-skrot{margin:0 0 4px;color:var(--muted);font-size:.9rem}
+  .entry-skrot kbd{display:inline-block;padding:.12em .5em;border-radius:7px;
+    border:1px solid var(--line);border-bottom-width:2px;background:var(--white);
+    font-family:var(--font-head);font-size:.85em;font-weight:700;color:var(--navy-deep)}
 
   /* Kafelki „kto teraz jest w bawialni". Na komputerze siatka kwadratów —
      obsługa ma je ogarnąć jednym spojrzeniem znad lady, a nie czytać tabelę.
@@ -614,6 +618,10 @@
       <section class="panel" id="tab-entry">
         <div class="entry-hero">
           <h2 style="margin-bottom:.35em">Ktoś przyszedł bez zapisu?</h2>
+          <!-- Skrót działa z każdej strony serwisu, nie tylko stąd — ale tu jest
+               jedyne miejsce, w którym obsługa ma szansę go zobaczyć. -->
+          <p class="entry-skrot">Dodasz też skrótem <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>X</kbd>
+            — z dowolnej strony.</p>
           <button class="btn btn-red btn-auto" id="neAdd">+ Nowe wejście</button>
         </div>
 
@@ -1424,7 +1432,7 @@ function openTabFromUrl() {
   }
 }
 
-/* Skrót Ctrl+D (na Macu ⌘D) z dowolnej strony serwisu. Nasłuch siedzi
+/* Skrót Ctrl+X (na Macu ⌘X) z dowolnej strony serwisu. Nasłuch siedzi
    w mc-common.js — jest wszędzie i wie, kto jest obsługą. Tutaj zostaje samo
    otwarcie okna, bo panel ma je pod ręką i nie ma po co się przeładowywać.
    Gdy okno już stoi otwarte, tylko wracamy do pierwszego pola: `neOpen()`
