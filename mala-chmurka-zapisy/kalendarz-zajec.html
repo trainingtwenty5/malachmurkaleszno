@@ -84,8 +84,8 @@
       <div class="cal-range" id="range">—</div>
       <div class="view-switch" role="group" aria-label="Widok kalendarza">
         <button data-view="day">Dzień</button>
-        <button data-view="week" class="is-on">Tydzień</button>
-        <button data-view="month">Miesiąc</button>
+        <button data-view="week">Tydzień</button>
+        <button data-view="month" class="is-on">Miesiąc</button>
       </div>
     </div>
 
@@ -126,9 +126,12 @@ const PXM  = SLOT / 30;
 let monday = weekStart(new Date());
 let unsub = null;
 
-/* 'day' | 'week' | 'month' — tydzień zostaje domyślny, bo tak grafik wygląda
-   dziś i tak przyzwyczajeni są klienci. */
-let view = 'week';
+/* 'day' | 'week' | 'month' — miesiąc jest domyślny. Kto wchodzi w grafik,
+   szuka najpierw terminu, a nie godziny: chce zobaczyć, w które dni w ogóle
+   coś jest. Tydzień pokazywał siedem dni naraz, więc żeby trafić na zajęcia
+   za dwa tygodnie, trzeba było dwa razy kliknąć „dalej" i domyślić się, czego
+   się szuka. Z miesiąca przechodzi się w dzień jednym dotknięciem kafelka. */
+let view = 'month';
 let anchor = new Date();          // dzień, wokół którego liczymy zakres
 
 const cmpISO = isoDate;
