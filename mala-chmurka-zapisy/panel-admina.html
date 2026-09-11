@@ -1420,16 +1420,23 @@ $('#logout').onclick = () => A.signOut(auth).then(() => location.reload());
 /* ============================================================ ZAKŁADKI ==== */
 /** Nazwa zakładki z adresu — pozwala wejść prosto w wybraną z innego miejsca. */
 function openTabFromUrl() {
-  const want = new URLSearchParams(location.search).get('tab') || location.hash.replace('#', '');
+  const q = new URLSearchParams(location.search);
+  const want = q.get('tab') || location.hash.replace('#', '');
   const btn = want && document.querySelector(`.admin-tabs button[data-tab="${want}"]`);
   if (btn) btn.click();
 
-  /* „Nowe wejście" i „Nowe zajęcia" z menu prowadzą tu z `&new=1` — otwieramy
-     okno od razu, żeby pozycja w menu robiła to, co obiecuje, a nie tylko
-     przenosiła na kartę, na której trzeba jeszcze czegoś poszukać. */
-  if (new URLSearchParams(location.search).get('new') === '1') {
-    if (want === 'entry') neOpen(); else openEvent(null);
-  }
+  /* Wejście z zewnątrz na kartę 0 znaczy zawsze to samo: ktoś stoi przy ladzie
+     i chce dodać wejście. Dlatego okno otwieramy przy każdym `?tab=entry`,
+     nie tylko z dopiskiem `&new=1` — starsze menu, zapamiętane w przeglądarce,
+     prowadzi jeszcze pod adres bez tego dopisku, a ma działać tak samo.
+     Sama karta zostaje pod ręką: przełączenie zakładki w panelu okna nie
+     otwiera, bo to klik w pasek, a nie wejście spod adresu.
+
+     Przy zajęciach tak nie można: `?tab=events` to również pozycja
+     „Zarządzanie zajęciami", czyli sama lista. Tam okno otwiera dopiero
+     `&new=1`. */
+  if (want === 'entry') neOpen();
+  else if (q.get('new') === '1') openEvent(null);
 }
 
 /* Skrót Ctrl+X (na Macu ⌘X) z dowolnej strony serwisu. Nasłuch siedzi
