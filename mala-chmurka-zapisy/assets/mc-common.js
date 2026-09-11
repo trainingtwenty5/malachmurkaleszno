@@ -19,7 +19,12 @@ export const URLS = {
   admin:         'panel-admina.html',
   /* „Zarządzanie zajęciami" to dziś karta 6 panelu — osobnej strony już nie ma.
      Adres zostaje pod jedną nazwą, żeby menu i skróty miały gdzie wskazywać. */
-  adminEvents:   'panel-admina.html?tab=events'
+  adminEvents:   'panel-admina.html?tab=events',
+  /* Wejście do panelu z menu prowadzi na kartę „2 · Rezerwacje wizyt": to po
+     nie sięga się najczęściej i to one mają plakietkę obok nazwy. Sam adres
+     `admin` zostaje bez parametru — używają go inne miejsca, którym chodzi
+     o panel jako taki. */
+  adminBookings: 'panel-admina.html?tab=book'
 };
 
 /* ==========================================================================
@@ -50,7 +55,7 @@ const NAV = [
    tam. */
 const NAV_ADMIN = [
   { label: 'Nowe wejście',  href: URLS.admin + '?tab=entry',   cls: 'nav-cta nav-cta-red' },
-  { label: 'Panel admina',  href: URLS.admin,                  cls: 'nav-cta', badge: true },
+  { label: 'Panel admina',  href: URLS.adminBookings,          cls: 'nav-cta', badge: true },
   { label: 'Nowe zajęcia',  href: URLS.adminEvents + '&new=1', cls: 'nav-cta nav-cta-teal' }
 ];
 
