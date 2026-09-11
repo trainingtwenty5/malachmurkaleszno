@@ -786,7 +786,7 @@
           <div class="stat-card"><div class="k">Czekają na decyzję</div><div class="v" id="bkPending">—</div></div>
           <div class="stat-card"><div class="k">Zaakceptowane</div><div class="v" id="bkAccepted">—</div></div>
           <div class="stat-card"><div class="k">Odrzucone</div><div class="v" id="bkRejected">—</div></div>
-          <div class="stat-card"><div class="k" id="bkKidsLabel">Dzieci w tym tygodniu</div><div class="v" id="bkKids">—</div></div>
+          <div class="stat-card"><div class="k" id="bkKidsLabel">Dzieci w tym miesiącu</div><div class="v" id="bkKids">—</div></div>
         </div>
 
         <div class="bar">
@@ -801,13 +801,15 @@
         </div>
 
         <div class="cal-toolbar" id="bkWeekNav">
-          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni tydzień">‹</button>
-          <button class="cal-nav" id="bkNext" aria-label="Następny tydzień">›</button>
+          <!-- Podpisy dla czytnika ekranu przestawia loadBookingRange() razem
+               z widokiem; w HTML stoi stan początkowy, czyli miesiąc. -->
+          <button class="cal-nav" id="bkPrev" aria-label="Poprzedni miesiąc">‹</button>
+          <button class="cal-nav" id="bkNext" aria-label="Następny miesiąc">›</button>
           <button class="btn btn-soft cal-today btn-auto" id="bkToday">Dziś</button>
           <div class="cal-range" id="bkRange">—</div>
           <div class="view-switch" role="group" aria-label="Widok rezerwacji">
-            <button type="button" data-bk-view="week" class="is-on">Tydzień</button>
-            <button type="button" data-bk-view="month">Miesiąc</button>
+            <button type="button" data-bk-view="week">Tydzień</button>
+            <button type="button" data-bk-view="month" class="is-on">Miesiąc</button>
           </div>
         </div>
 
@@ -815,8 +817,8 @@
              tydzień, bo rodzic dzwoni z numerem rezerwacji i nie wie, w którym
              tygodniu ona leży. -->
         <p class="hint" id="bkSearchInfo" hidden style="margin:-6px 0 12px">
-          Szukam w <strong>całej historii rezerwacji</strong>, nie tylko w tym tygodniu.
-          Wyczyść pole, żeby wrócić do widoku tygodnia.</p>
+          Szukam w <strong>całej historii rezerwacji</strong>, nie tylko w pokazywanym zakresie.
+          Wyczyść pole, żeby wrócić do kalendarza.</p>
 
         <p class="hint" style="margin:-6px 0 12px">
           To rezerwacje samego wstępu do bawialni, złożone przez klientów. Dopóki nie klikniesz
@@ -2264,9 +2266,11 @@ $('#exportRank').onclick = () => {
    ========================================================================== */
 let BOOKINGS = [], bkMonday = weekStart(new Date()), unsubBook = null;
 
-/* 'week' albo 'month'. Tydzień zostaje domyślny: przy ladzie liczy się to, co
-   dzieje się teraz, a miesiąc jest do planowania i do szukania luk. */
-let bkView = 'week';
+/* 'week' albo 'month'. Otwieramy na miesiącu: rezerwacje przychodzą z dużym
+   wyprzedzeniem, więc pierwsze pytanie brzmi zwykle „co mnie czeka", a nie
+   „co jest dziś". Tydzień jest o jedno kliknięcie dalej i to w nim siedzą
+   pełne karty z akceptacją — miesiąc tylko pokazuje, gdzie zajrzeć. */
+let bkView = 'month';
 /* Pierwszy dzień pokazywanego miesiąca — osobno od `bkMonday`, żeby przełączenie
    widoku tam i z powrotem nie gubiło miejsca, w którym obsługa była. */
 let bkMonth = firstOfMonth(new Date());
@@ -2340,10 +2344,10 @@ function loadBookingRange() {
 const loadBookingWeek = loadBookingRange;
 
 /**
- * Rezerwacja o danym id. Najpierw w bieżącym tygodniu (tam jest najświeższa,
- * bo słucha bazy na żywo), a dopiero potem w historii pobranej na potrzeby
- * wyszukiwarki. Bez tego drugiego kroku przyciski na znalezionej rezerwacji
- * spoza tygodnia nic by nie robiły.
+ * Rezerwacja o danym id. Najpierw we wczytanym zakresie — tygodniu albo
+ * miesiącu (tam jest najświeższa, bo słucha bazy na żywo), a dopiero potem
+ * w historii pobranej na potrzeby wyszukiwarki. Bez tego drugiego kroku
+ * przyciski na rezerwacji spoza zakresu nic by nie robiły.
  */
 const findBooking = id =>
   BOOKINGS.find(x => x.id === id) ||
