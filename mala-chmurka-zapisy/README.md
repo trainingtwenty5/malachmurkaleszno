@@ -720,9 +720,15 @@ sobota trafia przed oczy.
   klient zobaczy. Puste = samo „nie pracujemy tego dnia”. **Powód (`reason`) nigdy
   tam nie trafia** — to notatka wewnętrzna.
 - Seria dni (powtarzanie) dziedziczy ustawienia widoczności dnia pierwszego.
-- Okienko pokazuje się **raz dziennie na przeglądarkę**, a poza tym od razu, gdy
-  lista dni się zmieni — zamknięcie zapamiętujemy pod kluczem złożonym z dzisiejszej
-  daty i samej listy dat, więc nowe ogłoszenie ma własny klucz.
+- Okienko pokazuje się **przy każdym wejściu na stronę**, także komuś, kto wcześniej
+  kliknął „Rozumiem”. Tak ma być: ludzie klikają „Rozumiem” odruchowo, nie czytając,
+  a zamknięty dzień to informacja, na której komuś przepada wizyta. Zapomniane
+  zamknięcie kosztuje jedno kliknięcie, przegapiona informacja — przyjazd pod
+  zamknięte drzwi.
+- Pamiętamy tylko tyle, że ktoś zamknął okienko **w tej odsłonie strony** i tylko
+  dla dokładnie tej samej listy dat — inaczej świeże dane z bazy zasłaniałyby stronę
+  tuż po tym, jak ją odsłonił. Odświeżenie strony zaczyna od nowa. Nic nie ląduje
+  w localStorage.
 - Zgoda na ciasteczka ma pierwszeństwo: dopóki pasek zgody stoi na ekranie,
   okienko czeka.
 - Nasłuch jest na żywo — zaznaczenie w panelu pojawia się w otwartej karcie
@@ -731,7 +737,16 @@ sobota trafia przed oczy.
 
 Kod: `assets/mc-nieczynne.js` (okienko), `watchPublicExclusions()`
 w `assets/mc-data.js` (filtr `showOnSite`), zakładka 3 w `panel-admina.html`.
-Żeby zmienić widoczność dnia, który już jest na liście — kliknij w ten wpis.
+
+### Uwaga na nadpisywanie
+
+Identyfikatorem dokumentu jest data, a zapis idzie przez `setDoc`, więc wykluczenie
+tego samego dnia **nadpisuje** poprzedni wpis w całości. Okno pilnuje tego z dwóch
+stron: kliknięcie wpisu na liście otwiera go do edycji, a wpisanie w polu „Dzień”
+daty, która już jest wykluczona, **przeładowuje okno danymi z bazy** — tytuł zmienia
+się na „Wykluczony dzień”, a powód i widoczność podstawiają się takie, jakie są
+zapisane. Bez tego „+ Wyklucz dzień" na już wykluczonym dniu po cichu kasował
+zapisany powód i gasił widoczność na stronie głównej.
 
 ---
 

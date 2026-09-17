@@ -17,11 +17,16 @@
 
    KIEDY SIĘ POKAZUJE
    ----------------------------------------------------------------------
-   Raz dziennie na przeglądarkę, a poza tym od razu, gdy lista dni się zmieni.
-   Zamknięcie zapamiętujemy w localStorage pod kluczem zbudowanym z dzisiejszej
-   daty i samej listy dat: nowe ogłoszenie ma swój własny klucz, więc pokaże
-   się nawet komuś, kto poprzednie właśnie zamknął. Bez tego okienko albo
-   męczyłoby przy każdym przewinięciu strony, albo przegapiłoby zmianę.
+   PRZY KAŻDYM WEJŚCIU NA STRONĘ, także temu, kto wcześniej kliknął
+   „Rozumiem”. To świadoma decyzja, a nie przeoczenie: zamknięty dzień jest
+   informacją, na której komuś przepada wizyta, a ludzie i tak klikają
+   „Rozumiem” odruchowo, nie czytając. Zapomnienie zamknięcia kosztuje jedno
+   kliknięcie; przegapiona informacja — przyjazd pod zamknięte drzwi.
+
+   Jedyne, co pamiętamy, to fakt zamknięcia okienka W TEJ ODSŁONIE STRONY,
+   i tylko dla dokładnie tej samej listy dat. Bez tego świeża porcja danych
+   z bazy zasłaniałaby stronę tuż po tym, jak ktoś ją odsłonił. Odświeżenie
+   strony zaczyna od nowa i okienko wraca.
 
    Nasłuch jest na żywo (onSnapshot) — zaznaczenie w panelu pojawia się
    w otwartej karcie przeglądarki bez odświeżania.
@@ -86,12 +91,10 @@ function kiedy(iso) {
   return '';
 }
 
-/* Zamknięcie okienka zapamiętujemy, ale strona ma działać także wtedy, gdy
-   przeglądarka odmawia dostępu do localStorage (tryb prywatny, zablokowane
-   dane witryn). Stąd try/catch przy każdym dotknięciu pamięci. */
-const KLUCZ = 'mc-zamkniete-widziane';
-const przeczytaj = () => { try { return localStorage.getItem(KLUCZ) || ''; } catch { return ''; } };
-const zapisz = v => { try { localStorage.setItem(KLUCZ, v); } catch { /* trudno */ } };
+/* Lista dat, dla której ktoś już zamknął okienko w tej odsłonie strony.
+   Celowo zwykła zmienna, a nie localStorage: pamięć ma zniknąć razem
+   z przeładowaniem strony, żeby przy następnym wejściu okienko wróciło. */
+let zamknieteDla = null;
 
 /* ----------------------------------------------------------------- DOM --- */
 const okno = document.createElement('div');
@@ -105,7 +108,7 @@ let wracaDoFokusu = null;
 
 function zamknij(zapamietaj = true) {
   if (okno.hidden) return;
-  if (zapamietaj) zapisz(okno.dataset.klucz || '');
+  if (zapamietaj) zamknieteDla = okno.dataset.klucz || '';
   okno.hidden = true;
   if (wracaDoFokusu && wracaDoFokusu.focus) wracaDoFokusu.focus();
   wracaDoFokusu = null;
@@ -172,7 +175,9 @@ function poZgodzieNaCiasteczka(dalej) {
 function pokaz(dni) {
   const klucz = `${dzisISO()}|${dni.map(d => d.date).join(',')}`;
   okno.dataset.klucz = klucz;
-  if (przeczytaj() === klucz) return;          // dziś już to widział
+  /* Zamknął przed chwilą dokładnie to ogłoszenie — nie wracamy mu pod palce.
+     Zmieniona lista ma inny klucz, więc nowy dzień przebija się od razu. */
+  if (klucz === zamknieteDla) return;
 
   rysuj(dni);
   poZgodzieNaCiasteczka(() => {

@@ -3757,13 +3757,21 @@ function exPublicRender() {
 }
 $('#exShowOnSite').addEventListener('change', exPublicRender);
 
-function exOpen(dateISO = '') {
+/**
+ * Ustawia okno pod konkretny dzień: jeśli ten dzień jest już wykluczony,
+ * wczytuje to, co naprawdę leży w bazie.
+ *
+ * Wywołujemy to także po ZMIANIE daty w otwartym oknie, nie tylko przy jego
+ * otwieraniu. Bez tego „+ Wyklucz dzień" i wpisanie daty, która już jest na
+ * liście, wyglądało jak zakładanie nowego wpisu, a zapis (setDoc) po cichu
+ * nadpisywał zapisany powód pustym polem — i, od czasu nowego przełącznika,
+ * gasił też widoczność dnia na stronie głównej. Teraz okno mówi wprost, że
+ * to dzień już wykluczony, i pokazuje jego prawdziwą treść.
+ */
+function exWczytajDzien(dateISO) {
   const istnieje = EXCL.find(e => e.date === dateISO);
   exEditing = istnieje ? istnieje.date : null;
 
-  $('#exMsg').innerHTML = '';
-  $('#exDate').value = dateISO || todayISO();
-  $('#exDate').min = '';                       // wolno wykluczyć też wstecz — historia bywa potrzebna
   $('#exReason').value = istnieje ? (istnieje.reason || '') : '';
   $('#exShowOnSite').checked = istnieje ? istnieje.showOnSite === true : false;
   $('#exPublicNote').value   = istnieje ? (istnieje.publicNote || '') : '';
@@ -3771,6 +3779,15 @@ function exOpen(dateISO = '') {
   $('#exTitle').textContent = istnieje ? 'Wykluczony dzień' : 'Wyklucz dzień z rezerwacji';
   $('#exSave').textContent  = istnieje ? 'Zapisz powód' : 'Wyklucz';
   $('#exDelete').hidden = !istnieje;
+}
+
+$('#exDate').addEventListener('change', () => exWczytajDzien($('#exDate').value));
+
+function exOpen(dateISO = '') {
+  $('#exMsg').innerHTML = '';
+  $('#exDate').value = dateISO || todayISO();
+  $('#exDate').min = '';                       // wolno wykluczyć też wstecz — historia bywa potrzebna
+  exWczytajDzien($('#exDate').value);
 
   $('#exRepeatOn').checked = false;
   exRepDays.clear();
