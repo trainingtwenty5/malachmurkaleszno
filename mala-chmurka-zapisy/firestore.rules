@@ -181,6 +181,13 @@ service cloud.firestore {
            dałoby się schować pod inną datą i blokada niżej by go nie znalazła */
         &&   request.resource.data.date == exclusionDate
         &&   request.resource.data.get('reason', '').size() <= 200
+        /* `showOnSite` decyduje, czy dzień pokaże się w okienku na stronie
+           głównej, a `publicNote` jest jedynym tekstem, który klient tam
+           przeczyta. Pilnujemy typu i długości, żeby strona nie dostała
+           zamiast zdania całego wypracowania albo liczby. */
+        &&   request.resource.data.get('showOnSite', false) is bool
+        &&   request.resource.data.get('publicNote', '') is string
+        &&   request.resource.data.get('publicNote', '').size() <= 120
         &&   request.resource.data.keys().size() < 10;
     }
 

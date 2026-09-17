@@ -381,6 +381,25 @@ await t('Powod dluzszy niz 200 znakow -> NIE', async () =>
   assertFails(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
     { ...WYKL, reason: 'x'.repeat(201) })));
 
+/* Widocznosc na stronie glownej. `publicNote` jest jedynym tekstem z tego
+   dokumentu, ktory faktycznie trafia przed oczy klienta, wiec regula pilnuje
+   i typu, i dlugosci — strona ma dostac zdanie, a nie wypracowanie. */
+await t('Admin oglasza dzien na stronie glownej -> TAK', async () =>
+  assertSucceeds(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
+    { ...WYKL, showOnSite: true, publicNote: 'impreza na wylacznosc' })));
+await t('Notka dla klienta dluzsza niz 120 znakow -> NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
+    { ...WYKL, showOnSite: true, publicNote: 'x'.repeat(121) })));
+await t('showOnSite musi byc prawda/falszem, nie napisem -> NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
+    { ...WYKL, showOnSite: 'tak' })));
+await t('publicNote musi byc napisem, nie liczba -> NIE', async () =>
+  assertFails(setDoc(doc(user('a1', ADMIN, true), 'exclusions/2026-10-01'),
+    { ...WYKL, showOnSite: true, publicNote: 7 })));
+await t('Anonim NIE oglosi nic na stronie glownej -> NIE', async () =>
+  assertFails(setDoc(doc(anon(), 'exclusions/2026-10-01'),
+    { ...WYKL, showOnSite: true, publicNote: 'zamkniete na zawsze' })));
+
 console.log('\n=== BLOKADA REZERWACJI W WYKLUCZONY DZIEN ===');
 
 /* To jest sedno calej funkcji: w wykluczony dzien nikt z ulicy nie zapisze sie
