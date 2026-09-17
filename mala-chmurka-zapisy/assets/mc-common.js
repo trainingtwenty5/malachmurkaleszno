@@ -1983,6 +1983,42 @@ export function jednorazoweZamkniecia({ regularne, wgDat, odISO, dni = 7 } = {})
   return out;
 }
 
+/**
+ * Wyjątki do naniesienia na tygodniową kartę godzin.
+ *
+ * Karta pokazuje tydzień („niedziela: 10:00 – 15:00”), a wykluczenia dotyczą
+ * KONKRETNYCH DAT. Żeby jedno dało się pokazać na drugim, dla każdego dnia
+ * tygodnia szukamy najbliższej nadchodzącej daty, która jest wykluczona.
+ * Dzięki temu wiersz „Niedziela” potrafi powiedzieć „21 września nieczynne”,
+ * zamiast udawać, że w tę niedzielę jest normalnie otwarte.
+ *
+ * Patrzymy tylko do przodu i tylko w okno dwóch tygodni: wykluczenie sprzed
+ * miesiąca nikogo już nie obchodzi, a takie za pół roku nie ma prawa straszyć
+ * w karcie godzin dzisiaj.
+ *
+ * @param {string[]} daty   wykluczone dni, ISO
+ * @param {string} dzisISO  od kiedy patrzymy
+ * @param {number} [dni]    jak daleko w przód
+ * @returns {object} { 0: '2026-09-20', 3: '2026-09-23' } — klucz to dzień tygodnia JS
+ */
+export function wyjatkiNaTydzien(daty = [], dzisISO, dni = 14) {
+  const out = {};
+  if (!Array.isArray(daty) || !dzisISO) return out;
+  const start = parseDate(dzisISO);
+  if (isNaN(start)) return out;
+  const koniec = isoDate(addDays(start, Math.max(0, dni)));
+
+  for (const iso of [...daty].filter(Boolean).sort()) {
+    if (iso < dzisISO || iso > koniec) continue;
+    const d = parseDate(iso);
+    if (isNaN(d)) continue;
+    /* Pierwsza data wygrywa, bo listę przeszliśmy rosnąco — a interesuje nas
+       najbliższa, nie ostatnia. */
+    if (out[d.getDay()] === undefined) out[d.getDay()] = iso;
+  }
+  return out;
+}
+
 /** Nazwy akcji po ludzku — to one stoją w pierwszej linii wpisu. */
 export const NAZWY_AKCJI = {
   'event.create':        'Dodano zajęcia',
@@ -2004,6 +2040,7 @@ export const NAZWY_AKCJI = {
   'hours.sync':          'Włączono synchronizację godzin z Google',
   'hours.change':        'Godziny otwarcia zmienione w wizytówce Google',
   'exclusion.auto':      'Dzień zamknięty w wizytówce — dodany do wykluczeń',
+  'hours.drift':         'Godziny w wizytówce różnią się od zapasowych w kodzie',
   /* Poniższe nie powstają z zapisu do dziennika — panel dokłada je z dat
      utworzenia rezerwacji i zapisów, żeby oś czasu nie milczała o tym, co
      robią klienci. Patrz README, „Dziennik zmian”. */

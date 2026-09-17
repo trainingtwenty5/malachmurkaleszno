@@ -30,8 +30,26 @@
 
    Nasłuch jest na żywo (onSnapshot) — zaznaczenie w panelu pojawia się
    w otwartej karcie przeglądarki bez odświeżania.
+
+   CHMURKA PRZY PRAWEJ KRAWĘDZI
+   ----------------------------------------------------------------------
+   Zamknięte okienko nie znika bez śladu: zostaje po nim chmurka „Ważna
+   informacja” przyklejona do prawej krawędzi. Kliknięcie otwiera okienko
+   z powrotem, kolejne — zamyka. Ten sam przycisk w obie strony, bo tylko
+   wtedy da się go używać bez zastanowienia.
+
+   Chmurka leży NAD przyciemnieniem okienka (wyższy z-index), inaczej po
+   otwarciu byłaby zasłonięta i przełącznik działałby tylko w jedną stronę.
+
+   KARTA GODZIN OTWARCIA
+   ----------------------------------------------------------------------
+   Te same dni podajemy do mc-godziny.js, który nanosi je na kartę „Godziny
+   otwarcia” jako wyjątki. Grafik zostaje z wizytówki Google — wykluczenie
+   niczego w nim nie nadpisuje, tylko dokłada adnotację „21 września
+   nieczynne”. Google zostaje najważniejsze; wyjątek mija razem z datą.
    ========================================================================== */
 import { watchPublicExclusions } from './mc-data.js';
+import { ustawWyjatki } from './mc-godziny.js';
 import { longDate, esc, isoDate, addDays } from './mc-common.js';
 
 /* ---------------------------------------------------------------- STYLE --- */
@@ -73,7 +91,31 @@ const css = `
 .mc-zamk-ok:hover{background:var(--teal-dark,#33636D)}
 .mc-zamk-link{color:var(--brand-deep,#3E7C89);font-weight:700;text-decoration:none}
 .mc-zamk-link:hover{text-decoration:underline}
-@media (prefers-reduced-motion:reduce){.mc-zamk-box{animation:none}}
+
+/* Chmurka przy prawej krawędzi — wraca po zamknięciu okienka i otwiera je
+   z powrotem. Leży NAD przyciemnieniem (z-index wyżej niż .mc-zamk), bo ma
+   działać jak przełącznik: to samo kliknięcie zamyka to, co otworzyło. */
+.mc-chmurka{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:195;
+  display:flex;align-items:center;gap:8px;border:0;cursor:pointer;font:inherit;
+  font-weight:700;font-size:.9rem;color:var(--white,#fff);
+  background:var(--brand-deep,#3E7C89);padding:12px 16px 12px 14px;
+  border-radius:var(--radius,18px) 0 0 var(--radius,18px);
+  box-shadow:0 6px 20px rgba(44,53,64,.22);
+  animation:mcChmurkaWjazd .35s var(--ease,cubic-bezier(.22,.61,.36,1)) both}
+.mc-chmurka[hidden]{display:none}
+.mc-chmurka:hover{background:var(--teal-dark,#33636D)}
+.mc-chmurka:focus-visible{outline:3px solid var(--wood,#C9A87C);outline-offset:2px}
+.mc-chmurka svg{flex:none}
+@keyframes mcChmurkaWjazd{from{opacity:0;transform:translate(14px,-50%)}
+  to{opacity:1;transform:translate(0,-50%)}}
+@media (max-width:760px){
+  /* Na telefonie pełny napis zasłaniałby treść — zostaje sama chmurka
+     z kropką, a tekst czyta czytnik ekranu. */
+  .mc-chmurka{padding:11px 12px}
+  .mc-chmurka-tekst{position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap}
+}
+@media (prefers-reduced-motion:reduce){.mc-zamk-box,.mc-chmurka{animation:none}}
 `;
 
 const style = document.createElement('style');
@@ -110,8 +152,50 @@ function zamknij(zapamietaj = true) {
   if (okno.hidden) return;
   if (zapamietaj) zamknieteDla = okno.dataset.klucz || '';
   okno.hidden = true;
-  if (wracaDoFokusu && wracaDoFokusu.focus) wracaDoFokusu.focus();
+  odswiezChmurke();
+  /* Fokus wraca tam, skąd przyszedł — a gdy okienko otworzyło się samo,
+     na chmurkę, bo to ona zostaje na ekranie jako jedyny ślad. */
+  const cel = (wracaDoFokusu && wracaDoFokusu.focus && wracaDoFokusu !== document.body)
+    ? wracaDoFokusu : (chmurka.hidden ? null : chmurka);
+  if (cel && cel.focus) cel.focus();
   wracaDoFokusu = null;
+}
+
+/* ---- chmurka „Ważna informacja" ---------------------------------------- */
+const chmurka = document.createElement('button');
+chmurka.type = 'button';
+chmurka.className = 'mc-chmurka';
+chmurka.hidden = true;
+chmurka.setAttribute('aria-expanded', 'false');
+chmurka.innerHTML = `
+  <svg width="26" height="26" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+    <path d="M24.5 25h-14a6.5 6.5 0 0 1-.9-12.94A8 8 0 0 1 24.2 13.2 6 6 0 0 1 24.5 25z"/>
+    <circle cx="16" cy="18" r="1.4" fill="#fff"/>
+    <rect x="15" y="10.6" width="2" height="5.4" rx="1" fill="#fff"/>
+  </svg>
+  <span class="mc-chmurka-tekst">Ważna informacja</span>`;
+
+/** Jedno kliknięcie w chmurkę: otwiera zamknięte okienko, zamyka otwarte. */
+chmurka.addEventListener('click', () => {
+  if (okno.hidden) otworz(); else zamknij();
+});
+
+function odswiezChmurke() {
+  /* Chmurka ma sens tylko wtedy, gdy jest co pokazać. Zostaje widoczna także
+     przy otwartym okienku — to ona je zamyka. */
+  chmurka.hidden = !okno.dataset.klucz;
+  chmurka.setAttribute('aria-expanded', String(!okno.hidden));
+  chmurka.title = okno.hidden
+    ? 'Zobacz, kiedy bawialnia jest nieczynna'
+    : 'Zamknij informację';
+}
+
+function otworz() {
+  wracaDoFokusu = document.activeElement;
+  okno.hidden = false;
+  odswiezChmurke();
+  const ok = okno.querySelector('.mc-zamk-ok');
+  if (ok) ok.focus();
 }
 
 okno.addEventListener('click', e => { if (e.target === okno) zamknij(); });
@@ -180,22 +264,28 @@ function pokaz(dni) {
   if (klucz === zamknieteDla) return;
 
   rysuj(dni);
-  poZgodzieNaCiasteczka(() => {
-    wracaDoFokusu = document.activeElement;
-    okno.hidden = false;
-    const ok = okno.querySelector('.mc-zamk-ok');
-    if (ok) ok.focus();
-  });
+  odswiezChmurke();
+  poZgodzieNaCiasteczka(otworz);
 }
 
 /* ------------------------------------------------------------- NASŁUCH --- */
 document.body.appendChild(okno);
+document.body.appendChild(chmurka);
 
 watchPublicExclusions(dni => {
   /* Kolejność i limit: lista jest już posortowana rosnąco po dacie, a dwanaście
      pozycji to i tak więcej, niż ktokolwiek przeczyta w okienku. */
   const widoczne = dni.slice(0, 12);
 
-  if (!widoczne.length) { zamknij(false); return; }   // wykluczenie cofnięte
+  /* Karta godzin dostaje te same dni, także pustą listę — cofnięte
+     wykluczenie ma z niej zniknąć równie szybko, jak się pojawiło. */
+  ustawWyjatki(widoczne);
+
+  if (!widoczne.length) {                            // wykluczenie cofnięte
+    okno.dataset.klucz = '';
+    zamknij(false);
+    odswiezChmurke();
+    return;
+  }
   pokaz(widoczne);
 }, err => console.warn('Nie udało się pobrać dni nieczynnych.', err));

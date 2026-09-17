@@ -150,11 +150,12 @@ export async function readSyncedHours() {
   return snap.exists() ? snap.data() : null;
 }
 
-export const saveSyncedHours = (days, autoExcluded = []) =>
+export const saveSyncedHours = (days, autoExcluded = [], extra = {}) =>
   F.setDoc(openingHoursRef(), {
     days:         Array.isArray(days) ? days : [],
     autoExcluded: [...new Set(autoExcluded)].filter(Boolean).slice(-200),
-    syncedAt:     F.serverTimestamp()
+    syncedAt:     F.serverTimestamp(),
+    ...extra
   }, { merge: true });
 
 /** Nasłuch na dziennik od podanej chwili — wyłącznie dla panelu. */

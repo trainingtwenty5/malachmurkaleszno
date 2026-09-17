@@ -1436,7 +1436,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          listRegistrations, listBookings, repeatOnDates,
          watchAuditLog, listClientEvents, listExclusions, zapiszWDzienniku,
          readSyncedHours, saveSyncedHours, addAutoExclusion } from './assets/mc-data.js';
-import { godzinyGotowe, GODZINY, GODZINY_WG_DAT } from './assets/mc-godziny.js';
+import { godzinyGotowe, GODZINY, GODZINY_WG_DAT, GODZINY_ZAPASOWE }
+  from './assets/mc-godziny.js';
 import { quote, discountSummary, DURATIONS, tariffLabel, tariffFor, PRICES,
          AGE_TIERS, SIBLING_DISCOUNT } from './assets/mc-cennik.js';
 
@@ -1637,7 +1638,41 @@ async function synchronizujGodziny() {
     console.warn('Synchronizacja godzin: nie udało się zapisać.', err);
   }
 
+  await odnotujRozjazdZZapasem(zapisane);
   await zalozWykluczeniaZWizytowki(juzDodane);
+}
+
+/**
+ * Czy wizytówka rozjechała się z godzinami ZAPASOWYMI wpisanymi w kodzie.
+ *
+ * To osobne pytanie niż „czy Google coś zmienił”. Zapas z `firebase-config.js`
+ * widzi każdy, komu pobranie się nie uda — zerwany internet, wyczerpany limit,
+ * zablokowany klucz — i on też trafia do surowego HTML-a strony, więc czyta go
+ * wyszukiwarka, zanim cokolwiek się wykona. Jeżeli różni się od wizytówki choćby
+ * o minutę, ktoś gdzieś zobaczy nieprawdziwe godziny. Dziennik ma o tym
+ * powiedzieć, bo inaczej nikt się nie dowie: na ekranie wszystko wygląda dobrze.
+ *
+ * Zgłaszamy to raz na rozjazd, nie przy każdym otwarciu panelu — stąd podpis
+ * (`driftSig`) zapamiętany razem z godzinami.
+ */
+async function odnotujRozjazdZZapasem(zapisane) {
+  const roznice = roznicaGodzin(GODZINY_ZAPASOWE, GODZINY);
+  const podpis = roznice.join(' | ');
+  if (podpis === String((zapisane && zapisane.driftSig) || '')) return;
+
+  try {
+    await saveSyncedHours(GODZINY, (zapisane && zapisane.autoExcluded) || [],
+                          { driftSig: podpis });
+    if (roznice.length) {
+      zapiszWDzienniku({
+        action: 'hours.drift',
+        subject: 'Popraw godziny zapasowe w firebase-config.js',
+        changes: roznice
+      });
+    }
+  } catch (err) {
+    console.warn('Synchronizacja godzin: nie udało się odnotować rozjazdu.', err);
+  }
 }
 
 /**

@@ -16,7 +16,7 @@
 
 import { opisWartosci, opisZmian, ETYKIETY_POL, nazwaAkcji, rodzinaAkcji,
          grupujPoDniach, godzinaWpisu, pasujeDoFiltra, plWpisy,
-         etykietaGodzin, roznicaGodzin, jednorazoweZamkniecia }
+         etykietaGodzin, roznicaGodzin, jednorazoweZamkniecia, wyjatkiNaTydzien }
   from '../assets/mc-common.js';
 
 let pass = 0, fail = 0;
@@ -261,6 +261,44 @@ eq('brak daty startowej też nie', jednorazoweZamkniecia({ regularne: GRAFIK, wg
 eq('brak wszystkiego nie wywala funkcji', jednorazoweZamkniecia(), []);
 eq('zero dni do sprawdzenia',
    jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17', dni: 0, wgDat: {} }), []);
+
+console.log('\n=== WYKLUCZENIA NANIESIONE NA KARTĘ GODZIN ===');
+
+/* Karta godzin pokazuje TYDZIEŃ, a wykluczenia dotyczą KONKRETNYCH DAT.
+   Ta funkcja łączy jedno z drugim: dla każdego dnia tygodnia znajduje
+   najbliższą nadchodzącą datę, która jest wykluczona.
+   Wrzesień 2026: 17 = czwartek (4), 18 = piątek (5), 19 = sobota (6),
+   20 = niedziela (0), 21 = poniedziałek (1). */
+eq('niedziela 20.09 ląduje pod indeksem 0',
+   wyjatkiNaTydzien(['2026-09-20'], '2026-09-17'), { 0: '2026-09-20' });
+eq('kilka dni trafia pod swoje indeksy',
+   wyjatkiNaTydzien(['2026-09-18', '2026-09-21'], '2026-09-17'),
+   { 5: '2026-09-18', 1: '2026-09-21' });
+
+/* Przy dwóch tych samych dniach tygodnia wygrywa BLIŻSZA data — karta ma
+   ostrzegać przed najbliższą wizytą, a nie przed tą za trzy tygodnie. */
+eq('z dwóch niedziel wygrywa bliższa',
+   wyjatkiNaTydzien(['2026-09-27', '2026-09-20'], '2026-09-17'), { 0: '2026-09-20' });
+
+eq('dzisiejszy dzień też się liczy',
+   wyjatkiNaTydzien(['2026-09-17'], '2026-09-17'), { 4: '2026-09-17' });
+eq('wczorajsze wykluczenie nikogo już nie obchodzi',
+   wyjatkiNaTydzien(['2026-09-16'], '2026-09-17'), {});
+/* Wykluczenie za pół roku nie ma prawa straszyć w karcie godzin dzisiaj. */
+eq('data spoza okna dwóch tygodni nie wchodzi',
+   wyjatkiNaTydzien(['2026-12-24'], '2026-09-17'), {});
+eq('granica okna wchodzi, dzień po niej już nie',
+   [wyjatkiNaTydzien(['2026-10-01'], '2026-09-17'),
+    wyjatkiNaTydzien(['2026-10-02'], '2026-09-17')],
+   [{ 4: '2026-10-01' }, {}]);
+eq('własne okno działa',
+   wyjatkiNaTydzien(['2026-09-20'], '2026-09-17', 2), {});
+
+eq('pusta lista to brak wyjątków', wyjatkiNaTydzien([], '2026-09-17'), {});
+eq('brak listy nie wywala funkcji', wyjatkiNaTydzien(undefined, '2026-09-17'), {});
+eq('brak dzisiejszej daty też nie', wyjatkiNaTydzien(['2026-09-20']), {});
+eq('śmieci na liście są pomijane',
+   wyjatkiNaTydzien([null, '', 'nie-data', '2026-09-20'], '2026-09-17'), { 0: '2026-09-20' });
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);

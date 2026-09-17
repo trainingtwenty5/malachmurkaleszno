@@ -270,6 +270,50 @@ console.log('\n=== GODZINY NA KONKRETNE DATY (currentOpeningHours) ===');
   eq('stary wpis w pamięci (bez dat) wymusza ponowne pytanie', wywolanFetch, 1);
 }
 
+console.log('\n=== WYJĄTKI Z WYKLUCZEŃ NA KARCIE GODZIN ===');
+{
+  const mod = await przebieg({ odpowiedz: TYDZIEN });
+
+  /* Zapas z konfiguracji musi zostać zapamiętany PRZED nadpisaniem — panel
+     porównuje z nim to, co przyszło z wizytówki. Gdyby `zastosuj()` podmieniło
+     go w miejscu, rozjazdu nie dałoby się już wykryć. */
+  eq('godziny zapasowe zapamiętane osobno i nietknięte',
+     mod.GODZINY_ZAPASOWE.map(d => d && d.ranges[0].close),
+     [ '15:00', '19:00', '19:00', '19:00', '19:00', '19:00', null ]);
+
+  /* Wyjątek liczy się od DZISIAJ, więc bierzemy najbliższą środę — inaczej
+     test przechodziłby albo nie w zależności od dnia uruchomienia. */
+  const dzis = new Date();
+  const sroda = new Date(dzis);
+  sroda.setDate(sroda.getDate() + ((3 - dzis.getDay() + 7) % 7 || 7));
+  const iso = `${sroda.getFullYear()}-${String(sroda.getMonth() + 1).padStart(2, '0')}`
+            + `-${String(sroda.getDate()).padStart(2, '0')}`;
+
+  mod.ustawWyjatki([{ date: iso, publicNote: '' }]);
+  const html = el.mcGodziny.innerHTML;
+
+  ok('środa dostaje adnotację z datą', /Środa<span class="hours-wyjatek">\d+ \S+ nieczynne</.test(html), html);
+  ok('…i klasę, po której CSS ją przekreśla', /class="has-wyjatek"|has-wyjatek/.test(html), html);
+  /* Godziny ZOSTAJĄ. Grafik z wizytówki się nie zmienił — wyjątek jest nad nim,
+     a nie zamiast niego. Dzięki temu po minięciu daty karta wraca sama. */
+  ok('godziny z wizytówki zostają widoczne', /Środa[\s\S]{0,90}10:00 – 19:00/.test(html), html);
+  ok('pozostałe dni są nietknięte', !/Wtorek<span class="hours-wyjatek"/.test(html));
+
+  /* Sobota i tak jest nieczynna co tydzień — „nieczynne (nieczynne)” byłoby
+     powtórzeniem tej samej informacji dwa razy. */
+  const sobota = new Date(dzis);
+  sobota.setDate(sobota.getDate() + ((6 - dzis.getDay() + 7) % 7 || 7));
+  const isoSob = `${sobota.getFullYear()}-${String(sobota.getMonth() + 1).padStart(2, '0')}`
+               + `-${String(sobota.getDate()).padStart(2, '0')}`;
+  mod.ustawWyjatki([{ date: isoSob }]);
+  ok('dzień i tak zamknięty nie dostaje adnotacji',
+     !/Sobota<span class="hours-wyjatek"/.test(el.mcGodziny.innerHTML), el.mcGodziny.innerHTML);
+
+  mod.ustawWyjatki([]);
+  ok('cofnięte wykluczenie znika z karty',
+     !/hours-wyjatek/.test(el.mcGodziny.innerHTML), el.mcGodziny.innerHTML);
+}
+
 /* Sprzątamy po sobie: zostawiamy konfigurację taką, jaka leży w repozytorium. */
 GOOGLE_PLACE.apiKey = '';
 

@@ -42,8 +42,8 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-cennik.mjs` | 64 testy naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 100 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
 | `tools/test-licznik.mjs` | 70 testów licznika dzieci w bawialni — sam Node. |
-| **`tools/test-godziny.mjs`** | **36 testów godzin z wizytówki Google (odczyt, zapas, pamięć) — sam Node.** |
-| **`tools/test-dziennik.mjs`** | **76 testów dziennika zmian (opisy, oś czasu, filtry) — sam Node.** |
+| **`tools/test-godziny.mjs`** | **43 testy godzin z wizytówki Google (odczyt, zapas, pamięć) — sam Node.** |
+| **`tools/test-dziennik.mjs`** | **88 testów dziennika zmian (opisy, oś czasu, filtry) — sam Node.** |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 58 testów zakładki „Czas zabawy” (odliczanie, opłata) — sam Node. |
@@ -263,8 +263,8 @@ node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
 node tools/test-cennik.mjs  # 64 testy: taryfy, święta, progi wiekowe, zniżki
 node tools/test-zapisy.mjs  # 100 testów: terminy, godziny otwarcia, numer rezerwacji
 node tools/test-licznik.mjs # 70 testów: licznik dzieci w bawialni
-node tools/test-godziny.mjs # 36 testów: godziny z wizytówki Google, zapas, pamięć podręczna
-node tools/test-dziennik.mjs # 76 testów: dziennik zmian — opisy, oś czasu, filtry
+node tools/test-godziny.mjs # 43 testy: godziny z wizytówki Google, zapas, pamięć podręczna
+node tools/test-dziennik.mjs # 88 testów: dziennik zmian — opisy, oś czasu, filtry
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 58 testów: czas zabawy, odliczanie, stan opłaty
@@ -495,6 +495,33 @@ pomijane i zostają godziny zapasowe z `SETTINGS.openingHours` (indeks jak
 w JavaScripcie: 0 = niedziela; dzień zamknięty na głucho to `null`). Te same
 zapasowe godziny wchodzą do gry przy zerwanym połączeniu albo wyczerpanym limicie
 zapytań, więc warto trzymać je aktualne — ale jako kopię, nie jako źródło.
+
+### Wykluczenie widać w karcie godzin otwarcia
+
+Wykluczony dzień nie jest tylko zablokowaną datą w formularzu — **widać go też
+w karcie „Godziny otwarcia"**. Wiersz dnia tygodnia, którego najbliższe wystąpienie
+jest wykluczone, dostaje adnotację z datą, a godziny obok są przekreślone:
+
+```
+Wtorek                          10:00 – 19:00      (przekreślone)
+22 września nieczynne
+```
+
+**Wizytówka Google zostaje źródłem grafiku** — wykluczenie niczego w nim nie nadpisuje,
+tylko dokłada wyjątek nad spodem. Dzięki temu gdy data minie albo ktoś cofnie
+wykluczenie, karta wraca do siebie sama, bez żadnego sprzątania. A jeśli w międzyczasie
+zmienią się godziny w wizytówce, to one wygrywają: wyjątek dotyczy konkretnej daty,
+grafik — całego tygodnia.
+
+Szczegóły, które łatwo przeoczyć:
+
+- Patrzymy **dwa tygodnie w przód**. Wykluczenie sprzed miesiąca nikogo już nie
+  obchodzi, a takie za pół roku nie ma prawa straszyć w karcie dzisiaj.
+- Przy dwóch wykluczeniach w ten sam dzień tygodnia wygrywa **bliższa data**.
+- Dzień i tak nieczynny co tydzień **nie dostaje adnotacji** — powiedziałaby to samo
+  dwa razy.
+- Do karty trafiają wyłącznie wykluczenia **ogłoszone** (`showOnSite`). Ciche
+  wykluczenie zostaje ciche na wszystkich powierzchniach, nie tylko w okienku.
 
 ### Dzień zamknięty wbrew grafikowi trafia do wykluczeń
 
@@ -763,6 +790,11 @@ sobota trafia przed oczy.
   dla dokładnie tej samej listy dat — inaczej świeże dane z bazy zasłaniałyby stronę
   tuż po tym, jak ją odsłonił. Odświeżenie strony zaczyna od nowa. Nic nie ląduje
   w localStorage.
+- **Po zamknięciu zostaje chmurka „Ważna informacja”** przy prawej krawędzi ekranu.
+  Kliknięcie otwiera okienko z powrotem, kolejne — zamyka. Ten sam przycisk w obie
+  strony, bo tylko wtedy da się go używać bez zastanowienia. Chmurka leży nad
+  przyciemnieniem okienka; gdyby leżała pod nim, przełącznik działałby tylko w jedną
+  stronę. Na telefonie zostaje sama ikona, a napis czyta czytnik ekranu.
 - Zgoda na ciasteczka ma pierwszeństwo: dopóki pasek zgody stoi na ekranie,
   okienko czeka.
 - Nasłuch jest na żywo — zaznaczenie w panelu pojawia się w otwartej karcie
@@ -830,6 +862,22 @@ tydzień z ostatnio zapamiętanym (`settings/openingHours`) i odnotowuje **róż
 Bez różnicy nie ma wpisu — dziennik ma mówić „godziny się zmieniły", a nie „ktoś
 otworzył panel". Pierwsze uruchomienie zostawia jeden wpis **„Włączono synchronizację
 godzin z Google"** z całym tygodniem, żeby było od czego liczyć.
+
+**Osobno pilnujemy rozjazdu z godzinami zapasowymi** wpisanymi w `firebase-config.js`.
+To inne pytanie niż „czy Google coś zmienił": zapas widzi każdy, komu pobranie się nie
+uda (zerwany internet, wyczerpany limit, zablokowany klucz), i on trafia do surowego
+HTML-a strony, więc czyta go wyszukiwarka, zanim cokolwiek się wykona. Jeżeli różni się
+od wizytówki **choćby o minutę**, ktoś gdzieś zobaczy nieprawdziwe godziny — a na ekranie
+wszystko wygląda dobrze, więc nikt się nie dowie. Stąd wpis:
+
+```
+09:14  Godziny w wizytówce różnią się od zapasowych w kodzie   velorwr16@gmail.com
+       Popraw godziny zapasowe w firebase-config.js
+       [piątek: 10:00 – 16:00 → 10:00 – 19:00]
+```
+
+Zgłaszamy to **raz na rozjazd**, nie przy każdym otwarciu panelu — podpis różnicy
+zapamiętujemy razem z godzinami (`driftSig`).
 
 ### Czego dziennik NIE zapisuje
 
@@ -1176,7 +1224,7 @@ settings/stats       licznik odwiedzin: visitsBase (266), visitsCount
 admins/{uid}         notatnik: kto ma dostęp (nie nadaje już uprawnień)
 
 settings/openingHours  kopia ostatnio pobranego tygodnia z wizytówki Google:
-                     days[], autoExcluded[] (daty dopisane przez automat), syncedAt
+                     days[], autoExcluded[] (daty dopisane przez automat), driftSig, syncedAt
                      Służy wyłącznie do wykrywania zmian — strona jej nie czyta.
 
 auditLog/{id}        dziennik zmian, jeden dokument = jedna zmiana:

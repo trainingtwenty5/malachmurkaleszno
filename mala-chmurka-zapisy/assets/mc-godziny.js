@@ -28,7 +28,7 @@
                    godzinyGotowe.then(przerysujCoTrzeba);
    ========================================================================== */
 import { SETTINGS, GOOGLE_PLACE } from './firebase-config.js';
-import { etykietaGodzin } from './mc-common.js';
+import { etykietaGodzin, wyjatkiNaTydzien, isoDate, longDate } from './mc-common.js';
 
 /* Indeksy dni w Google Places są takie same jak w JavaScripcie:
    0 = niedziela … 6 = sobota. Jedna zgodność mniej do pilnowania. */
@@ -172,6 +172,15 @@ async function zGoogle() {
 
 /** Godziny, których strona faktycznie używa. Obowiązuje od pierwszej linijki:
     dopóki Google nie odpowie, są to godziny zapasowe. */
+/**
+ * Godziny zapasowe wpisane w kod — zapamiętane ZANIM cokolwiek je nadpisze.
+ * Panel porównuje z nimi to, co przyszło z wizytówki: jeżeli się rozjechały,
+ * znaczy to, że zapas w `firebase-config.js` jest już nieaktualny i zobaczy go
+ * każdy, komu pobranie się nie uda. Bez tej kopii nie dałoby się tego wykryć,
+ * bo `zastosuj()` podmienia SETTINGS w miejscu.
+ */
+export const GODZINY_ZAPASOWE = zSettings();
+
 export let GODZINY = zSettings();
 
 /**
@@ -180,6 +189,25 @@ export let GODZINY = zSettings();
  * dni zamknięte wbrew zwykłemu grafikowi.
  */
 export let GODZINY_WG_DAT = {};
+
+/**
+ * Wykluczone dni ogłoszone klientom — nanoszone na kartę godzin jako wyjątki.
+ *
+ * Wizytówka Google zostaje źródłem tygodniowego grafiku; wykluczenie nie
+ * zmienia godzin, tylko dokłada nad nimi adnotację „w tę niedzielę nieczynne”.
+ * Dzięki temu po minięciu wyjątku (albo po jego cofnięciu) karta sama wraca
+ * do tego, co mówi Google — bez żadnego sprzątania.
+ *
+ * Dane podaje mc-nieczynne.js, który i tak nasłuchuje wykluczeń dla okienka.
+ * Ten moduł celowo nie sięga do bazy: jest wpięty także tam, gdzie Firebase
+ * nie jest potrzebny.
+ */
+export let WYJATKI = [];
+
+export function ustawWyjatki(lista = []) {
+  WYJATKI = (Array.isArray(lista) ? lista : []).filter(w => w && w.date);
+  rysuj(GODZINY);
+}
 
 /** Przepisuje ustalone godziny do SETTINGS, żeby `openingFor()` i wszystko,
     co z niego korzysta (formularz rezerwacji), widziało to samo. */
@@ -218,22 +246,44 @@ export const godzinyGotowe = (async () => {
    ========================================================================== */
 
 /** Karta „Godziny otwarcia” w sekcji kontaktowej. */
+/** Dzień miesiąca w dopełniaczu, do adnotacji przy wierszu: „21 września”. */
+const dzienISlownieMiesiac = iso => {
+  const cz = longDate(iso).split(', ')[1] || iso;    // „21 września 2026”
+  return cz.replace(/\s\d{4}$/, '');
+};
+
 function rysujKarte(dni) {
   const ul = document.getElementById('mcGodziny');
   if (!ul) return;
 
-  const dzis = new Date().getDay();
+  const teraz = new Date();
+  const dzis = teraz.getDay();
   /* Tydzień zaczynamy od poniedziałku, tak jak czyta go człowiek,
      a nie od niedzieli, tak jak numeruje go JavaScript. */
   const kolejnosc = [1, 2, 3, 4, 5, 6, 0];
+
+  /* Wykluczenia nie zmieniają godzin — dokładają nad nimi wyjątek. Grafik
+     zostaje taki, jaki podaje wizytówka, więc gdy wyjątek minie albo ktoś go
+     cofnie, karta wraca do siebie bez żadnego sprzątania. */
+  const wyjatki = wyjatkiNaTydzien(WYJATKI.map(w => w.date), isoDate(teraz));
 
   ul.innerHTML = kolejnosc.map(i => {
     const klasy = [];
     if (i === 0 || i === 6) klasy.push('is-weekend');
     if (i === dzis) klasy.push('is-today');
     if (!dni[i]) klasy.push('is-closed');
+
+    const wyjatek = wyjatki[i];
+    /* Dzień i tak zamknięty co tydzień nie potrzebuje adnotacji „nieczynne” —
+       powiedziałby to samo dwa razy. */
+    const dopisek = wyjatek && dni[i]
+      ? `<span class="hours-wyjatek">${dzienISlownieMiesiac(wyjatek)} nieczynne</span>`
+      : '';
+    if (dopisek) klasy.push('has-wyjatek');
+
     return `<li${klasy.length ? ` class="${klasy.join(' ')}"` : ''}>`
-         + `<span>${NAZWY_PL[i]}</span><span>${etykietaGodzin(dni[i])}</span></li>`;
+         + `<span>${NAZWY_PL[i]}${dopisek}</span>`
+         + `<span>${etykietaGodzin(dni[i])}</span></li>`;
   }).join('');
 }
 
