@@ -221,6 +221,15 @@ listExclusions(todayISO())
     if (EXCLUDED.size) syncTimeLimits();      // data mogła być wybrana wcześniej
   })
   .catch(err => console.warn('Nie udało się pobrać wykluczonych dni.', err));
+
+/* Godziny otwarcia mają jedno źródło — wizytówkę Google. Formularz rysuje się
+   najpierw na godzinach zapasowych z konfiguracji (inaczej stałby pusty przez
+   czas odpowiedzi), a gdy prawdziwe godziny dojdą, przeliczamy limity jeszcze
+   raz. Bez tego strona pokazywałaby jedne godziny, a formularz przyjmował
+   rezerwacje według drugich. */
+import { godzinyGotowe } from './assets/mc-godziny.js';
+godzinyGotowe.then(() => { syncTimeLimits(); renderDurations(); paint(); });
+
 import { knownChildren, rememberChildren, childLabel } from './assets/mc-dzieci.js';
 import { auth, A, authError } from './assets/mc-firebase.js';
 

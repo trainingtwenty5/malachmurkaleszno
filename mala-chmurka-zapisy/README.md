@@ -28,6 +28,8 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `assets/firebase-config.js` | Konfiguracja Firebase **i lista administratorów**. |
 | `assets/mc-firebase.js` | Inicjalizacja SDK + sprawdzanie uprawnień. |
 | `assets/mc-licznik.js` | Licznik dzieci na stronie głównej (jedna linijka w index.html). |
+| **`assets/mc-godziny.js`** | **Godziny otwarcia pobierane z wizytówki Google — jedno źródło dla całej strony.** |
+| **`assets/mc-nieczynne.js`** | **Okienko „Bawialnia nieczynna" na stronie głównej (dni z zakładki 3).** |
 | `assets/mc-common.css/.js` | Wspólny wygląd: navbar i stopka 1:1 jak na malachmurkaleszno.pl. |
 | `assets/mc-data.js` | Cała logika bazy danych. |
 | **`assets/mc-cennik.js`** | **Cennik bawialni: taryfy, święta, progi wiekowe, zniżki.** |
@@ -35,11 +37,12 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | **`assets/mc-finanse.js`** | **Finanse: wspólny kształt transakcji, agregaty i wykresy SVG.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 82 testy reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 101 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
-| `tools/test-cennik.mjs` | 47 testów naliczania ceny wstępu — sam Node. |
-| `tools/test-zapisy.mjs` | 98 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
-| `tools/test-licznik.mjs` | 33 testy licznika dzieci w bawialni — sam Node. |
+| `tools/test-cennik.mjs` | 64 testy naliczania ceny wstępu — sam Node. |
+| `tools/test-zapisy.mjs` | 100 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
+| `tools/test-licznik.mjs` | 70 testów licznika dzieci w bawialni — sam Node. |
+| **`tools/test-godziny.mjs`** | **31 testów godzin z wizytówki Google (odczyt, zapas, pamięć) — sam Node.** |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 58 testów zakładki „Czas zabawy” (odliczanie, opłata) — sam Node. |
@@ -233,7 +236,7 @@ Do tego `mc-firebase.js` ma 15-sekundowy limit na pobranie SDK, żeby zablokowan
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **82 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **101 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -248,7 +251,7 @@ npm install --no-save @firebase/rules-unit-testing firebase firebase-tools
 npx firebase emulators:exec --only firestore --project demo-mc "node tools/test-rules.mjs"
 ```
 
-Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **58 zaliczonych, 0 niezaliczonych.**
+Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **101 zaliczonych, 0 niezaliczonych.**
 Uruchom to ponownie za każdym razem, gdy zmienisz `firestore.rules`.
 
 Formularze i cennik mają osobne, lekkie zestawy — bez emulatora i bez żadnych
@@ -256,9 +259,10 @@ zależności, sam Node:
 
 ```bash
 node tools/test-ui.mjs      # 16 testów: kroki zapisu, link w opisie zajęć
-node tools/test-cennik.mjs  # 47 testów: taryfy, święta, progi wiekowe, zniżki
-node tools/test-zapisy.mjs  # 77 testów: terminy, godziny otwarcia, numer rezerwacji
-node tools/test-licznik.mjs # 33 testy: licznik dzieci w bawialni
+node tools/test-cennik.mjs  # 64 testy: taryfy, święta, progi wiekowe, zniżki
+node tools/test-zapisy.mjs  # 100 testów: terminy, godziny otwarcia, numer rezerwacji
+node tools/test-licznik.mjs # 70 testów: licznik dzieci w bawialni
+node tools/test-godziny.mjs # 31 testów: godziny z wizytówki Google, zapas, pamięć podręczna
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 58 testów: czas zabawy, odliczanie, stan opłaty
@@ -465,25 +469,44 @@ nowe, zduplikowane, czy edytowane.
 Osobna ścieżka dla samego wstępu: przycisk **„Zarezerwuj miejsce"** w hero na stronie
 głównej, w menu i w liczniku.
 
-### Godziny otwarcia
+### Godziny otwarcia — jedno źródło: wizytówka Google
+
+**Godziny zmienia się w wizytówce Google (Profil Firmy), nie w kodzie.** Moduł
+`assets/mc-godziny.js` pobiera je stamtąd przy wczytaniu strony i przepisuje do
+`SETTINGS.openingHours`, więc jedna poprawka w wizytówce zmienia naraz kartę
+„Godziny otwarcia” na stronie głównej, kafelek „N dni w tygodniu”, dane
+strukturalne dla wyszukiwarek i limity w formularzu rezerwacji.
+
+Stan wizytówki na 17.09.2026:
 
 | Dzień | Czynne |
 |---|---|
 | poniedziałek | 15:00 – 19:00 |
-| wtorek – czwartek | 10:00 – 19:00 |
-| piątek | 10:00 – 16:00 |
-| sobota – niedziela | 10:00 – 19:00 |
+| wtorek – piątek | 10:00 – 19:00 |
+| sobota | nieczynne |
+| niedziela | 10:00 – 15:00 |
 
-Ustawia się je w `assets/firebase-config.js`, w polu `SETTINGS.openingHours`
-(indeks jak w JavaScripcie: 0 = niedziela). Dzień zamknięty na głucho zapisuje się
-jako `null`.
+Co trzeba zrobić raz, żeby automat ruszył: wpisać klucz Places API (New)
+w `GOOGLE_PLACE.apiKey` w `assets/firebase-config.js` — instrukcja krok po kroku
+jest w komentarzu nad tym polem. **Bez klucza nic się nie psuje**: pobieranie jest
+pomijane i zostają godziny zapasowe z `SETTINGS.openingHours` (indeks jak
+w JavaScripcie: 0 = niedziela; dzień zamknięty na głucho to `null`). Te same
+zapasowe godziny wchodzą do gry przy zerwanym połączeniu albo wyczerpanym limicie
+zapytań, więc warto trzymać je aktualne — ale jako kopię, nie jako źródło.
+
+Odpowiedź Google pamiętamy w przeglądarce przez 6 godzin
+(`GOOGLE_PLACE.cacheMinutes`), żeby nie pytać przy każdym otwarciu strony.
+Dzień z przerwą (np. 10–13 i 15–19) karta na stronie pokazuje w całości,
+a formularz rezerwacji dostaje kopertę 10–19 — cały system zna tylko jedną parę
+godzin na dzień.
 
 Formularz rezerwacji trzyma się tych godzin: pole godziny ma `min` i `max`
 z danego dnia, więc nie da się wybrać 20:00, kiedy jest już zamknięte. Przy taryfie
 widać, w jakich godzinach jest czynne. **Czas pobytu też się dostosowuje** — przy wejściu
-o 15:00 w piątek kafelek „2 godziny” jest wyszarzony z dopiskiem „nie zmieści się przed
+o 14:00 w niedzielę kafelek „2 godziny” jest wyszarzony z dopiskiem „nie zmieści się przed
 zamknięciem”, a „bez limitu” kończy się razem z zamknięciem tego konkretnego dnia
-(w piątek o 16:00, nie o 20:00).
+(w niedzielę o 15:00, nie o 20:00). W dzień, którego wizytówka w ogóle nie opisuje
+(dziś: sobota), formularz mówi wprost „w ten dzień bawialnia jest nieczynna”.
 
 **Nie da się zarezerwować terminu, który minął.** Pole daty nie schodzi poniżej dzisiaj,
 a pole godziny — poniżej bieżącej minuty, jeśli wybrany jest dzisiejszy dzień. Godzina
@@ -671,6 +694,44 @@ którą obsługa ustawia w panelu, więc przedłużenie pobytu od razu widać u 
 Historię widzą **wyłącznie osoby zalogowane** — pilnują tego reguły Firestore, a nie
 kod strony. Kto zarezerwuje bez konta, dostanie na stronie podziękowania jasną notkę,
 że status potwierdzimy telefonicznie.
+
+---
+
+## Dni nieczynne (zakładka 3 · Wykluczenia)
+
+Remont, impreza na wyłączność, wolne — obsługa zaznacza dzień w zakładce
+**3 · Wykluczenia** albo klika w nagłówek dnia w kalendarzu zajęć. Identyfikatorem
+dokumentu jest sama data, więc jeden dzień da się wykluczyć tylko raz, a reguła
+w `firestore.rules` odrzuca rezerwację na ten dzień **po stronie serwera** —
+blokada w formularzu jest tylko wygodą. Zajęcia idą swoim trybem: wykluczenie
+dotyczy wyłącznie wstępu do bawialni, a obsługa nadal dopisze wejście z ulicy
+w zakładce 0.
+
+### Kiedy klient się o tym dowiaduje
+
+Samo wykluczenie **niczego nie ogłasza** — blokuje rezerwacje i tyle. Dopiero
+zaznaczone **„widoczna informacja na stronie głównej”** (pole `showOnSite`)
+sprawia, że odwiedzający stronę dostaje okienko **„Bawialnia nieczynna”** z tą
+datą. Dzięki temu remont po godzinach zostaje sprawą wewnętrzną, a zamknięta
+sobota trafia przed oczy.
+
+- **Kilka zaznaczonych dni = jedno okienko z listą**, a nie kilka okienek po kolei.
+- Pole **„co ma przeczytać klient”** (`publicNote`) jest tym jedynym tekstem, który
+  klient zobaczy. Puste = samo „nie pracujemy tego dnia”. **Powód (`reason`) nigdy
+  tam nie trafia** — to notatka wewnętrzna.
+- Seria dni (powtarzanie) dziedziczy ustawienia widoczności dnia pierwszego.
+- Okienko pokazuje się **raz dziennie na przeglądarkę**, a poza tym od razu, gdy
+  lista dni się zmieni — zamknięcie zapamiętujemy pod kluczem złożonym z dzisiejszej
+  daty i samej listy dat, więc nowe ogłoszenie ma własny klucz.
+- Zgoda na ciasteczka ma pierwszeństwo: dopóki pasek zgody stoi na ekranie,
+  okienko czeka.
+- Nasłuch jest na żywo — zaznaczenie w panelu pojawia się w otwartej karcie
+  przeglądarki bez odświeżania, a cofnięcie wykluczenia zamyka okienko.
+- Dni z przeszłości nigdy nie trafiają na stronę.
+
+Kod: `assets/mc-nieczynne.js` (okienko), `watchPublicExclusions()`
+w `assets/mc-data.js` (filtr `showOnSite`), zakładka 3 w `panel-admina.html`.
+Żeby zmienić widoczność dnia, który już jest na liście — kliknij w ten wpis.
 
 ---
 
@@ -965,6 +1026,10 @@ registrations/{id}   zapis: eventId + kopia danych zajęć, dane rodzica i dziec
 
 guests/{telefon}     ranking: childName, parentName, phone, email, visits,
                      totalMinutes, lastVisit
+
+exclusions/{data}    dzień bez rezerwacji, id = data ('2026-09-19'):
+                     date, reason (tylko dla obsługi), showOnSite, publicNote,
+                     createdAt
 
 settings/presence    licznik dzieci: count, until, date, capacity, manual
 settings/stats       licznik odwiedzin: visitsBase (266), visitsCount

@@ -855,6 +855,19 @@ body.has-admin-nav .nav ul { flex-wrap: wrap; justify-content: flex-end; row-gap
 .hours li:last-child { border-bottom: 0; }
 .hours li.is-weekend { font-weight: 700; color: var(--navy); }
 .hours li span:last-child { font-family: var(--font-head); font-weight: 600; white-space: nowrap; }
+
+/* Dzień zamknięty i dzień dzisiejszy. Godziny bierzemy z wizytówki Google,
+   więc „nieczynne" nie jest już wyjątkiem, który zdarza się raz na rok —
+   musi się dać odczytać jednym spojrzeniem. Dzisiejszy wiersz dostaje kropkę
+   przed nazwą dnia, a nie samo pogrubienie: pogrubienie zajmuje już weekend. */
+.hours li.is-closed span:last-child { color: var(--muted); font-weight: 500; }
+.hours li.is-today { color: var(--brand-deep); }
+.hours li.is-today span:first-child::before {
+  content: ""; display: inline-block;
+  width: 7px; height: 7px; margin-right: 8px;
+  border-radius: 50%; background: var(--brand-deep);
+  vertical-align: middle;
+}
 .hours-note { margin: 20px 0 0; font-size: .88rem; color: var(--muted); line-height: 1.6; }
 
 /* ==========================================================================
