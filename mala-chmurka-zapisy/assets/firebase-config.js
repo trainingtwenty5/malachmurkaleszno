@@ -157,7 +157,7 @@ export const GOOGLE_PLACE = {
      Sześć godzin to kompromis: poprawka w wizytówce wchodzi na stronę tego
      samego dnia, a Google dostaje od nas garstkę zapytań zamiast jednego
      na każde otwarcie strony. */
-  cacheMinutes: 5
+  cacheMinutes: 360
 };
 
 /** Adres podstrony systemu zapisów — działa i lokalnie, i po przeniesieniu
