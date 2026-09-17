@@ -1948,6 +1948,48 @@ export function roznicaGodzin(stare, nowe) {
   return out;
 }
 
+/** Czy opis dnia z wizytówki znaczy „otwarte”. Pusta lista przedziałów to
+    to samo, co brak dnia — obie postacie potrafią przyjść z Google. */
+const dzienOtwarty = d => !!(d && Array.isArray(d.ranges) && d.ranges.length);
+
+/**
+ * Dni tygodnia, które w wizytówce właśnie zmieniły się z otwartych na
+ * zamknięte — a dla każdego z nich NAJBLIŻSZA data, w której wypadną.
+ *
+ * Po co: zmiana stałego grafiku w Google zaczyna obowiązywać od razu, ale
+ * klient, który planował przyjść w tę sobotę, dowie się o tym dopiero pod
+ * drzwiami. Zamykamy więc tę jedną, najbliższą sobotę wykluczeniem — ono
+ * blokuje rezerwacje po stronie bazy i pokazuje się w okienku na stronie.
+ *
+ * WYŁĄCZNIE NAJBLIŻSZE WYSTĄPIENIE, nie wszystkie kolejne. Stały grafik
+ * broni się sam: karta godzin pisze „nieczynne”, a formularz rezerwacji
+ * i tak nie przyjmie takiego dnia. Dopisywanie każdej kolejnej soboty
+ * zasypałoby kartotekę i powtarzałoby w kółko to samo ogłoszenie.
+ *
+ * Dzisiejszy dzień się liczy: jeżeli ktoś zamyka sobotę w sobotę rano,
+ * to właśnie dzisiaj nikt nie ma przyjechać.
+ *
+ * @param {object} o
+ * @param {Array} o.stare  poprzednio zapamiętany tydzień (indeks 0 = niedziela)
+ * @param {Array} o.nowe   tydzień świeżo pobrany z wizytówki
+ * @param {string} o.odISO od kiedy szukamy najbliższego wystąpienia
+ * @returns {string[]} daty ISO, rosnąco
+ */
+export function nowoZamknieteDniTygodnia({ stare, nowe, odISO } = {}) {
+  if (!Array.isArray(stare) || !Array.isArray(nowe) || !odISO) return [];
+  const start = parseDate(odISO);
+  if (isNaN(start)) return [];
+
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    /* Interesuje nas wyłącznie przejście otwarte → zamknięte. Dzień, który
+       był zamknięty i dalej jest, nie jest żadną nowiną. */
+    if (!dzienOtwarty(stare[i]) || dzienOtwarty(nowe[i])) continue;
+    out.push(isoDate(addDays(start, (i - start.getDay() + 7) % 7)));
+  }
+  return out.sort();
+}
+
 /**
  * Dni, w których bawialnia jest zamknięta WBREW swojemu zwykłemu grafikowi.
  *

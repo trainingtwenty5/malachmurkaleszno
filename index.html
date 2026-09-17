@@ -812,7 +812,10 @@
            godziny zmienia się w wizytówce, a nie tutaj. Wpisane niżej wartości
            są zapasem: zobaczy je ktoś z wyłączonym JavaScriptem albo wtedy,
            gdy pobranie z Google się nie uda (stan wizytówki na 17.09.2026). -->
-      <div class="hours-card">
+      <!-- id jest celem odnośnika „Zobacz godziny otwarcia" z okienka
+           o dniach nieczynnych — ma trafiać w samą kartę, nie w całą
+           sekcję kontaktową. -->
+      <div class="hours-card" id="godziny-otwarcia">
         <h3>Godziny otwarcia</h3>
         <ul class="hours" id="mcGodziny">
           <li><span>Poniedziałek</span><span>15:00 – 19:00</span></li>

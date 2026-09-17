@@ -1417,7 +1417,8 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN,
          nazwaAkcji, rodzinaAkcji, RODZINY, grupujPoDniach, godzinaWpisu,
          pasujeDoFiltra, plWpisy, roznicaGodzin, etykietaGodzin,
-         jednorazoweZamkniecia, DAY_NAMES as DNI_TYGODNIA } from './assets/mc-common.js';
+         jednorazoweZamkniecia, nowoZamknieteDniTygodnia,
+         DAY_NAMES as DNI_TYGODNIA } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS, authError } from './assets/mc-firebase.js';
 import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
@@ -1639,7 +1640,9 @@ async function synchronizujGodziny() {
   }
 
   await odnotujRozjazdZZapasem(zapisane);
-  await zalozWykluczeniaZWizytowki(juzDodane);
+  /* Poprzedni tydzień podajemy dalej CELOWO: to jedyny moment, w którym
+     jeszcze wiadomo, który dzień tygodnia dopiero co przestał być otwarty. */
+  await zalozWykluczeniaZWizytowki(juzDodane, (zapisane && zapisane.days) || null);
 }
 
 /**
@@ -1684,10 +1687,19 @@ async function odnotujRozjazdZZapasem(zapisane) {
  *     nie wraca przy następnym otwarciu panelu. Automat podpowiada raz,
  *     decyzja zostaje przy człowieku.
  */
-async function zalozWykluczeniaZWizytowki(juzDodane) {
-  const zamkniete = jednorazoweZamkniecia({
-    regularne: GODZINY, wgDat: GODZINY_WG_DAT, odISO: todayISO()
-  });
+async function zalozWykluczeniaZWizytowki(juzDodane, stareDni) {
+  /* Dwa różne powody, dla których dzień wypada z grafiku — i oba kończą się
+     tak samo: wykluczeniem widocznym dla klienta.
+
+     1. GODZINY SPECJALNE na konkretną datę (święto, impreza) — wizytówka
+        podaje je na siedem dni w przód.
+     2. STAŁY GRAFIK właśnie zmieniony w Google: dzień tygodnia był otwarty,
+        a od teraz jest zamknięty. Wtedy bierzemy TYLKO NAJBLIŻSZE jego
+        wystąpienie — kolejnych broni już sam grafik. */
+  const zamkniete = [...new Set([
+    ...jednorazoweZamkniecia({ regularne: GODZINY, wgDat: GODZINY_WG_DAT, odISO: todayISO() }),
+    ...nowoZamknieteDniTygodnia({ stare: stareDni, nowe: GODZINY, odISO: todayISO() })
+  ])].sort();
   if (!zamkniete.length) return;
 
   let istniejace = new Set();

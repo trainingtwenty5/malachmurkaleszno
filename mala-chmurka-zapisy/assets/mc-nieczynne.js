@@ -106,6 +106,14 @@ const css = `
 .mc-chmurka:hover{background:var(--teal-dark,#33636D)}
 .mc-chmurka:focus-visible{outline:3px solid var(--wood,#C9A87C);outline-offset:2px}
 .mc-chmurka svg{flex:none}
+
+/* Podświetlenie celu odnośnika „Zobacz godziny otwarcia". */
+.mc-wskazany{animation:mcWskaz 2.4s var(--ease,ease) both}
+@keyframes mcWskaz{
+  0%,60%{box-shadow:0 0 0 3px var(--brand,#93C7CF),var(--shadow,0 10px 30px rgba(44,53,64,.09))}
+  100%{box-shadow:0 0 0 0 rgba(147,199,207,0),var(--shadow,0 10px 30px rgba(44,53,64,.09))}
+}
+@media (prefers-reduced-motion:reduce){.mc-wskazany{animation:none}}
 @keyframes mcChmurkaWjazd{from{opacity:0;transform:translate(14px,-50%)}
   to{opacity:1;transform:translate(0,-50%)}}
 @media (max-width:760px){
@@ -237,11 +245,100 @@ function rysuj(dni) {
 
       <div class="mc-zamk-stopka">
         <button class="mc-zamk-ok" type="button" data-zamk>Rozumiem</button>
-        <a class="mc-zamk-link" href="#kontakt" data-zamk>Zobacz godziny otwarcia</a>
+        <a class="mc-zamk-link" href="#godziny-otwarcia" data-zamk>Zobacz godziny otwarcia</a>
       </div>
     </div>`;
 
-  okno.querySelectorAll('[data-zamk]').forEach(b => b.addEventListener('click', () => zamknij()));
+  /* Odnośnik do godzin ma własną obsługę (zamyka I przewija), więc nie
+     dopinamy mu drugiego, samego zamykania. */
+  okno.querySelectorAll('[data-zamk]:not(.mc-zamk-link)')
+      .forEach(b => b.addEventListener('click', () => zamknij()));
+
+  const doGodzin = okno.querySelector('.mc-zamk-link');
+  if (doGodzin) doGodzin.addEventListener('click', e => {
+    /* Zatrzymujemy zdarzenie przy sobie: main.js ma własną, ogólną obsługę
+       odnośników `#`, a dwa przewijania naraz biłyby się o tę samą stronę. */
+    e.preventDefault();
+    e.stopPropagation();
+    zamknij();
+    przewinDoGodzin(doGodzin.getAttribute('href'));
+  });
+}
+
+/**
+ * Przewija do karty godzin i pilnuje, żeby naprawdę na niej stanąć.
+ *
+ * Sekcje mają animację wejścia: dopóki `.reveal` nie dostanie klasy
+ * `is-visible`, siedzi 26 px niżej (`transform: translateY`). Przewijanie
+ * w main.js liczy pozycję z `getBoundingClientRect()`, więc bez tego
+ * kliknięcie z góry strony zatrzymywałoby się 26 px obok — najbardziej
+ * na telefonie, gdzie do karty godzin jest najdalej i na pewno nie zdążyła
+ * się jeszcze pokazać.
+ *
+ * Zdejmujemy więc animację na jedną klatkę: wyłączamy przejście, odsłaniamy
+ * element, wymuszamy przeliczenie układu (odczyt `offsetHeight`) i dopiero
+ * wtedy oddajemy sterowanie. Od tej chwili `getBoundingClientRect()` zwraca
+ * pozycję docelową, a nie pozycję sprzed animacji.
+ *
+ * Nasłuch jest na samym odnośniku, więc wykona się PRZED tym z `document`
+ * w main.js — kolejność wynika z tego, jak zdarzenia idą w górę drzewa.
+ */
+function przewinDoGodzin(hash) {
+  if (!hash || hash.charAt(0) !== '#') return;
+  let el;
+  try { el = document.querySelector(hash); } catch { return; }
+  if (!el) return;
+
+  /* 1. Zdejmujemy animację wejścia na jedną klatkę.
+     Sekcje wjeżdżają z dołu (`.reveal` → `transform: translateY(26px)`),
+     więc dopóki karta się nie pokazała, jej zmierzona pozycja jest o 26 px
+     niższa od docelowej. Wyłączamy przejście, odsłaniamy, wymuszamy
+     przeliczenie układu — i dopiero wtedy mierzymy. */
+  for (let w = el; w && w !== document.body; w = w.parentElement) {
+    if (!w.classList.contains('reveal') || w.classList.contains('is-visible')) continue;
+    const bylo = w.style.transition;
+    w.style.transition = 'none';
+    w.classList.add('is-visible');
+    void w.offsetHeight;
+    w.style.transition = bylo;
+  }
+
+  const plynnie = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const odstep = () => {
+    const n = document.querySelector('header');
+    return (n ? n.offsetHeight : 0) + 14;     // nagłówek jest przyklejony
+  };
+  const ileBrakuje = () => el.getBoundingClientRect().top - odstep();
+
+  const skok = gladko => window.scrollTo({
+    top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - odstep()),
+    behavior: gladko ? 'smooth' : 'auto'
+  });
+
+  skok(plynnie);
+
+  /* 2. Poprawka po drodze — i to jest tu najważniejsze.
+     Na stronie jest 21 obrazków `loading="lazy"` bez podanych wymiarów.
+     Dopóki się nie doczytają, nie zajmują miejsca, więc karta godzin siedzi
+     wyżej, niż będzie siedzieć za chwilę. Pozycja policzona w momencie
+     kliknięcia rozjeżdża się przez to o kilkaset pikseli i ląduje się pół
+     ekranu nad celem. Dlatego po ustaniu ruchu sprawdzamy, czy karta jest
+     tam, gdzie miała być, i w razie czego dociągamy. Dwie próby wystarczają,
+     a próg 4 px nie pozwala im drgać w kółko. */
+  let poprawki = 2;
+  const popraw = () => {
+    if (poprawki-- <= 0) return;
+    if (Math.abs(ileBrakuje()) > 4) skok(plynnie);
+    setTimeout(popraw, 500);
+  };
+  setTimeout(popraw, 600);
+
+  /* 3. Krótkie podświetlenie: po przewinięciu w dół długiej strony oko musi
+     wiedzieć, na co patrzeć. Gaśnie samo i nie zostawia po sobie klasy. */
+  el.classList.remove('mc-wskazany');
+  void el.offsetHeight;
+  el.classList.add('mc-wskazany');
+  setTimeout(() => el.classList.remove('mc-wskazany'), 3200);
 }
 
 /* Zgoda na ciasteczka ma pierwszeństwo — dwa panele naraz to jeden panel
