@@ -284,11 +284,11 @@
              menu się nie przełączyło — bo nikt na nie w tym momencie nie patrzy. -->
 
         <!-- slot 1 -->
-        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?next=/">Zaloguj się</a></li>
+        <!-- TYMCZASOWO WYŁĄCZONE: <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?next=/">Zaloguj się</a></li> -->
         <li data-nav-auth="signed" data-nav-klient hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
 
         <!-- slot 2, część dla gościa -->
-        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register&amp;next=/">Zarejestruj się</a></li>
+        <!-- TYMCZASOWO WYŁĄCZONE: <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register&amp;next=/">Zarejestruj się</a></li> -->
 
         <!-- POZYCJE DLA OBSŁUGI — trzy przyciski, żeby dało się je znaleźć
              jednym rzutem oka. Odsłania je updateNavAuth() po sprawdzeniu
@@ -373,8 +373,10 @@
          href="https://www.google.com/maps/search/?api=1&amp;query=Ma%C5%82a%20Chmurka%20-%20naturalna%20bawialnia%2C%20Armii%20Krajowej%2015%2C%2064-100%20Leszno"
          target="_blank" rel="noopener">Odwiedź nas</a>
       <a class="btn btn-ghost" href="#strefy">Zobacz strefy zabawy</a>
+      <!-- TYMCZASOWO WYŁĄCZONE — wejścia do systemu zapisów
       <a class="btn btn-ghost" href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a>
       <a class="btn btn-primary" href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a>
+      -->
     </div>
   </div>
 
@@ -853,12 +855,14 @@
         <li><a href="#cennik">Cennik</a></li>
         <li><a href="#galeria">Galeria</a></li>
         <li><a href="#materialy">Oferty</a></li>
+        <!-- TYMCZASOWO WYŁĄCZONE — wejścia do systemu zapisów
         <li><a href="/mala-chmurka-zapisy/kalendarz-zajec.html">Grafik zajęć</a></li>
         <li><a href="/mala-chmurka-zapisy/rezerwacja-bawialni.html">Zarezerwuj miejsce</a></li>
+        -->
         <!-- Ta sama zasada co w menu na górze: gość widzi "Zarejestruj się",
              zalogowany - "Historia zamówień". Stan ustawia watchNavAuth(). -->
         <li data-nav-auth="signed" hidden><a href="/mala-chmurka-zapisy/historia-zamowien.html">Historia zamówień</a></li>
-        <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li>
+        <!-- TYMCZASOWO WYŁĄCZONE: <li data-nav-auth="guest"><a href="/mala-chmurka-zapisy/logowanie.html?tab=register">Zarejestruj się</a></li> -->
       </ul>
     </nav>
 

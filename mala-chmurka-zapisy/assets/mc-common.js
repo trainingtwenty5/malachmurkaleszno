@@ -2,7 +2,7 @@
    Mała Chmurka — wspólne elementy podstron: nagłówek, pasek powrotu, stopka,
    powiadomienia i drobne helpery (daty, ceny, teksty).
    ========================================================================== */
-import { SETTINGS } from './firebase-config.js';
+import { SETTINGS, appUrl } from './firebase-config.js';
 export { SETTINGS };
 
 /* ------------------------------------------------------------- ADRESY STRON */
@@ -127,6 +127,12 @@ function stosujStanNaStarcie() {
    `window.mcNoweWejscie` — więc nic się nie przeładowuje. Wszędzie indziej
    przechodzimy pod adres, który sam otwiera formularz.
 
+   Adres panelu składamy przez `appUrl()`, a nie wprost z `URLS`. Wpisy w URLS
+   są względne — na podstronie systemu zapisów to działa, ale skrót ma działać
+   także na stronie głównej, a tam „panel-admina.html" znaczy „/panel-admina.html"
+   i kończy się stroną 404. `appUrl()` dokłada katalog systemu zapisów
+   (`appBase` z firebase-config.js), więc adres wychodzi ten sam z każdej strony.
+
    Ctrl+X to normalnie „wytnij", dlatego JEDNO zastrzeżenie jest tu konieczne:
    kiedy kursor stoi w polu tekstowym, nie ruszamy skrótu. Inaczej obsługa
    poprawiająca imię w formularzu zamiast wyciąć zaznaczenie otwierałaby nowe
@@ -150,7 +156,7 @@ function wireSkrotWejscie() {
     if (wPoluTekstowym(e.target) || wPoluTekstowym(document.activeElement)) return;
     e.preventDefault();
     if (typeof window.mcNoweWejscie === 'function') window.mcNoweWejscie();
-    else location.href = URLS.adminEntry;
+    else location.href = appUrl(URLS.adminEntry);
   });
 }
 
