@@ -41,10 +41,16 @@
      visitsBase, visitsCount            (razem = base + count)
 
    admins/{uid}             kto ma dostęp do panelu
+
+   auditLog/{id}            dziennik zmian: jeden dokument = jedna zmiana
+     at, who (e-mail), uid, action ('booking.update'), subject (czytelny opis),
+     targetId, changes[] ("opłacone: tak")
+     Kolekcja TYLKO DO DOPISYWANIA — reguły odmawiają UPDATE i DELETE
+     wszystkim, także administratorowi.
    ========================================================================== */
 
-import { db, F, PATHS, SETTINGS } from './mc-firebase.js';
-import { toMin, isoDate, normPhone, bookingEndMin } from './mc-common.js';
+import { db, F, PATHS, SETTINGS, auth, isAdminEmail } from './mc-firebase.js';
+import { toMin, isoDate, normPhone, bookingEndMin, orderRef, opisZmian } from './mc-common.js';
 /* Wejscie przy drzwiach wycenia sie tym samym cennikiem, co rezerwacja
    ze strony — inaczej to samo wejscie mialoby dwie ceny. */
 import { quote, DURATIONS, isAgeTier } from './mc-cennik.js';
@@ -54,6 +60,145 @@ const ref = (name, id) => F.doc(db, name, id);
 
 export const todayISO = () => isoDate(new Date());
 export const nowMin   = () => { const d = new Date(); return d.getHours()*60 + d.getMinutes(); };
+
+/* ==========================================================================
+   DZIENNIK ZMIAN (kolekcja auditLog)
+   --------------------------------------------------------------------------
+   Kto, co i kiedy zmienił w panelu. Do panelu ma dostęp kilka osób, a baza
+   pokazuje wyłącznie stan na teraz — po fakcie nie da się z niej odczytać,
+   czy rezerwacja została odrzucona wczoraj czy przed chwilą i przez kogo.
+   Dziennik odpowiada na to pytanie.
+
+   TRZY DECYZJE, KTÓRE WARTO ZNAĆ:
+
+   1. WPISUJEMY TU Z WARSTWY BAZY, a nie z panelu. Gdyby wpisy powstawały
+      przy przyciskach, każdy nowy przycisk byłby okazją, żeby o dzienniku
+      zapomnieć — a dziennik z dziurami jest gorszy niż żaden, bo wygląda
+      na kompletny. Tutaj każda droga do zapisu przechodzi przez tę samą
+      funkcję.
+
+   2. ZAPIS JEST „OBOK”, nie „przed”. Nie czekamy na niego (brak `await`)
+      i nigdy nie pozwalamy mu wywrócić właściwej operacji: gdyby dziennik
+      odmówił zapisu, obsługa i tak ma zaakceptować rezerwację. Stąd
+      `.catch` z samym ostrzeżeniem w konsoli.
+
+   3. PISZE WYŁĄCZNIE OBSŁUGA. Klient rezerwujący wizytę przechodzi przez
+      `createBooking` tak samo jak administrator przy drzwiach — ale wpis do
+      dziennika powstaje tylko wtedy, gdy zalogowany jest ktoś z listy
+      administratorów. Inaczej każdy zapis z formularza kończyłby się
+      odmową z reguł i czerwienią w konsoli u klienta. Prawdziwą blokadą
+      są i tak reguły; ten warunek oszczędza niepotrzebnej próby.
+
+   Dziennika NIE DA SIĘ POPRAWIĆ ANI SKASOWAĆ — `firestore.rules` odmawia
+   UPDATE i DELETE wszystkim, łącznie z administratorem. Dziennik, który da
+   się wyczyścić, nie jest dziennikiem.
+   ========================================================================== */
+
+/** Kto teraz klika w panelu — albo `null`, gdy to nie obsługa. */
+function ktoWPanelu() {
+  const u = auth.currentUser;
+  if (!u || !isAdminEmail(u.email)) return null;
+  return { email: String(u.email || ''), uid: String(u.uid || '') };
+}
+
+/**
+ * Dokłada jeden wpis do dziennika. Nie zwraca obietnicy do czekania —
+ * wywołanie ma być tanie i niewidoczne dla reszty kodu.
+ *
+ * @param {object} o
+ * @param {string} o.action    'booking.update', 'event.delete', …
+ * @param {string} [o.subject] czego dotyczy, po ludzku („Rezerwacja LMGPYJ84")
+ * @param {string} [o.targetId] id dokumentu, gdyby trzeba było go odszukać
+ * @param {string[]} [o.changes] lista „pole: wartość"
+ */
+export function zapiszWDzienniku({ action, subject = '', targetId = '', changes = [] } = {}) {
+  const kto = ktoWPanelu();
+  if (!kto || !action) return;
+
+  F.addDoc(col(PATHS.auditLog), {
+    at:       F.serverTimestamp(),
+    who:      kto.email,
+    uid:      kto.uid,
+    action:   String(action).slice(0, 40),
+    subject:  String(subject || '').slice(0, 120),
+    targetId: String(targetId || '').slice(0, 60),
+    /* Twarde granice są też w regułach — tutaj przycinamy, żeby zapis
+       w ogóle doszedł do skutku, zamiast odbić się od reguły. */
+    changes:  (Array.isArray(changes) ? changes : [])
+                .filter(Boolean)
+                .map(s => String(s).slice(0, 80))
+                .slice(0, 10)
+  }).catch(err => console.warn('Dziennik zmian: wpis nie przeszedł.', err));
+}
+
+/** Nasłuch na dziennik od podanej chwili — wyłącznie dla panelu. */
+export function watchAuditLog(odKiedy, cb, onError) {
+  const q = F.query(col(PATHS.auditLog),
+    F.where('at', '>=', odKiedy),
+    F.orderBy('at', 'desc'),
+    F.limit(500));
+  return F.onSnapshot(q,
+    s => cb(s.docs.map(d => {
+      const w = d.data();
+      /* `serverTimestamp()` przez moment po zapisie jest `null` — dokument
+         już jest, ale serwer nie nadał mu jeszcze czasu. Podstawiamy „teraz",
+         żeby świeży wpis nie wypadł z osi czasu na te pół sekundy. */
+      return { id: d.id, ...w, at: w.at && w.at.toDate ? w.at.toDate() : new Date() };
+    })),
+    err => { console.error('watchAuditLog', err); if (onError) onError(err); });
+}
+
+/**
+ * To, co w tym samym czasie zrobili KLIENCI — odczytane z dat utworzenia
+ * rezerwacji i zapisów, bez żadnego nowego pola w bazie.
+ *
+ * Dziennik zapisuje tylko ruchy obsługi, bo tylko obsługa ma prawo do niego
+ * pisać. Gdyby oś czasu pokazywała wyłącznie je, wyglądałoby to tak, jakby
+ * w bawialni nic się nie działo między kliknięciami w panelu — a przecież
+ * najczęstsze zdarzenie na stronie to rezerwacja od klienta. Te wpisy są
+ * wyliczane przy każdym otwarciu zakładki i niczego nie zapisują.
+ *
+ * Zapytanie chodzi po jednym polu (`createdAt`), więc wystarcza indeks, który
+ * Firestore zakłada sam — nie trzeba niczego dokładać w konsoli.
+ */
+export async function listClientEvents(odKiedy) {
+  const pobierz = async (sciezka, action, opis) => {
+    try {
+      const snap = await F.getDocs(F.query(col(sciezka),
+        F.where('createdAt', '>=', odKiedy),
+        F.orderBy('createdAt', 'desc'),
+        F.limit(300)));
+      return snap.docs
+        /* Wejścia przy drzwiach zakłada obsługa i ma już swój wpis
+           w dzienniku — tutaj byłyby drugi raz. */
+        .filter(d => d.data().source !== 'walkin')
+        .map(d => {
+          const w = d.data();
+          return {
+            id: `${action}:${d.id}`,
+            at: w.createdAt && w.createdAt.toDate ? w.createdAt.toDate() : null,
+            who: 'klient',
+            action,
+            subject: opis(w, d.id),
+            targetId: d.id,
+            changes: []
+          };
+        })
+        .filter(w => w.at);
+    } catch (err) {
+      console.warn(`Dziennik: nie udało się pobrać (${sciezka}).`, err);
+      return [];
+    }
+  };
+
+  const [rez, zap] = await Promise.all([
+    pobierz(PATHS.bookings, 'booking.client',
+      (w, id) => `Rezerwacja ${orderRef(id)}${w.date ? ` na ${w.date}` : ''}`),
+    pobierz(PATHS.registrations, 'registration.client',
+      (w, id) => `Zapis ${orderRef(id)}${w.eventTitle ? ` — ${w.eventTitle}` : ''}`)
+  ]);
+  return [...rez, ...zap];
+}
 
 /* ==========================================================================
    ZAJĘCIA
@@ -108,18 +253,35 @@ export async function otherDatesOf(title, fromISO = todayISO()) {
     .sort((a, b) => a.date.localeCompare(b.date) || toMin(a.start) - toMin(b.start));
 }
 
+/** Zajęcia w dzienniku opisujemy nazwą i datą — samo id nic nie mówi. */
+const opisZajec = e => e
+  ? `${String(e.title || 'zajęcia')}${e.date ? `, ${e.date}` : ''}${e.start ? ` ${e.start}` : ''}`
+  : 'zajęcia';
+
 export async function saveEvent(id, data) {
   const payload = { ...data, updatedAt: F.serverTimestamp() };
-  if (id) { await F.updateDoc(ref(PATHS.events, id), payload); return id; }
+  if (id) {
+    await F.updateDoc(ref(PATHS.events, id), payload);
+    zapiszWDzienniku({ action: 'event.update', subject: opisZajec(data), targetId: id,
+                       changes: opisZmian(data) });
+    return id;
+  }
   payload.createdAt = F.serverTimestamp();
   const r = await F.addDoc(col(PATHS.events), payload);
+  zapiszWDzienniku({ action: 'event.create', subject: opisZajec(data), targetId: r.id });
   return r.id;
 }
 
 /** Usuwa zajęcia RAZEM ze zdjęciami — inaczej zostałyby w bazie na zawsze. */
 export async function deleteEvent(id) {
+  /* Nazwę czytamy PRZED usunięciem — po nim zostałoby w dzienniku samo id,
+     a po usuniętych zajęciach nie ma już czego nim odszukać. Usuwanie zdarza
+     się rzadko, więc ten jeden odczyt nikogo nie kosztuje. */
+  const co = await getEvent(id).catch(() => null);
   await deleteEventImages(id).catch(e => console.warn('deleteEventImages:', e.message));
-  return F.deleteDoc(ref(PATHS.events, id));
+  const wynik = await F.deleteDoc(ref(PATHS.events, id));
+  zapiszWDzienniku({ action: 'event.delete', subject: opisZajec(co), targetId: id });
+  return wynik;
 }
 
 /** Kopiuje zajęcia na inną datę (licznik zapisanych startuje od zera). */
@@ -402,10 +564,17 @@ export function countBooked(regs, eventId) {
     .reduce((sum, r) => sum + (Number(r.qty) || 1), 0);
 }
 
-export const updateRegistration = (id, patch) =>
-  F.updateDoc(ref(PATHS.registrations, id), { ...patch, updatedAt: F.serverTimestamp() });
+export async function updateRegistration(id, patch) {
+  await F.updateDoc(ref(PATHS.registrations, id), { ...patch, updatedAt: F.serverTimestamp() });
+  zapiszWDzienniku({ action: 'registration.update', subject: `Zapis ${orderRef(id)}`,
+                     targetId: id, changes: opisZmian(patch) });
+}
 
-export const deleteRegistration = id => F.deleteDoc(ref(PATHS.registrations, id));
+export async function deleteRegistration(id) {
+  const wynik = await F.deleteDoc(ref(PATHS.registrations, id));
+  zapiszWDzienniku({ action: 'registration.delete', subject: `Zapis ${orderRef(id)}`, targetId: id });
+  return wynik;
+}
 
 /* ==========================================================================
    RANKING ODWIEDZIN (kolekcja guests)
@@ -517,10 +686,10 @@ export async function pushPresence({ count, untilMin, manual = false, capacity, 
 
 /** Samo maksimum (mianownik licznika) — bez ruszania liczby dzieci i trybu. */
 export async function setPresenceCapacity(capacity) {
-  await F.setDoc(presenceRef(), {
-    capacity: Math.max(1, Number(capacity) || SETTINGS.capacity),
-    updatedAt: F.serverTimestamp()
-  }, { merge: true });
+  const ile = Math.max(1, Number(capacity) || SETTINGS.capacity);
+  await F.setDoc(presenceRef(), { capacity: ile, updatedAt: F.serverTimestamp() }, { merge: true });
+  zapiszWDzienniku({ action: 'presence.capacity', subject: 'Licznik w bawialni',
+                     changes: opisZmian({ capacity: ile }) });
 }
 
 /** Ręczne nadpisanie licznika z panelu (zakładka 3). */
@@ -537,9 +706,14 @@ export async function setPresenceManual(count, untilHHMM, capacity) {
     timeline: [],
     updatedAt: F.serverTimestamp()
   }, { merge: true });
+  zapiszWDzienniku({ action: 'presence.manual', subject: `Licznik na ${todayISO()}`,
+                     changes: opisZmian({ count: Number(count) || 0, until: untilHHMM || '' }) });
 }
 
-export const clearPresenceManual = () => F.setDoc(presenceRef(), { manual: false }, { merge: true });
+export async function clearPresenceManual() {
+  await F.setDoc(presenceRef(), { manual: false }, { merge: true });
+  zapiszWDzienniku({ action: 'presence.auto', subject: `Licznik na ${todayISO()}` });
+}
 
 /** Podbija licznik „odwiedziło nas już…" o liczbę zapisanych DZIECI.
     Jedno zgłoszenie na 2 miejsca to dwoje dzieci, więc licznik rośnie o 2.
@@ -572,6 +746,8 @@ export async function addVisitCount(delta) {
     visitsCount: F.increment(by),
     updatedAt: F.serverTimestamp()
   }, { merge: true });
+  zapiszWDzienniku({ action: 'visits.add', subject: 'Licznik odwiedzin',
+                     changes: [`zmiana o ${by > 0 ? '+' : ''}${by}`] });
 }
 
 /**
@@ -597,6 +773,9 @@ export async function setVisitsBase(base, count) {
     ...(count === undefined ? {} : { visitsCount: Number(count) || 0 }),
     updatedAt: F.serverTimestamp()
   }, { merge: true });
+  zapiszWDzienniku({ action: 'visits.base', subject: 'Licznik odwiedzin',
+                     changes: opisZmian({ visitsBase: Number(base) || 0,
+                                          ...(count === undefined ? {} : { visitsCount: Number(count) || 0 }) }) });
 }
 
 /* ==========================================================================
@@ -784,22 +963,43 @@ const exclusionDoc = (dateISO, reason, { showOnSite = false, publicNote = '' } =
   createdAt:  F.serverTimestamp()
 });
 
-/** Wyklucza jeden dzień. Powtórzone wywołanie tylko nadpisuje powód. */
-export const addExclusion = (dateISO, reason = '', opcje = {}) =>
+/* Sam zapis, bez dziennika — używają go obie funkcje niżej. Dzięki temu
+   seria kilkudziesięciu dni zostawia w dzienniku JEDEN wpis („seria 12 dni”),
+   a nie kilkanaście identycznych linijek, przez które nie widać reszty. */
+const zapiszWykluczenie = (dateISO, reason, opcje) =>
   F.setDoc(ref(PATHS.exclusions, dateISO), exclusionDoc(dateISO, reason, opcje));
+
+/** Wyklucza jeden dzień. Powtórzone wywołanie tylko nadpisuje powód. */
+export async function addExclusion(dateISO, reason = '', opcje = {}) {
+  await zapiszWykluczenie(dateISO, reason, opcje);
+  zapiszWDzienniku({ action: 'exclusion.add', subject: `Dzień ${dateISO}`, targetId: dateISO,
+                     changes: opisZmian({ reason, ...opcje }) });
+}
 
 /** Wyklucza całą serię dni. Zapisujemy pojedynczo — serie są krótkie
     (kilkanaście dni), a jeden nieudany zapis nie ma psuć reszty. */
 export async function addExclusions(dates = [], reason = '', opcje = {}) {
   const ok = [];
   for (const d of [...new Set(dates)].filter(Boolean).slice(0, 120)) {
-    await addExclusion(d, reason, opcje);
+    await zapiszWykluczenie(d, reason, opcje);
     ok.push(d);
+  }
+  if (ok.length) {
+    zapiszWDzienniku({
+      action:  'exclusion.add',
+      subject: `Seria ${ok.length} dni, ${ok[0]} – ${ok[ok.length - 1]}`,
+      targetId: ok[0],
+      changes: opisZmian({ reason, ...opcje })
+    });
   }
   return ok;
 }
 
-export const removeExclusion = dateISO => F.deleteDoc(ref(PATHS.exclusions, dateISO));
+export async function removeExclusion(dateISO) {
+  const wynik = await F.deleteDoc(ref(PATHS.exclusions, dateISO));
+  zapiszWDzienniku({ action: 'exclusion.remove', subject: `Dzień ${dateISO}`, targetId: dateISO });
+  return wynik;
+}
 
 /** Nasłuch na wszystkie wykluczenia od podanego dnia w przód. */
 export function watchExclusions(fromISO, cb, onError) {
@@ -845,15 +1045,22 @@ export function watchBookings({ fromISO, toISO } = {}, cb) {
 }
 
 /** Akceptacja / odrzucenie rezerwacji — wyłącznie administrator. */
-export const setBookingStatus = (id, status, adminNote = '') =>
-  F.updateDoc(ref(PATHS.bookings, id), {
+export async function setBookingStatus(id, status, adminNote = '') {
+  await F.updateDoc(ref(PATHS.bookings, id), {
     status,
     adminNote: String(adminNote || ''),
     decidedAt: F.serverTimestamp(),
     updatedAt: F.serverTimestamp()
   });
+  zapiszWDzienniku({ action: 'booking.status', subject: `Rezerwacja ${orderRef(id)}`,
+                     targetId: id, changes: opisZmian({ status, adminNote }) });
+}
 
-export const deleteBooking = id => F.deleteDoc(ref(PATHS.bookings, id));
+export async function deleteBooking(id) {
+  const wynik = await F.deleteDoc(ref(PATHS.bookings, id));
+  zapiszWDzienniku({ action: 'booking.delete', subject: `Rezerwacja ${orderRef(id)}`, targetId: id });
+  return wynik;
+}
 
 /**
  * Dziecko wprowadzone ręcznie przy drzwiach — ktoś przyszedł z ulicy, bez zapisu.
@@ -910,6 +1117,13 @@ export async function createWalkin({ children = [], start, stayUntil, duration =
   };
 
   const r = await F.addDoc(col(PATHS.bookings), doc);
+  zapiszWDzienniku({
+    action:  'walkin.create',
+    subject: `Wejście z ulicy ${orderRef(r.id)}`,
+    targetId: r.id,
+    changes: opisZmian({ qty: doc.qty, duration: doc.duration, start: doc.start,
+                         total: doc.total, paid: doc.paid })
+  });
   return { id: r.id, ...doc };
 }
 
@@ -923,12 +1137,19 @@ export async function extendBooking(b, minutes) {
 }
 
 /** Dowolna zmiana w rezerwacji — wyłącznie administrator (opłata, godzina wyjścia). */
-export const updateBooking = (id, patch) =>
-  F.updateDoc(ref(PATHS.bookings, id), { ...patch, updatedAt: F.serverTimestamp() });
+export async function updateBooking(id, patch) {
+  await F.updateDoc(ref(PATHS.bookings, id), { ...patch, updatedAt: F.serverTimestamp() });
+  zapiszWDzienniku({ action: 'booking.update', subject: `Rezerwacja ${orderRef(id)}`,
+                     targetId: id, changes: opisZmian(patch) });
+}
 
 /** Odhacza, że rezerwacja została już policzona w liczniku odwiedzin. */
-export const markBookingCounted = (id, counted) =>
-  F.updateDoc(ref(PATHS.bookings, id), { countedInVisits: !!counted, updatedAt: F.serverTimestamp() });
+export async function markBookingCounted(id, counted) {
+  await F.updateDoc(ref(PATHS.bookings, id),
+    { countedInVisits: !!counted, updatedAt: F.serverTimestamp() });
+  zapiszWDzienniku({ action: 'booking.update', subject: `Rezerwacja ${orderRef(id)}`,
+                     targetId: id, changes: opisZmian({ countedInVisits: !!counted }) });
+}
 
 /* ==========================================================================
    HISTORIA ZAMÓWIEŃ KLIENTA

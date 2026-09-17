@@ -264,6 +264,37 @@
     letter-spacing:.03em;text-transform:uppercase;color:var(--teal-dark,#33636D);
     background:var(--brand-pale,#E4F1F4);border-radius:999px;padding:2px 8px}
 
+  /* ---- dziennik zmian ---- */
+  .log-bar{align-items:flex-end;flex-wrap:wrap;gap:10px}
+  .log-pole{display:flex;flex-direction:column;gap:3px;min-width:150px}
+  .log-pole .lbl{font-size:.78rem;color:var(--muted);font-weight:600}
+  .log-pole-szeroka{flex:1;min-width:200px}
+  .log-dzien{margin:18px 0 8px;font-family:var(--font-head);font-weight:700;
+    color:var(--navy-deep);font-size:.98rem}
+  .log-dzien:first-child{margin-top:0}
+  /* Kreska po lewej robi z listy oś czasu — bez niej wpisy z różnych godzin
+     zlewają się w jeden blok tekstu. */
+  .log-lista{border-left:2px solid var(--line);margin-left:6px;padding-left:14px}
+  .log-wpis{position:relative;padding:8px 0}
+  .log-wpis + .log-wpis{border-top:1px dashed var(--line)}
+  .log-wpis::before{content:"";position:absolute;left:-19px;top:15px;width:8px;height:8px;
+    border-radius:50%;background:var(--brand-deep);border:2px solid var(--white)}
+  .log-wpis.od-klienta::before{background:var(--line)}
+  .log-glowa{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+  .log-czas{font-family:var(--font-head);font-weight:700;color:var(--brand-deep);
+    font-variant-numeric:tabular-nums}
+  .log-wpis.od-klienta .log-czas{color:var(--muted)}
+  .log-co{font-weight:700;color:var(--navy-deep)}
+  .log-kto{margin-left:auto;font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+  .log-czego{display:block;font-size:.9rem;color:var(--ink);margin-top:1px;overflow-wrap:anywhere}
+  .log-zmiany{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .log-zmiana{font-size:.8rem;background:var(--cream-deep);border-radius:999px;
+    padding:2px 9px;color:var(--ink);overflow-wrap:anywhere}
+  @media (max-width:760px){
+    .log-pole{min-width:0;flex:1 1 140px}
+    .log-kto{margin-left:0;flex-basis:100%}
+  }
+
   /* Czerwona kropka przy pojedynczym wpisie, który czeka na obsługę.
      Plakietka przy zakładce mówi „ile", kropka — „który". */
   .todo-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--bad);
@@ -553,6 +584,7 @@
         <button data-tab="count"  data-group="b">9 · Licznik w bawialni</button>
 
         <button data-tab="fin">10 · Finanse</button>
+        <button data-tab="log">11 · Dziennik zmian</button>
       </nav>
 
       <!-- ============================== 6. ZARZĄDZAJ ZAJĘCIAMI ============================== -->
@@ -618,6 +650,43 @@
 
         <div id="exclList"></div>
         <p class="hint" id="exclCount" style="margin-top:12px"></p>
+      </section>
+
+      <!-- ============================== 11. DZIENNIK ZMIAN ============================== -->
+      <!-- Kto, co i kiedy zmienił. Baza pokazuje tylko stan na teraz, więc bez
+           tej zakładki nie da się odpowiedzieć na pytanie „kiedy to zniknęło
+           i kto to zrobił". Wpisów nie da się tu poprawić ani skasować —
+           pilnują tego reguły bazy, nie ten ekran. -->
+      <section class="panel" id="tab-log">
+        <div class="bar log-bar">
+          <label class="log-pole">
+            <span class="lbl">Od dnia</span>
+            <input class="control" id="logFrom" type="date">
+          </label>
+          <label class="log-pole">
+            <span class="lbl">Kto</span>
+            <select class="control" id="logWho"><option value="">wszyscy</option></select>
+          </label>
+          <label class="log-pole">
+            <span class="lbl">Czego dotyczy</span>
+            <select class="control" id="logKind"><option value="">wszystko</option></select>
+          </label>
+          <label class="log-pole log-pole-szeroka">
+            <span class="lbl">Szukaj</span>
+            <input class="control" id="logSearch" placeholder="numer, nazwa, nazwisko…">
+          </label>
+        </div>
+
+        <p class="hint" style="margin:-2px 0 14px">
+          Każda zmiana zrobiona w panelu zostawia tu ślad: <strong>kto, co i o której</strong>.
+          Szare wpisy „klient…" nie pochodzą z panelu — to rezerwacje i zapisy zrobione
+          przez odwiedzających stronę, dołożone do osi czasu z dat ich utworzenia.<br>
+          <strong>Wpisów nie da się poprawić ani skasować</strong>, także z panelu — dziennik,
+          który da się wyczyścić, niczego nie dowodzi.
+        </p>
+
+        <div id="logList"></div>
+        <p class="hint" id="logCount" style="margin-top:12px"></p>
       </section>
 
       <!-- ============================== 1. KALENDARZ ============================== -->
@@ -1345,7 +1414,9 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          countChildren, askSaveOrDiscard, askDate, askSeries,
          askConfirm, askText, orderRef, matchesRef,
          seriesDates, openingFor, closingMinFor,
-         bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN } from './assets/mc-common.js';
+         bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN,
+         nazwaAkcji, rodzinaAkcji, RODZINY, grupujPoDniach, godzinaWpisu,
+         pasujeDoFiltra, plWpisy } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS, authError } from './assets/mc-firebase.js';
 import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
@@ -1361,7 +1432,8 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          BOOKING_STATUS_SHORT, refreshEvent, setPresenceCapacity,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
          updateBooking, applyBookingToRanking, createWalkin, extendBooking,
-         listRegistrations, listBookings, repeatOnDates } from './assets/mc-data.js';
+         listRegistrations, listBookings, repeatOnDates,
+         watchAuditLog, listClientEvents } from './assets/mc-data.js';
 import { quote, discountSummary, DURATIONS, tariffLabel, tariffFor, PRICES,
          AGE_TIERS, SIBLING_DISCOUNT } from './assets/mc-cennik.js';
 
@@ -1502,6 +1574,7 @@ $$('.admin-tabs button').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'play') { renderPlaytime(); startPlayClock(); } else stopPlayClock();
   if (b.dataset.tab === 'entry') { renderEntryTiles(); startEntryClock(); } else stopEntryClock();
   if (b.dataset.tab === 'fin') openFinance();
+  if (b.dataset.tab === 'log') openLog();
 });
 
 /* ================================================== STAN WSPÓŁDZIELONY ==== */
@@ -3910,6 +3983,133 @@ function startExclusions() {
     renderExclusions();
     renderCal();                    // kalendarz maluje wykluczone dni na czerwono
   });
+}
+
+/* ==========================================================================
+   DZIENNIK ZMIAN (zakładka 11)
+   --------------------------------------------------------------------------
+   Oś czasu tego, co działo się w bawialni: ruchy obsługi prosto z kolekcji
+   `auditLog` plus — szarym kolorem — rezerwacje i zapisy zrobione przez
+   klientów, wyliczone z dat ich utworzenia.
+
+   Dlaczego dwa źródła: do dziennika pisze tylko obsługa (tak stoi w regułach),
+   więc sam `auditLog` pokazywałby puste popołudnia, mimo że w tym czasie
+   przyszło pięć rezerwacji ze strony. Wpisy klientów niczego nie zapisują —
+   powstają przy każdym otwarciu zakładki i znikają razem z nią.
+
+   Wpisów nie da się tu poprawić ani skasować i nie ma na to przycisku —
+   blokada siedzi w firestore.rules, nie w tym ekranie.
+   ========================================================================== */
+let LOG_PANELU = [];        // wpisy z auditLog (na żywo)
+let LOG_KLIENTA = [];       // wyliczone z rezerwacji i zapisów
+let unsubLog = null;
+let logWczytany = false;
+
+/** Od kiedy patrzymy. Domyślnie tydzień — tyle mieści się na ekranie bez
+    przewijania w nieskończoność, a dalej sięga się polem „Od dnia". */
+function logOdKiedy() {
+  const wpisane = $('#logFrom').value;
+  const d = wpisane ? parseDateISO(wpisane) : addDays(new Date(), -7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Listy rozwijane budujemy z tego, co faktycznie jest na liście — pusty
+    wybór „Anna" przy dzienniku bez Anny tylko myli. */
+function logOdswiezFiltry(wszystkie) {
+  const ludzie = [...new Set(wszystkie.map(w => w.who).filter(Boolean))].sort();
+  const wybrany = $('#logWho').value;
+  $('#logWho').innerHTML = '<option value="">wszyscy</option>'
+    + ludzie.map(k => `<option value="${esc(k)}"${k === wybrany ? ' selected' : ''}>${esc(k)}</option>`).join('');
+
+  const rodziny = [...new Set(wszystkie.map(w => rodzinaAkcji(w.action)).filter(Boolean))].sort();
+  const wybranaR = $('#logKind').value;
+  $('#logKind').innerHTML = '<option value="">wszystko</option>'
+    + rodziny.map(r => `<option value="${esc(r)}"${r === wybranaR ? ' selected' : ''}>`
+        + `${esc(RODZINY[r] || r)}</option>`).join('');
+}
+
+function renderLog() {
+  const box = $('#logList');
+  if (!box) return;
+
+  const wszystkie = [...LOG_PANELU, ...LOG_KLIENTA];
+  logOdswiezFiltry(wszystkie);
+
+  const filtr = {
+    kto:     $('#logWho').value,
+    rodzina: $('#logKind').value,
+    szukaj:  $('#logSearch').value
+  };
+  const widoczne = wszystkie.filter(w => pasujeDoFiltra(w, filtr));
+
+  if (!widoczne.length) {
+    box.innerHTML = `<div class="empty">${wszystkie.length
+      ? 'Żaden wpis nie pasuje do tych filtrów.'
+      : 'W tym okresie nic się nie zmieniło.'}</div>`;
+    $('#logCount').textContent = '';
+    return;
+  }
+
+  box.innerHTML = grupujPoDniach(widoczne).map(({ dzien, wpisy }) => `
+    <div class="log-dzien">${esc(longDate(dzien))}</div>
+    <div class="log-lista">
+      ${wpisy.map(w => {
+        const odKlienta = w.who === 'klient';
+        return `<div class="log-wpis${odKlienta ? ' od-klienta' : ''}">
+          <div class="log-glowa">
+            <span class="log-czas">${esc(godzinaWpisu(w.at))}</span>
+            <span class="log-co">${esc(nazwaAkcji(w.action))}</span>
+            <span class="log-kto">${esc(odKlienta ? 'ze strony' : w.who || '—')}</span>
+          </div>
+          ${w.subject ? `<span class="log-czego">${esc(w.subject)}</span>` : ''}
+          ${(w.changes || []).length ? `<div class="log-zmiany">${
+            w.changes.map(z => `<span class="log-zmiana">${esc(z)}</span>`).join('')
+          }</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  const ukryte = wszystkie.length - widoczne.length;
+  $('#logCount').textContent = plWpisy(widoczne.length)
+    + (ukryte ? `, ${ukryte} ukrytych przez filtry.` : '.');
+}
+
+/** Wpisy klientów czytamy jednorazowo — to zwykłe zapytanie, nie nasłuch. */
+async function logWczytajKlientow() {
+  try {
+    LOG_KLIENTA = await listClientEvents(logOdKiedy());
+  } catch (err) {
+    console.warn('Dziennik: wpisy klientów niedostępne.', err);
+    LOG_KLIENTA = [];
+  }
+  renderLog();
+}
+
+/** Podpięcie pod wybrany zakres dat. Wołane przy wejściu w zakładkę
+    i po każdej zmianie pola „Od dnia". */
+function startLog() {
+  if (unsubLog) unsubLog();
+  const od = logOdKiedy();
+  unsubLog = watchAuditLog(od, lista => { LOG_PANELU = lista; renderLog(); },
+    err => {
+      $('#logList').innerHTML = `<div class="empty">Nie udało się wczytać dziennika.
+        ${esc(authError(err))}</div>`;
+    });
+  logWczytajKlientow();
+}
+
+$('#logFrom').addEventListener('change', startLog);
+['#logWho', '#logKind'].forEach(sel => $(sel).addEventListener('change', renderLog));
+$('#logSearch').addEventListener('input', renderLog);
+
+/** Zakładka podpina się dopiero przy pierwszym wejściu — dziennik to jedyne
+    miejsce, gdzie te dane są potrzebne, a nasłuch kosztuje odczyty. */
+function openLog() {
+  if (!$('#logFrom').value) $('#logFrom').value = isoDate(addDays(new Date(), -7));
+  if (logWczytany) { logWczytajKlientow(); return; }
+  logWczytany = true;
+  startLog();
 }
 
 /* ==========================================================================

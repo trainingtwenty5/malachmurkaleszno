@@ -76,6 +76,10 @@ async function seed() {
     await setDoc(doc(db, 'eventImages/img2'), { ...IMAGE, order: 1, name: 'domki.jpg' });
     /* 2026-09-11 jest wykluczony, 2026-09-10 (data z BOOKING) nie jest. */
     await setDoc(doc(db, 'exclusions/2026-09-11'), { date: '2026-09-11', reason: 'remont' });
+    await setDoc(doc(db, 'auditLog/wpis1'), {
+      at: new Date(), who: ADMIN, uid: 'uid-admin', action: 'booking.status',
+      subject: 'Rezerwacja ABC', targetId: 'b-guest', changes: ['status: accepted']
+    });
     await setDoc(doc(db, 'sekrety/x'), { a: 1 });
   });
 }
@@ -399,6 +403,63 @@ await t('publicNote musi byc napisem, nie liczba -> NIE', async () =>
 await t('Anonim NIE oglosi nic na stronie glownej -> NIE', async () =>
   assertFails(setDoc(doc(anon(), 'exclusions/2026-10-01'),
     { ...WYKL, showOnSite: true, publicNote: 'zamkniete na zawsze' })));
+
+console.log('\n=== DZIENNIK ZMIAN (auditLog) ===');
+
+/* Dziennik ma dwie wlasciwosci, ktore albo dzialaja, albo jest ozdoba:
+   czyta go WYLACZNIE obsluga, i NIKT go nie poprawia ani nie kasuje. */
+const WPIS = { at: new Date(), who: ADMIN, uid: 'uid-admin', action: 'event.delete',
+               subject: 'Ruch to zdrowie, 2026-09-20', targetId: 'e1', changes: ['nazwa: Ruch'] };
+
+await t('Anonim NIE czyta dziennika -> NIE', async () =>
+  assertFails(getDoc(doc(anon(), 'auditLog/wpis1'))));
+await t('Zalogowany klient NIE czyta dziennika -> NIE', async () =>
+  assertFails(getDoc(doc(user('klient', 'k@example.com'), 'auditLog/wpis1'))));
+await t('Admin czyta dziennik -> TAK', async () =>
+  assertSucceeds(getDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/wpis1'))));
+
+await t('Admin dopisuje wpis -> TAK', async () =>
+  assertSucceeds(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'), WPIS)));
+await t('Anonim NIE dopisze wpisu -> NIE', async () =>
+  assertFails(setDoc(doc(anon(), 'auditLog/nowy'), { ...WPIS, who: '', uid: '' })));
+await t('Zalogowany klient NIE dopisze wpisu -> NIE', async () =>
+  assertFails(setDoc(doc(user('klient', 'k@example.com'), 'auditLog/nowy'),
+    { ...WPIS, who: 'k@example.com', uid: 'klient' })));
+
+/* Gdyby `who` dalo sie wpisac dowolnie, kolumna "kto" przestaje cokolwiek
+   znaczyc: administrator podpisalby wpis kolega. */
+await t('Admin NIE podpisze wpisu cudzym adresem -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'),
+    { ...WPIS, who: ADMIN2 })));
+await t('Admin NIE podpisze wpisu cudzym uid -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'),
+    { ...WPIS, uid: 'ktos-inny' })));
+await t('Wpis bez akcji -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'),
+    { ...WPIS, action: '' })));
+await t('Opis dluzszy niz 120 znakow -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'),
+    { ...WPIS, subject: 'x'.repeat(121) })));
+await t('Wiecej niz 10 zmian w jednym wpisie -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'),
+    { ...WPIS, changes: Array(11).fill('a: b') })));
+await t('Zmiany musza byc lista, nie napisem -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/nowy'),
+    { ...WPIS, changes: 'status: accepted' })));
+
+/* TO JEST SEDNO DZIENNIKA. Zapis, ktory da sie po fakcie poprawic albo
+   skasowac, nie dowodzi niczego — wiec odmawiamy WSZYSTKIM. */
+await t('Admin NIE poprawi istniejacego wpisu -> NIE', async () =>
+  assertFails(updateDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/wpis1'),
+    { subject: 'cos zupelnie innego' })));
+await t('Admin NIE skasuje wpisu -> NIE', async () =>
+  assertFails(deleteDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/wpis1'))));
+await t('Admin z custom claim tez NIE skasuje wpisu -> NIE', async () =>
+  assertFails(deleteDoc(doc(claimed('a2'), 'auditLog/wpis1'))));
+await t('Admin NIE nadpisze wpisu przez setDoc -> NIE', async () =>
+  assertFails(setDoc(doc(user('uid-admin', ADMIN, true), 'auditLog/wpis1'), WPIS)));
+await t('Anonim NIE skasuje wpisu -> NIE', async () =>
+  assertFails(deleteDoc(doc(anon(), 'auditLog/wpis1'))));
 
 console.log('\n=== BLOKADA REZERWACJI W WYKLUCZONY DZIEN ===');
 

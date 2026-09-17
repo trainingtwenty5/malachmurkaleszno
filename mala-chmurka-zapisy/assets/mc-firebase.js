@@ -51,7 +51,8 @@ export const PATHS = {
   exclusions:    'exclusions',      // dni wyłączone z rezerwacji (id = data)
   guests:        'guests',          // ranking: 1 dokument = 1 dziecko
   settings:      'settings',        // settings/presence, settings/stats
-  admins:        'admins'           // opcjonalna kartoteka administratorów
+  admins:        'admins',          // opcjonalna kartoteka administratorów
+  auditLog:      'auditLog'         // dziennik zmian: kto, co i kiedy zmienił
 };
 
 /* ==========================================================================

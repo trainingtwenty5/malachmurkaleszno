@@ -1841,3 +1841,171 @@ export function gallerySources(stored, legacy) {
   if (wgrane.length) return wgrane;
   return (legacy || []).filter(Boolean);
 }
+
+/* ==========================================================================
+   DZIENNIK ZMIAN — czysta logika
+   --------------------------------------------------------------------------
+   Zapisywanie wpisów siedzi w mc-data.js (bo dotyka bazy), a rysowanie
+   w panelu. Tutaj jest to, co da się sprawdzić bez przeglądarki i bez
+   Firebase: jak opisać zmienioną wartość, jak nazwać akcję po ludzku
+   i jak posortować wpisy w dzienny rozkład.
+
+   Dlaczego w ogóle osobny plik: dziennik ma mówić „kto, co i kiedy”
+   zrozumiale dla obsługi, a nie wypluwać nazwy pól z bazy. Zamiana
+   `stayUntil: "16:30"` na „godzina wyjścia: 16:30” to jedyna rzecz, którą
+   w tej funkcji łatwo zepsuć — i dlatego jest osobno przetestowana.
+   ========================================================================== */
+
+/** Pola, których nigdy nie pokazujemy: to znaczniki czasu, nie zmiany. */
+const POLA_TECHNICZNE = ['updatedAt', 'createdAt', 'decidedAt', 'at'];
+
+/** Nazwy pól po ludzku. Czego tu nie ma, pokaże się pod własną nazwą. */
+export const ETYKIETY_POL = {
+  status:           'status',
+  paid:             'opłacone',
+  attended:         'obecność',
+  countedInRanking: 'policzone w rankingu',
+  countedInVisits:  'policzone w liczniku',
+  stayUntil:        'godzina wyjścia',
+  adminNote:        'notatka obsługi',
+  qty:              'liczba dzieci',
+  total:            'kwota',
+  unitPrice:        'cena za dziecko',
+  paymentMethod:    'płatność',
+  duration:         'czas pobytu',
+  start:            'godzina wejścia',
+  date:             'dzień',
+  title:            'nazwa',
+  capacity:         'miejsca',
+  price:            'cena',
+  active:           'widoczne dla klientów',
+  reason:           'powód',
+  showOnSite:       'widoczne na stronie głównej',
+  publicNote:       'tekst dla klienta',
+  note:             'notatka'
+};
+
+/**
+ * Wartość pola zapisana tak, żeby dała się przeczytać w jednej linijce.
+ * Osobno `false`, bo „nie” niesie treść, a puste miejsce po `false` wyglądałoby
+ * jak brak danych.
+ */
+export function opisWartosci(v) {
+  if (v === true)  return 'tak';
+  if (v === false) return 'nie';
+  if (v === null || v === undefined) return '—';
+  if (Array.isArray(v)) return v.length ? `${v.length} poz.` : 'puste';
+  if (typeof v === 'object') return '(zmienione)';
+  const s = String(v).trim();
+  return s === '' ? '(wyczyszczone)' : (s.length > 60 ? s.slice(0, 57) + '…' : s);
+}
+
+/**
+ * Lista „pole: wartość" z tego, co właśnie zapisano.
+ * Opisujemy ZMIANĘ ZLECONĄ, a nie różnicę względem bazy — inaczej każdy zapis
+ * wymagałby wcześniejszego odczytu dokumentu, czyli podwójnego kosztu przy
+ * każdym kliknięciu w panelu. Dla pytania „co obsługa zmieniła i na co”
+ * to wystarcza.
+ */
+export function opisZmian(patch = {}, etykiety = ETYKIETY_POL) {
+  return Object.entries(patch || {})
+    .filter(([k, v]) => !POLA_TECHNICZNE.includes(k) && typeof v !== 'function')
+    .map(([k, v]) => `${etykiety[k] || k}: ${opisWartosci(v)}`);
+}
+
+/** Nazwy akcji po ludzku — to one stoją w pierwszej linii wpisu. */
+export const NAZWY_AKCJI = {
+  'event.create':        'Dodano zajęcia',
+  'event.update':        'Zmieniono zajęcia',
+  'event.delete':        'Usunięto zajęcia',
+  'registration.update': 'Zmieniono zapis na zajęcia',
+  'registration.delete': 'Usunięto zapis na zajęcia',
+  'booking.status':      'Rozpatrzono rezerwację',
+  'booking.update':      'Zmieniono rezerwację',
+  'booking.delete':      'Usunięto rezerwację',
+  'walkin.create':       'Dodano wejście z ulicy',
+  'exclusion.add':       'Wykluczono dzień',
+  'exclusion.remove':    'Cofnięto wykluczenie',
+  'presence.manual':     'Ręcznie ustawiono licznik',
+  'presence.auto':       'Licznik wrócił na automat',
+  'presence.capacity':   'Zmieniono liczbę miejsc',
+  'visits.add':          'Poprawiono licznik odwiedzin',
+  'visits.base':         'Ustawiono licznik odwiedzin',
+  /* Poniższe nie powstają z zapisu do dziennika — panel dokłada je z dat
+     utworzenia rezerwacji i zapisów, żeby oś czasu nie milczała o tym, co
+     robią klienci. Patrz README, „Dziennik zmian”. */
+  'booking.client':      'Klient zarezerwował wizytę',
+  'registration.client': 'Klient zapisał dziecko na zajęcia'
+};
+
+export const nazwaAkcji = a => NAZWY_AKCJI[a] || String(a || 'Zmiana');
+
+/** Rodzina akcji — po niej filtruje się dziennik („pokaż tylko rezerwacje”). */
+export const rodzinaAkcji = a => String(a || '').split('.')[0] || 'inne';
+
+export const RODZINY = {
+  booking:      'Rezerwacje wizyt',
+  registration: 'Zapisy na zajęcia',
+  event:        'Zajęcia',
+  walkin:       'Wejścia z ulicy',
+  exclusion:    'Wykluczenia',
+  presence:     'Licznik w bawialni',
+  visits:       'Licznik odwiedzin'
+};
+
+/**
+ * Wpisy pogrupowane w dni, od najnowszego.
+ * Grupujemy tutaj, a nie przy rysowaniu, bo to jedyne miejsce, w którym
+ * kolejność da się sprawdzić testem — a kolejność jest w dzienniku wszystkim.
+ *
+ * @param {Array} wpisy  [{ at: Date, ... }]
+ * @returns {Array} [{ dzien: 'YYYY-MM-DD', wpisy: [...] }]
+ */
+export function grupujPoDniach(wpisy = []) {
+  const mapa = new Map();
+  for (const w of wpisy) {
+    if (!w || !(w.at instanceof Date) || isNaN(w.at)) continue;
+    const dzien = isoDate(w.at);
+    if (!mapa.has(dzien)) mapa.set(dzien, []);
+    mapa.get(dzien).push(w);
+  }
+  return [...mapa.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([dzien, lista]) => ({
+      dzien,
+      wpisy: lista.sort((a, b) => b.at - a.at)
+    }));
+}
+
+/** „1 wpis”, „2 wpisy”, „5 wpisów” — po polsku, jak reszta liczebników. */
+export function plWpisy(n) {
+  n = Number(n) || 0;
+  if (n === 1) return '1 wpis';
+  const l2 = n % 100, l1 = n % 10;
+  if (l1 >= 2 && l1 <= 4 && !(l2 >= 12 && l2 <= 14)) return `${n} wpisy`;
+  return `${n} wpisów`;
+}
+
+/** Godzina wpisu, HH:MM — w dzienniku sekundy tylko zaśmiecają. */
+export function godzinaWpisu(d) {
+  if (!(d instanceof Date) || isNaN(d)) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Czy wpis przechodzi przez ustawione filtry.
+ * Pusty filtr znaczy „wszystko” — obsługa wchodzi w dziennik, żeby coś
+ * zobaczyć, a nie żeby najpierw cokolwiek wybierać.
+ */
+export function pasujeDoFiltra(wpis, { kto = '', rodzina = '', szukaj = '' } = {}) {
+  if (!wpis) return false;
+  if (kto && wpis.who !== kto) return false;
+  if (rodzina && rodzinaAkcji(wpis.action) !== rodzina) return false;
+  if (szukaj) {
+    const igla = szukaj.trim().toLowerCase();
+    const siano = [nazwaAkcji(wpis.action), wpis.subject, wpis.who,
+                   ...(wpis.changes || [])].join(' ').toLowerCase();
+    if (!siano.includes(igla)) return false;
+  }
+  return true;
+}
