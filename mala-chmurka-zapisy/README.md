@@ -37,12 +37,13 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | **`assets/mc-finanse.js`** | **Finanse: wspólny kształt transakcji, agregaty i wykresy SVG.** |
 | **`firestore.rules`** | **Reguły bezpieczeństwa — jedyne prawdziwe zabezpieczenie panelu.** |
 | `tools/set-admin-claim.mjs` | Jednorazowy skrypt nadający custom claim `admin: true`. |
-| `tools/test-rules.mjs` | 101 testów reguł na emulatorze — dowód, że blokady działają. |
+| `tools/test-rules.mjs` | 118 testów reguł na emulatorze — dowód, że blokady działają. |
 | `tools/test-ui.mjs` | 16 testów formularza zapisu (kroki, link w opisie) — sam Node. |
 | `tools/test-cennik.mjs` | 64 testy naliczania ceny wstępu — sam Node. |
 | `tools/test-zapisy.mjs` | 100 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
 | `tools/test-licznik.mjs` | 70 testów licznika dzieci w bawialni — sam Node. |
 | **`tools/test-godziny.mjs`** | **31 testów godzin z wizytówki Google (odczyt, zapas, pamięć) — sam Node.** |
+| **`tools/test-dziennik.mjs`** | **57 testów dziennika zmian (opisy, oś czasu, filtry) — sam Node.** |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 58 testów zakładki „Czas zabawy” (odliczanie, opłata) — sam Node. |
@@ -236,7 +237,7 @@ Do tego `mc-firebase.js` ma 15-sekundowy limit na pobranie SDK, żeby zablokowan
 
 ### Skąd wiadomo, że reguły faktycznie działają
 
-W `tools/test-rules.mjs` jest gotowy zestaw **101 testów** uruchamianych na
+W `tools/test-rules.mjs` jest gotowy zestaw **118 testów** uruchamianych na
 lokalnym emulatorze Firestore (nie dotyka prawdziwej bazy). Sprawdza m.in.:
 odczyt zajęć przez anonima, odrzucenie CREATE/UPDATE/DELETE dla anonima i dla
 zalogowanego klienta, przejście CREATE/UPDATE/DELETE dla obu adresów z listy,
@@ -251,7 +252,7 @@ npm install --no-save @firebase/rules-unit-testing firebase firebase-tools
 npx firebase emulators:exec --only firestore --project demo-mc "node tools/test-rules.mjs"
 ```
 
-Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **101 zaliczonych, 0 niezaliczonych.**
+Wymaga zainstalowanej Javy. Stan po ostatnim uruchomieniu: **118 zaliczonych, 0 niezaliczonych.**
 Uruchom to ponownie za każdym razem, gdy zmienisz `firestore.rules`.
 
 Formularze i cennik mają osobne, lekkie zestawy — bez emulatora i bez żadnych
@@ -263,6 +264,7 @@ node tools/test-cennik.mjs  # 64 testy: taryfy, święta, progi wiekowe, zniżki
 node tools/test-zapisy.mjs  # 100 testów: terminy, godziny otwarcia, numer rezerwacji
 node tools/test-licznik.mjs # 70 testów: licznik dzieci w bawialni
 node tools/test-godziny.mjs # 31 testów: godziny z wizytówki Google, zapas, pamięć podręczna
+node tools/test-dziennik.mjs # 57 testów: dziennik zmian — opisy, oś czasu, filtry
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 58 testów: czas zabawy, odliczanie, stan opłaty
@@ -750,6 +752,80 @@ zapisany powód i gasił widoczność na stronie głównej.
 
 ---
 
+## Dziennik zmian (zakładka 11)
+
+Do panelu ma dostęp kilka osób, a baza pokazuje wyłącznie **stan na teraz**. Po fakcie
+nie da się z niej odczytać, czy rezerwacja została odrzucona wczoraj czy przed chwilą
+i przez kogo. Od tego jest zakładka **11 · Dziennik zmian**: oś czasu z godzinami,
+nazwiskiem osoby i tym, co dokładnie zostało zmienione.
+
+### Co trafia do dziennika
+
+Każda zmiana zrobiona w panelu: rozpatrzenie i edycja rezerwacji, wejścia z ulicy,
+zapisy na zajęcia, dodanie/zmiana/usunięcie zajęć, wykluczenia dni, ręczne ustawienia
+licznika w bawialni i licznika odwiedzin. Wpis wygląda tak:
+
+```
+14:12  Rozpatrzono rezerwację                    velorwr16@gmail.com
+       Rezerwacja LMGPYJ84
+       [status: accepted]  [notatka obsługi: (wyczyszczone)]
+```
+
+Opisujemy **zmianę zleconą**, a nie różnicę względem bazy — inaczej każdy zapis
+wymagałby wcześniejszego odczytu dokumentu, czyli podwójnego kosztu przy każdym
+kliknięciu. Na pytanie „co obsługa zmieniła i na co" to wystarcza.
+
+Szare wpisy **„Klient zarezerwował wizytę"** nie pochodzą z panelu — panel dokłada je
+do osi czasu z dat utworzenia rezerwacji i zapisów. Bez nich dziennik pokazywałby puste
+popołudnia, mimo że w tym czasie przyszło pięć rezerwacji ze strony. Te wpisy niczego
+nie zapisują: powstają przy każdym otwarciu zakładki i znikają razem z nią.
+
+Filtry: od jakiego dnia, kto, czego dotyczy, plus szukajka po numerze, nazwie i treści
+zmiany. Domyślnie widać ostatni tydzień.
+
+### Czego dziennik NIE zapisuje
+
+- **Automatycznego przeliczania licznika** (`pushPresence`) — dzieje się samo przy
+  każdym odświeżeniu panelu i zasypałoby dziennik szumem. Ręczne ustawienie licznika
+  i zmiana liczby miejsc zapisują się normalnie.
+- **Wejścia z ulicy drugi raz** — ma własny wpis `walkin.create`, więc jest wyłączone
+  z wpisów „klient…", żeby nie pojawiało się podwójnie.
+- **Serii wykluczeń dzień po dniu** — dwanaście dni zostawia jeden wpis
+  „Seria 12 dni, 2026-10-01 – 2026-10-22", a nie dwanaście identycznych linijek.
+
+### Dlaczego wpisy powstają w `mc-data.js`, a nie przy przyciskach
+
+Gdyby wpisy powstawały przy przyciskach w panelu, każdy nowy przycisk byłby okazją,
+żeby o dzienniku zapomnieć — a **dziennik z dziurami jest gorszy niż żaden**, bo wygląda
+na kompletny. Wpisujemy więc z warstwy bazy: każda droga do zapisu przechodzi przez tę
+samą funkcję `zapiszWDzienniku()`.
+
+Zapis dziennika idzie **obok** właściwej operacji, nie przed nią: nie czekamy na niego
+i nigdy nie pozwalamy mu jej wywrócić. Gdyby dziennik odmówił zapisu, obsługa i tak ma
+zaakceptować rezerwację — w konsoli zostaje ostrzeżenie i tyle.
+
+### Dziennika nie da się poprawić ani skasować
+
+To jedyna kolekcja w bazie, w której **UPDATE i DELETE są zamknięte dla wszystkich** —
+łącznie z administratorem i z posiadaczem custom claim. Taki jest sens dziennika: zapis,
+który da się po fakcie poprawić albo wyczyścić, nie dowodzi niczego. W panelu nie ma
+na to przycisku i nie da się go dorobić, bo blokada siedzi w `firestore.rules`.
+
+Pole `who` musi zgadzać się z adresem z tokenu — bez tego administrator mógłby dopisać
+wpis podpisany kolegą, a wtedy kolumna „kto" przestaje cokolwiek znaczyć. Pilnuje tego
+reguła, nie kod strony.
+
+Gdyby kiedyś trzeba było coś stąd usunąć (np. na żądanie RODO), robi się to z konsoli
+Firebase albo przez Admin SDK — świadomie i poza aplikacją.
+
+### Ile to kosztuje
+
+Jeden dokument na zmianę. Zakładka czyta zakres dat (domyślnie tydzień, najwyżej 500
+wpisów), a nie całą kolekcję, więc dziennik może rosnąć bez wpływu na szybkość panelu.
+Zapytania chodzą po jednym polu, więc wystarczają indeksy, które Firestore zakłada sam.
+
+---
+
 ## Jak działa licznik na stronie głównej
 
 **Numer rezerwacji.** Każde zgłoszenie — zapis na zajęcia i rezerwacja wstępu — ma krótki
@@ -1050,6 +1126,12 @@ settings/presence    licznik dzieci: count, until, date, capacity, manual
 settings/stats       licznik odwiedzin: visitsBase (266), visitsCount
 
 admins/{uid}         notatnik: kto ma dostęp (nie nadaje już uprawnień)
+
+auditLog/{id}        dziennik zmian, jeden dokument = jedna zmiana:
+                     at, who (e-mail), uid, action ('booking.update'),
+                     subject (czytelny opis), targetId, changes[]
+                     TYLKO DO DOPISYWANIA — UPDATE i DELETE zamknięte
+                     dla wszystkich, także dla administratora
 ```
 
 ---

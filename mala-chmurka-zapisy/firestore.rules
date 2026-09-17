@@ -294,6 +294,42 @@ service cloud.firestore {
     }
 
     /* ================================================================
+       DZIENNIK ZMIAN (auditLog) — KOLEKCJA TYLKO DO DOPISYWANIA.
+
+       To jedyne miejsce w bazie, w którym UPDATE i DELETE są zamknięte
+       dla WSZYSTKICH, łącznie z administratorem i z posiadaczem custom
+       claim. Taki jest sens dziennika: zapis, który da się po fakcie
+       poprawić albo skasować, nie dowodzi niczego. Jeżeli kiedyś trzeba
+       będzie coś stąd usunąć (np. RODO), robi się to z konsoli Firebase
+       albo Admin SDK — świadomie, poza aplikacją.
+
+       `who` musi zgadzać się z adresem z tokenu. Bez tego administrator
+       mógłby dopisać wpis podpisany kolegą — a wtedy kolumna „kto"
+       przestaje cokolwiek znaczyć.
+       ================================================================ */
+    function validAudit() {
+      return request.resource.data.who == claims().get('email', '')
+        &&   request.resource.data.uid == request.auth.uid
+        &&   request.resource.data.action is string
+        &&   request.resource.data.action.size() > 0
+        &&   request.resource.data.action.size() <= 40
+        &&   request.resource.data.subject is string
+        &&   request.resource.data.subject.size() <= 120
+        &&   request.resource.data.targetId is string
+        &&   request.resource.data.targetId.size() <= 60
+        &&   request.resource.data.changes is list
+        &&   request.resource.data.changes.size() <= 10
+        &&   request.resource.data.keys().size() <= 8;
+    }
+
+    match /auditLog/{id} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin() && validAudit();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /* ================================================================
        Wszystko, czego nie wymieniono wyżej — zamknięte.
        ================================================================ */
     match /{document=**} {
