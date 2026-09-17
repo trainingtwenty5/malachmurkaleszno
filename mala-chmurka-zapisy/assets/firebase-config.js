@@ -152,7 +152,7 @@ export const SETTINGS = {
    ========================================================================== */
 export const GOOGLE_PLACE = {
   placeId: "ChIJR_R1ArGZBUcRKBop3lrL8hc",
-  apiKey:  "AIzaSyA0BTvvpqOOXResnbgwsNCcYet_8hCK3l8",                 // <- wklej tutaj klucz z punktu 6.
+  apiKey:  "AIzaSyB-syR9uwCHq_PmdED2fkX3vyS7vnPPiN0",                 // <- wklej tutaj klucz z punktu 6.
   /* Jak długo trzymamy odpowiedź w pamięci przeglądarki (w minutach).
      Sześć godzin to kompromis: poprawka w wizytówce wchodzi na stronę tego
      samego dnia, a Google dostaje od nas garstkę zapytań zamiast jednego
