@@ -89,22 +89,75 @@ export const SETTINGS = {
   dayStart:     "08:00",
   dayEnd:       "20:00",
 
-  /* GODZINY OTWARCIA BAWIALNI
+  /* GODZINY OTWARCIA BAWIALNI — TO JEST TYLKO ZAPAS.
+     Prawdziwym źródłem są godziny z wizytówki Google (patrz GOOGLE_PLACE
+     niżej): `mc-godziny.js` pobiera je przy wejściu na stronę i podmienia
+     tę tablicę. Poniższe wartości zobaczy ktoś, komu pobranie się nie uda
+     — zerwany internet, wyczerpany limit zapytań, pusty klucz API.
+
      Indeks jak w JavaScripcie: 0 = niedziela, 1 = poniedziałek … 6 = sobota.
      Poza tymi godzinami nie da się zarezerwować wejścia.
-     Dzień zamknięty na głucho zapisuje się jako `null`. */
+     Dzień zamknięty na głucho zapisuje się jako `null`.
+
+     Stan wizytówki na 17.09.2026 — jeśli zmieniasz godziny, zmieniasz je
+     w wizytówce Google, a nie tutaj. */
   openingHours: [
-    { open: "10:00", close: "19:00" },   // niedziela
+    { open: "10:00", close: "15:00" },   // niedziela
     { open: "15:00", close: "19:00" },   // poniedziałek
     { open: "10:00", close: "19:00" },   // wtorek
     { open: "10:00", close: "19:00" },   // środa
     { open: "10:00", close: "19:00" },   // czwartek
-    { open: "10:00", close: "16:00" },   // piątek
-    { open: "10:00", close: "19:00" }    // sobota
+    { open: "10:00", close: "19:00" },   // piątek
+    null                                 // sobota — nieczynne
   ],
 
   /* domyślne metody płatności podpowiadane przy tworzeniu zajęć */
   paymentMethods: ["Płatność na miejscu", "Przelew bankowy"]
+};
+
+/* ==========================================================================
+   GODZINY OTWARCIA Z WIZYTÓWKI GOOGLE
+   --------------------------------------------------------------------------
+   Godziny są zmieniane w jednym miejscu — w wizytówce Google (Profil Firmy).
+   Strona sama je stamtąd pobiera przy wejściu, więc po poprawce w wizytówce
+   nie trzeba ruszać żadnego pliku: karta „Godziny otwarcia”, dane dla
+   wyszukiwarki i formularz rezerwacji zmienią się same.
+
+   BEZ KLUCZA TO NIE ZADZIAŁA, ale strona nadal działa: przy pustym `apiKey`
+   pobieranie jest w ogóle pomijane i zostają godziny zapasowe z SETTINGS
+   powyżej. Nic się nie psuje, po prostu nie ma automatu.
+
+   JAK ZDOBYĆ KLUCZ (raz, ~10 minut)
+     1. https://console.cloud.google.com → wybierz projekt (może być ten sam,
+        co Firebase: „mala-chmurka-leszno”).
+     2. „APIs & Services → Library” → włącz **Places API (New)**.
+     3. Rozliczenia muszą być włączone (Billing). Google daje co miesiąc pulę
+        darmowych zapytań; ta strona pyta raz na 6 godzin na przeglądarkę,
+        więc realnie mieści się w niej z ogromnym zapasem.
+     4. „APIs & Services → Credentials” → „Create credentials → API key”.
+     5. KONIECZNIE ogranicz klucz, inaczej ktoś obcy wykorzysta go na Twój
+        rachunek:
+          • „Application restrictions” → Websites → dodaj
+            https://malachmurkaleszno.pl/*  oraz  https://www.malachmurkaleszno.pl/*
+          • „API restrictions” → Restrict key → zaznacz tylko Places API (New)
+     6. Wklej klucz niżej i opublikuj stronę.
+
+   Klucz z takimi ograniczeniami jest jawny z założenia — widać go w kodzie
+   każdej strony korzystającej z Map Google i nie daje dostępu do niczego
+   poza odczytem publicznych danych wizytówki.
+
+   `placeId` to stały identyfikator lokalu w Google. Ten poniżej jest już
+   sprawdzony (rozwija się do „Mała Chmurka - naturalna bawialnia”). Gdyby
+   kiedyś trzeba było go odszukać na nowo: https://developers.google.com/maps/documentation/places/web-service/place-id
+   ========================================================================== */
+export const GOOGLE_PLACE = {
+  placeId: "ChIJR_R1ArGZBUcRKBop3lrL8hc",
+  apiKey:  "",                 // <- wklej tutaj klucz z punktu 6.
+  /* Jak długo trzymamy odpowiedź w pamięci przeglądarki (w minutach).
+     Sześć godzin to kompromis: poprawka w wizytówce wchodzi na stronę tego
+     samego dnia, a Google dostaje od nas garstkę zapytań zamiast jednego
+     na każde otwarcie strony. */
+  cacheMinutes: 360
 };
 
 /** Adres podstrony systemu zapisów — działa i lokalnie, i po przeniesieniu

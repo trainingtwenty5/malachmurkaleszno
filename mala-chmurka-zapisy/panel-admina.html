@@ -258,6 +258,11 @@
   .excl-item b{display:block;font-family:var(--font-head);color:var(--navy-deep)}
   .excl-item .powod{font-size:.85rem;color:var(--muted);overflow-wrap:anywhere}
   .excl-item .dzien{font-size:.8rem;color:var(--bad);font-weight:700}
+  /* „Ten dzień widzi też klient na stronie głównej" — bez tego znaczka nie da
+     się odróżnić cichego wolnego od ogłoszonego zamknięcia. */
+  .excl-item .jawne{display:inline-block;margin-top:4px;font-size:.72rem;font-weight:700;
+    letter-spacing:.03em;text-transform:uppercase;color:var(--teal-dark,#33636D);
+    background:var(--brand-pale,#E4F1F4);border-radius:999px;padding:2px 8px}
 
   /* Czerwona kropka przy pojedynczym wpisie, który czeka na obsługę.
      Plakietka przy zakładce mówi „ile", kropka — „który". */
@@ -602,6 +607,10 @@
           także wtedy, gdyby ktoś próbował ominąć formularz.<br>
           Wykluczone dni są <strong>czerwone w kalendarzu zajęć</strong> (karta 1) — możesz
           kliknąć tam w nagłówek dnia, żeby wykluczyć go albo cofnąć wykluczenie.<br>
+          <strong>Samo wykluczenie niczego nie ogłasza.</strong> Dopiero zaznaczone
+          „widoczna informacja na stronie głównej” sprawia, że odwiedzający stronę
+          zobaczy okienko „Bawialnia nieczynna” z tą datą. Kilka takich dni pokazuje się
+          w jednym okienku, jako lista. Kliknij wpis na liście niżej, żeby to zmienić.<br>
           <strong>Zajęcia idą swoim trybem</strong> — wykluczenie dotyczy wyłącznie
           rezerwacji wstępu do bawialni. Obsługa nadal może dopisać wejście z ulicy
           w karcie 0, gdyby ktoś mimo wszystko przyszedł.
@@ -1155,8 +1164,27 @@
       <div class="field">
         <label for="exReason">Powód (dla obsługi, nieobowiązkowy)</label>
         <input class="control" id="exReason" maxlength="200" placeholder="np. urodzinki na wyłączność">
-        <p class="hint">Klient go nie zobaczy — w formularzu dostaje tylko informację,
-          że w ten dzień nie przyjmujemy rezerwacji.</p>
+        <p class="hint">Nie pokazujemy go nigdzie klientowi — w formularzu dostaje tylko
+          informację, że w ten dzień nie przyjmujemy rezerwacji.</p>
+      </div>
+
+      <!-- Wykluczenie samo z siebie blokuje rezerwacje i nic nie ogłasza.
+           Dopiero ten przełącznik wypycha dzień do okienka na stronie głównej,
+           bo nie każdy wolny dzień trzeba obwieszczać: remont po godzinach
+           nikogo nie obchodzi, a zamknięta sobota już tak. -->
+      <div class="field">
+        <label class="check"><input type="checkbox" id="exShowOnSite">
+          <span>Widoczna informacja na stronie głównej</span></label>
+        <p class="hint">Odwiedzający stronę zobaczy okienko „Bawialnia nieczynna” z tą datą.
+          Kilka zaznaczonych dni pokaże się w jednym okienku, jako lista.</p>
+
+        <div id="exPublicBox" hidden style="margin-top:10px">
+          <label for="exPublicNote">Co ma przeczytać klient (nieobowiązkowe)</label>
+          <input class="control" id="exPublicNote" maxlength="120"
+                 placeholder="np. impreza na wyłączność — zapraszamy w niedzielę">
+          <p class="hint">Puste = samo „nie pracujemy tego dnia”. Ten tekst jest publiczny,
+            więc bez nazwisk i szczegółów rezerwacji.</p>
+        </div>
       </div>
 
       <!-- Powtarzanie działa tak samo jak przy zajęciach: te same przyciski dni
@@ -3722,6 +3750,13 @@ function exRepRender() {
  '#exRepeatCount', '#exDate'].forEach(sel =>
   $(sel).addEventListener('change', exRepRender));
 
+/** Pole z tekstem dla klienta ma sens tylko wtedy, gdy dzień w ogóle
+    trafia na stronę — inaczej byłaby to notatka, której nikt nie przeczyta. */
+function exPublicRender() {
+  $('#exPublicBox').hidden = !$('#exShowOnSite').checked;
+}
+$('#exShowOnSite').addEventListener('change', exPublicRender);
+
 function exOpen(dateISO = '') {
   const istnieje = EXCL.find(e => e.date === dateISO);
   exEditing = istnieje ? istnieje.date : null;
@@ -3730,6 +3765,9 @@ function exOpen(dateISO = '') {
   $('#exDate').value = dateISO || todayISO();
   $('#exDate').min = '';                       // wolno wykluczyć też wstecz — historia bywa potrzebna
   $('#exReason').value = istnieje ? (istnieje.reason || '') : '';
+  $('#exShowOnSite').checked = istnieje ? istnieje.showOnSite === true : false;
+  $('#exPublicNote').value   = istnieje ? (istnieje.publicNote || '') : '';
+  exPublicRender();
   $('#exTitle').textContent = istnieje ? 'Wykluczony dzień' : 'Wyklucz dzień z rezerwacji';
   $('#exSave').textContent  = istnieje ? 'Zapisz powód' : 'Wyklucz';
   $('#exDelete').hidden = !istnieje;
@@ -3774,8 +3812,14 @@ $('#exForm').addEventListener('submit', async e => {
   $('#exSave').disabled = true;
   try {
     const seria = exRepDates(d);
-    await addExclusion(d, $('#exReason').value);
-    if (seria.length) await addExclusions(seria, $('#exReason').value);
+    /* Seria dostaje te same ustawienia widoczności, co dzień pierwszy —
+       ktoś, kto zamyka bawialnię na tydzień, ogłasza cały tydzień albo nic. */
+    const jawne = {
+      showOnSite: $('#exShowOnSite').checked,
+      publicNote: $('#exShowOnSite').checked ? $('#exPublicNote').value : ''
+    };
+    await addExclusion(d, $('#exReason').value, jawne);
+    if (seria.length) await addExclusions(seria, $('#exReason').value, jawne);
     toast(seria.length
       ? `Wykluczono ${seria.length + 1} dni, od ${shortDate(d)}.`
       : `${shortDate(d)} nie przyjmuje już rezerwacji.`);
@@ -3803,14 +3847,31 @@ function renderExclusions() {
   box.className = 'excl-list';
   box.innerHTML = EXCL.map(e => `
     <div class="excl-item">
-      <div class="grow">
+      <div class="grow" data-excl-edit="${esc(e.date)}" role="button" tabindex="0"
+           title="Kliknij, żeby zmienić powód albo widoczność na stronie"
+           style="cursor:pointer">
         <b>${esc(longDate(e.date))}</b>
         <span class="dzien">${e.date < dzis ? 'minęło' : 'nie przyjmujemy rezerwacji'}</span>
         ${e.reason ? `<span class="powod">${esc(e.reason)}</span>` : ''}
+        ${e.showOnSite && e.date >= dzis
+            ? `<span class="jawne">na stronie głównej</span>` : ''}
+        ${e.showOnSite && e.publicNote
+            ? `<span class="powod">„${esc(e.publicNote)}”</span>` : ''}
       </div>
       <button class="btn btn-danger btn-sm btn-auto" data-excl-del="${esc(e.date)}"
         type="button" title="Cofnij wykluczenie">Cofnij</button>
     </div>`).join('');
+
+  /* Wpis na liście otwiera to samo okno, co nagłówek dnia w kalendarzu —
+     inaczej przełącznika „na stronie głównej” nie dałoby się już zmienić
+     bez wyklikania dnia od nowa. */
+  $$('#exclList [data-excl-edit]').forEach(el => {
+    const otworz = () => exOpen(el.dataset.exclEdit);
+    el.onclick = otworz;
+    el.onkeydown = ev => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); otworz(); }
+    };
+  });
 
   $$('#exclList [data-excl-del]').forEach(b => b.onclick = async () => {
     b.disabled = true;

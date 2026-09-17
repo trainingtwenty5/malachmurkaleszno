@@ -767,25 +767,33 @@ export function watchTodo(cb, onError) {
 
    Odczyt jest publiczny — formularz rezerwacji musi wiedzieć, że dzień
    odpada, zanim ktoś wypełni pół strony. Zapis: tylko administrator.
+
+   DWA TEKSTY, DWIE PUBLICZNOŚCI. `reason` to notatka wewnętrzna i nigdy nie
+   wychodzi poza panel. Dopiero `showOnSite` wypycha dzień na stronę główną,
+   a `publicNote` jest tym, co przeczyta tam klient. Rozdzielamy je, bo powód
+   bywa dosłowny („urodzinki Zosi, mama zapłaciła gotówką”), a strona główna
+   ma powiedzieć tylko tyle, ile trzeba.
    ========================================================================== */
 
 /** Kształt dokumentu, jeden na dzień. `reason` widzi wyłącznie obsługa. */
-const exclusionDoc = (dateISO, reason) => ({
-  date:      dateISO,
-  reason:    String(reason || '').trim().slice(0, 200),
-  createdAt: F.serverTimestamp()
+const exclusionDoc = (dateISO, reason, { showOnSite = false, publicNote = '' } = {}) => ({
+  date:       dateISO,
+  reason:     String(reason || '').trim().slice(0, 200),
+  showOnSite: !!showOnSite,
+  publicNote: String(publicNote || '').trim().slice(0, 120),
+  createdAt:  F.serverTimestamp()
 });
 
 /** Wyklucza jeden dzień. Powtórzone wywołanie tylko nadpisuje powód. */
-export const addExclusion = (dateISO, reason = '') =>
-  F.setDoc(ref(PATHS.exclusions, dateISO), exclusionDoc(dateISO, reason));
+export const addExclusion = (dateISO, reason = '', opcje = {}) =>
+  F.setDoc(ref(PATHS.exclusions, dateISO), exclusionDoc(dateISO, reason, opcje));
 
 /** Wyklucza całą serię dni. Zapisujemy pojedynczo — serie są krótkie
     (kilkanaście dni), a jeden nieudany zapis nie ma psuć reszty. */
-export async function addExclusions(dates = [], reason = '') {
+export async function addExclusions(dates = [], reason = '', opcje = {}) {
   const ok = [];
   for (const d of [...new Set(dates)].filter(Boolean).slice(0, 120)) {
-    await addExclusion(d, reason);
+    await addExclusion(d, reason, opcje);
     ok.push(d);
   }
   return ok;
@@ -800,6 +808,22 @@ export function watchExclusions(fromISO, cb, onError) {
     s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))
              .sort((a, b) => (a.date || '').localeCompare(b.date || ''))),
     err => { console.error('watchExclusions', err); if (onError) onError(err); });
+}
+
+/**
+ * Nasłuch dla STRONY GŁÓWNEJ: tylko te dni, które obsługa świadomie
+ * zaznaczyła jako „widoczne dla klienta”, i tylko od dzisiaj w przód.
+ *
+ * Filtrujemy w przeglądarce, a nie zapytaniem `where('showOnSite','==',true)`,
+ * z dwóch powodów: dokumenty sprzed tej zmiany w ogóle nie mają tego pola
+ * (zapytanie by je pominęło, ale i tak mają być niewidoczne), a drugi warunek
+ * zakresowy na innym polu wymagałby osobnego indeksu złożonego. Lista liczy
+ * kilkanaście pozycji — nie ma czego oszczędzać.
+ */
+export function watchPublicExclusions(cb, onError) {
+  return watchExclusions(todayISO(),
+    list => cb(list.filter(e => e.showOnSite === true)),
+    onError);
 }
 
 /** Jednorazowy odczyt — formularz rezerwacji nie potrzebuje nasłuchu. */
