@@ -233,6 +233,43 @@ console.log('\n=== CO WIDAĆ NA STRONIE ===');
      SETTINGS.openingHours[6] === null);
 }
 
+console.log('\n=== GODZINY NA KONKRETNE DATY (currentOpeningHours) ===');
+{
+  /* Te same okresy co w tygodniu, ale z datami — Google dokłada je w polu
+     `currentOpeningHours` na najbliższe siedem dni i uwzględnia w nich
+     godziny specjalne. To jedyne źródło, z którego da się odczytać, że
+     akurat w ten piątek jest zamknięte. */
+  const zData = (r, m, d, h, mi) => ({ date: { year: r, month: m, day: d }, hour: h, minute: mi, day: 5 });
+  const odpowiedz = {
+    ...TYDZIEN,
+    currentOpeningHours: { periods: [
+      { open: zData(2026, 9, 18, 10, 0), close: zData(2026, 9, 18, 19, 0) },
+      { open: zData(2026, 9, 20, 10, 0), close: zData(2026, 9, 20, 15, 0) }
+    ] }
+  };
+
+  const mod = await przebieg({ odpowiedz });
+  eq('daty rozkładają się na mapę dzień → godziny',
+     mod.GODZINY_WG_DAT,
+     { '2026-09-18': [{ open: '10:00', close: '19:00' }],
+       '2026-09-20': [{ open: '10:00', close: '15:00' }] });
+  ok('pytamy Google także o godziny na konkretne daty',
+     /fields=regularOpeningHours,currentOpeningHours/.test(ostatniAdres), ostatniAdres);
+
+  /* Wizytówka bez godzin specjalnych po prostu nie ma tego pola. To nie błąd:
+     zostaje sam tygodniowy grafik, a odstępstw nie znamy. */
+  const bez = await przebieg({ odpowiedz: TYDZIEN });
+  eq('brak currentOpeningHours nie jest błędem', bez.GODZINY_WG_DAT, {});
+  eq('…a zwykłe godziny i tak wchodzą', SETTINGS.openingHours[1], { open: '15:00', close: '19:00' });
+
+  /* Zapis zapamiętany starszą wersją strony nie ma pola `wgDat`. Gdybyśmy go
+     przyjęli, panel uznałby, że w najbliższym tygodniu nic nie jest zamknięte
+     — i przegapił jednorazowe zamknięcie. Lepiej zapytać Google jeszcze raz. */
+  pamiec['mc-godziny-google'] = JSON.stringify({ at: Date.now(), dni: ZAPAS.map(d => d ? { ranges: [d] } : null) });
+  await przebieg({ odpowiedz, pamiecZostaje: true });
+  eq('stary wpis w pamięci (bez dat) wymusza ponowne pytanie', wywolanFetch, 1);
+}
+
 /* Sprzątamy po sobie: zostawiamy konfigurację taką, jaka leży w repozytorium. */
 GOOGLE_PLACE.apiKey = '';
 

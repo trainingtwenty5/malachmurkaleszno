@@ -15,7 +15,8 @@
    ========================================================================== */
 
 import { opisWartosci, opisZmian, ETYKIETY_POL, nazwaAkcji, rodzinaAkcji,
-         grupujPoDniach, godzinaWpisu, pasujeDoFiltra, plWpisy }
+         grupujPoDniach, godzinaWpisu, pasujeDoFiltra, plWpisy,
+         etykietaGodzin, roznicaGodzin, jednorazoweZamkniecia }
   from '../assets/mc-common.js';
 
 let pass = 0, fail = 0;
@@ -162,6 +163,104 @@ eq('sto dwanaście',       plWpisy(112), '112 wpisów');
 eq('sto dwadzieścia dwa', plWpisy(122), '122 wpisy');
 eq('zero',                plWpisy(0),   '0 wpisów');
 eq('brak liczby',         plWpisy(),    '0 wpisów');
+
+console.log('\n=== GODZINY: JAK OPISUJEMY DZIEŃ ===');
+
+const dzien = (...pary) => ({ ranges: pary.map(([o, c]) => ({ open: o, close: c })) });
+
+eq('zwykły dzień',      etykietaGodzin(dzien(['10:00', '19:00'])), '10:00 – 19:00');
+eq('dzień z przerwą',   etykietaGodzin(dzien(['10:00', '13:00'], ['15:00', '19:00'])),
+   '10:00 – 13:00, 15:00 – 19:00');
+eq('dzień zamknięty',   etykietaGodzin(null), 'nieczynne');
+eq('dzień bez godzin też jest zamknięty', etykietaGodzin({ ranges: [] }), 'nieczynne');
+
+console.log('\n=== GODZINY: CO SIĘ ZMIENIŁO W WIZYTÓWCE ===');
+
+/* Indeks 0 to niedziela (jak w JavaScripcie), ale opis ma iść od poniedziałku,
+   bo tak czyta tydzień człowiek. */
+const TYDZIEN_STARY = [
+  dzien(['10:00', '19:00']), dzien(['15:00', '19:00']), dzien(['10:00', '19:00']),
+  dzien(['10:00', '19:00']), dzien(['10:00', '19:00']), dzien(['10:00', '16:00']),
+  dzien(['10:00', '19:00'])
+];
+const TYDZIEN_NOWY = [
+  dzien(['10:00', '15:00']), dzien(['15:00', '19:00']), dzien(['10:00', '19:00']),
+  dzien(['10:00', '19:00']), dzien(['10:00', '19:00']), dzien(['10:00', '19:00']),
+  null
+];
+
+eq('różnica wymienia tylko to, co się ruszyło, od poniedziałku',
+   roznicaGodzin(TYDZIEN_STARY, TYDZIEN_NOWY),
+   ['piątek: 10:00 – 16:00 → 10:00 – 19:00',
+    'sobota: 10:00 – 19:00 → nieczynne',
+    'niedziela: 10:00 – 19:00 → 10:00 – 15:00']);
+eq('ten sam tydzień to brak różnicy', roznicaGodzin(TYDZIEN_NOWY, TYDZIEN_NOWY), []);
+/* Brak poprzedniego tygodnia znaczy „nie ma z czym porównać" — nie udajemy
+   wtedy, że wszystko się zmieniło. */
+eq('brak poprzednich godzin nie jest zmianą', roznicaGodzin(null, TYDZIEN_NOWY), []);
+eq('brak nowych godzin też nie', roznicaGodzin(TYDZIEN_STARY, undefined), []);
+eq('otwarcie zamkniętego dnia też jest zmianą',
+   roznicaGodzin([null, null, null, null, null, null, null],
+                 [null, dzien(['15:00', '19:00']), null, null, null, null, null]),
+   ['poniedziałek: nieczynne → 15:00 – 19:00']);
+
+console.log('\n=== GODZINY: DZIEŃ ZAMKNIĘTY WBREW GRAFIKOWI ===');
+
+/* Wrzesień 2026: 17 = czwartek, 18 = piątek, 19 = SOBOTA, 20 = niedziela.
+   W grafiku sobota jest nieczynna na stałe. */
+const GRAFIK = [
+  dzien(['10:00', '15:00']),  // niedziela
+  dzien(['15:00', '19:00']),  // poniedziałek
+  dzien(['10:00', '19:00']),  // wtorek
+  dzien(['10:00', '19:00']),  // środa
+  dzien(['10:00', '19:00']),  // czwartek
+  dzien(['10:00', '19:00']),  // piątek
+  null                        // sobota
+];
+const otwarte = (...daty) => Object.fromEntries(daty.map(d => [d, [{ open: '10:00', close: '19:00' }]]));
+
+/* NAJWAŻNIEJSZY TEST W TYM PLIKU. Sobota jest nieczynna co tydzień — ma jej
+   TU NIE BYĆ. Gdyby się pojawiła, automat co tydzień dokładałby wykluczenie
+   i okienko na stronie głównej ogłaszałoby w kółko to samo. */
+eq('stała sobota nie jest odstępstwem',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17',
+     wgDat: otwarte('2026-09-17', '2026-09-18', '2026-09-20', '2026-09-21',
+                    '2026-09-22', '2026-09-23') }),
+   []);
+
+/* A piątek 18.09 normalnie jest otwarty — jego brak w wizytówce to
+   jednorazowe zamknięcie i dokładnie o tym klient ma wiedzieć. */
+eq('zamknięty piątek to odstępstwo',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17',
+     wgDat: otwarte('2026-09-17', '2026-09-20', '2026-09-21',
+                    '2026-09-22', '2026-09-23') }),
+   ['2026-09-18']);
+
+eq('kilka odstępstw wychodzi po kolei',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17',
+     wgDat: otwarte('2026-09-17', '2026-09-22', '2026-09-23') }),
+   ['2026-09-18', '2026-09-20', '2026-09-21']);
+
+eq('dzień z pustą listą okresów liczy się jako zamknięty',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17',
+     wgDat: { ...otwarte('2026-09-18', '2026-09-20', '2026-09-21', '2026-09-22', '2026-09-23'),
+              '2026-09-17': [] } }),
+   ['2026-09-17']);
+
+eq('patrzymy tylko w podane okno, nie dalej',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17', dni: 2,
+     wgDat: otwarte('2026-09-17') }),
+   ['2026-09-18']);
+
+/* Puste dane to „nic nie wiem", a nie „wszystko zamknięte". Gdyby było
+   odwrotnie, nieudane pobranie z Google zamknęłoby cały tydzień. */
+eq('brak danych z wizytówki nie zamyka niczego',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17', wgDat: null }), []);
+eq('brak grafiku też nie', jednorazoweZamkniecia({ regularne: null, odISO: '2026-09-17', wgDat: {} }), []);
+eq('brak daty startowej też nie', jednorazoweZamkniecia({ regularne: GRAFIK, wgDat: {} }), []);
+eq('brak wszystkiego nie wywala funkcji', jednorazoweZamkniecia(), []);
+eq('zero dni do sprawdzenia',
+   jednorazoweZamkniecia({ regularne: GRAFIK, odISO: '2026-09-17', dni: 0, wgDat: {} }), []);
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);
