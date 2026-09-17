@@ -43,7 +43,7 @@ patrz [„Uruchomienie lokalne”](#uruchomienie-lokalne) i [„Publikacja”](#
 | `tools/test-zapisy.mjs` | 100 testów: terminy, godziny otwarcia, serie zajęć — sam Node. |
 | `tools/test-licznik.mjs` | 70 testów licznika dzieci w bawialni — sam Node. |
 | **`tools/test-godziny.mjs`** | **43 testy godzin z wizytówki Google (odczyt, zapas, pamięć) — sam Node.** |
-| **`tools/test-dziennik.mjs`** | **88 testów dziennika zmian (opisy, oś czasu, filtry) — sam Node.** |
+| **`tools/test-dziennik.mjs`** | **100 testów dziennika zmian (opisy, oś czasu, filtry) — sam Node.** |
 | `tools/test-brama.mjs` | 10 testów bramy uprawnień (zawieszony token) — sam Node. |
 | `tools/test-ranking.mjs` | 17 testów rankingu wizyt w bawialni — sam Node. |
 | `tools/test-czas.mjs` | 58 testów zakładki „Czas zabawy” (odliczanie, opłata) — sam Node. |
@@ -264,7 +264,7 @@ node tools/test-cennik.mjs  # 64 testy: taryfy, święta, progi wiekowe, zniżki
 node tools/test-zapisy.mjs  # 100 testów: terminy, godziny otwarcia, numer rezerwacji
 node tools/test-licznik.mjs # 70 testów: licznik dzieci w bawialni
 node tools/test-godziny.mjs # 43 testy: godziny z wizytówki Google, zapas, pamięć podręczna
-node tools/test-dziennik.mjs # 88 testów: dziennik zmian — opisy, oś czasu, filtry
+node tools/test-dziennik.mjs # 100 testów: dziennik zmian — opisy, oś czasu, filtry
 node tools/test-brama.mjs   # 10 testów: brama uprawnień, zawieszony token
 node tools/test-ranking.mjs # 17 testów: ranking wizyt w bawialni
 node tools/test-czas.mjs    # 58 testów: czas zabawy, odliczanie, stan opłaty
@@ -540,6 +540,24 @@ po stronie serwera.
 jej nie przyjmie, a karta godzin pisze „nieczynne"), a co tydzień to samo ogłoszenie
 zasypałoby stronę główną i kartotekę wykluczeń. Wynikiem są wyłącznie **odstępstwa**.
 
+### …ale zmiana stałego grafiku zamyka najbliższy taki dzień
+
+Jest jeszcze drugi przypadek. Jeżeli w Google **zmienicie stały grafik** — sobota była
+15:00–20:00, a od teraz jest zamknięta — to zmiana obowiązuje od razu, ale klient, który
+planował przyjść w tę sobotę, dowie się o tym dopiero pod drzwiami. Dlatego panel
+zamyka wykluczeniem **tę jedną, najbliższą sobotę**. Zaznaczycie sobotę i niedzielę —
+dostaniecie najbliższą sobotę i najbliższą niedzielę, po jednej dacie na dzień tygodnia.
+
+**Tylko najbliższe wystąpienie, nie wszystkie kolejne.** Dalej broni się już sam grafik.
+Dzisiejszy dzień się liczy: kto zamyka sobotę w sobotę rano, ten właśnie dzisiaj nie
+chce nikogo widzieć.
+
+Co świadomie nie uruchamia tej ścieżki: dzień od dawna zamknięty (to nie zmiana), sama
+zmiana godzin bez zamknięcia, otwarcie dnia wcześniej zamkniętego, oraz **pierwsze
+uruchomienie panelu** — bez poprzedniego tygodnia nie wiadomo, co się zmieniło, więc
+nie ruszamy niczego. Gdyby było odwrotnie, pierwsze wejście do panelu wykluczyłoby
+wszystkie dni zamknięte od zawsze.
+
 Dwa bezpieczniki, oba potrzebne:
 
 - **nie dotykamy dnia, który ma już swoje wykluczenie** — obsługa mogła wpisać tam
@@ -795,6 +813,23 @@ sobota trafia przed oczy.
   strony, bo tylko wtedy da się go używać bez zastanowienia. Chmurka leży nad
   przyciemnieniem okienka; gdyby leżała pod nim, przełącznik działałby tylko w jedną
   stronę. Na telefonie zostaje sama ikona, a napis czyta czytnik ekranu.
+- **„Zobacz godziny otwarcia" prowadzi prosto do karty godzin** (`#godziny-otwarcia`),
+  nie do całej sekcji kontaktowej — na telefonie zatrzymuje się dokładnie na wierszu
+  „Poniedziałek 15:00 – 19:00", a karta dostaje na chwilę obramowanie, żeby oko
+  wiedziało, na co patrzeć.
+
+  Dwie rzeczy trzeba było przy tym obejść i obie łatwo zepsuć przy kolejnej zmianie:
+  sekcje wjeżdżają z dołu (`.reveal`), więc dopóki karta się nie pokazała, jej pozycja
+  jest o 26 px niższa od docelowej — odsłaniamy ją bez animacji tuż przed pomiarem.
+  Gorsze jest drugie: na stronie są **obrazki `loading="lazy"` bez podanych wymiarów**,
+  które doczytują się dopiero w trakcie przewijania i przesuwają kartę o kilkaset
+  pikseli w dół. Pozycja policzona w chwili kliknięcia jest przez to nieaktualna, więc
+  po ustaniu ruchu sprawdzamy jeszcze dwa razy, czy karta stoi tam, gdzie miała, i w
+  razie czego dociągamy. Próg 4 px nie pozwala tym poprawkom drgać w kółko.
+
+  Odnośnik zatrzymuje zdarzenie przy sobie (`stopPropagation`), bo `js/main.js` ma
+  własną, ogólną obsługę odnośników `#` — dwa przewijania naraz biłyby się o tę samą
+  stronę.
 - Zgoda na ciasteczka ma pierwszeństwo: dopóki pasek zgody stoi na ekranie,
   okienko czeka.
 - Nasłuch jest na żywo — zaznaczenie w panelu pojawia się w otwartej karcie

@@ -16,7 +16,8 @@
 
 import { opisWartosci, opisZmian, ETYKIETY_POL, nazwaAkcji, rodzinaAkcji,
          grupujPoDniach, godzinaWpisu, pasujeDoFiltra, plWpisy,
-         etykietaGodzin, roznicaGodzin, jednorazoweZamkniecia, wyjatkiNaTydzien }
+         etykietaGodzin, roznicaGodzin, jednorazoweZamkniecia, wyjatkiNaTydzien,
+         nowoZamknieteDniTygodnia }
   from '../assets/mc-common.js';
 
 let pass = 0, fail = 0;
@@ -299,6 +300,83 @@ eq('brak listy nie wywala funkcji', wyjatkiNaTydzien(undefined, '2026-09-17'), {
 eq('brak dzisiejszej daty też nie', wyjatkiNaTydzien(['2026-09-20']), {});
 eq('śmieci na liście są pomijane',
    wyjatkiNaTydzien([null, '', 'nie-data', '2026-09-20'], '2026-09-17'), { 0: '2026-09-20' });
+
+console.log('\n=== DZIEŃ TYGODNIA ŚWIEŻO ZAMKNIĘTY W GOOGLE ===');
+
+/* Wrzesień 2026: 17 = czwartek (4), 18 = piątek (5), 19 = sobota (6),
+   20 = niedziela (0), 21 = poniedziałek (1), 24 = czwartek. */
+const otwarty = (o, c) => ({ ranges: [{ open: o, close: c }] });
+const TYDZ = () => [otwarty('10:00','15:00'), otwarty('15:00','19:00'), otwarty('10:00','19:00'),
+                    otwarty('10:00','19:00'), otwarty('10:00','19:00'), otwarty('10:00','19:00'),
+                    otwarty('15:00','20:00')];
+
+/* Sedno: sobota była 15:00–20:00, w Google właśnie zrobiła się zamknięta.
+   Do wykluczeń idzie TYLKO najbliższa sobota — 19.09. */
+{
+  const nowe = TYDZ(); nowe[6] = null;
+  eq('zamknięta sobota daje jedną, najbliższą sobotę',
+     nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe, odISO: '2026-09-17' }), ['2026-09-19']);
+}
+
+/* Sobota i niedziela naraz — po jednej dacie na każdy z nich. */
+{
+  const nowe = TYDZ(); nowe[6] = null; nowe[0] = null;
+  eq('sobota i niedziela dają dwie najbliższe daty',
+     nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe, odISO: '2026-09-17' }),
+     ['2026-09-19', '2026-09-20']);
+}
+
+/* Dzień zamykany „na dziś": ktoś zamyka czwartek w czwartek rano. Właśnie
+   dzisiaj nikt nie ma przyjechać, więc dzisiejsza data się liczy. */
+{
+  const nowe = TYDZ(); nowe[4] = null;
+  eq('dzisiejszy dzień tygodnia to dzisiejsza data',
+     nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe, odISO: '2026-09-17' }), ['2026-09-17']);
+}
+
+/* Dzień, który minął w tym tygodniu, wypada dopiero za tydzień. */
+{
+  const nowe = TYDZ(); nowe[2] = null;   // wtorek, a dziś czwartek
+  eq('dzień, który już minął, wypada dopiero za tydzień',
+     nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe, odISO: '2026-09-17' }), ['2026-09-22']);
+}
+
+/* NAJWAŻNIEJSZE OGRANICZENIE. Dzień, który był zamknięty i dalej jest, nie
+   jest żadną nowiną — inaczej automat dokładałby sobotę co tydzień, bez
+   końca, i zasypałby kartotekę oraz okienko na stronie. */
+{
+  const stare = TYDZ(); stare[6] = null;
+  const nowe  = TYDZ(); nowe[6] = null;
+  eq('od dawna zamknięty dzień nie jest zmianą',
+     nowoZamknieteDniTygodnia({ stare, nowe, odISO: '2026-09-17' }), []);
+}
+
+eq('sama zmiana godzin to nie zamknięcie', (() => {
+  const nowe = TYDZ(); nowe[6] = otwarty('10:00', '14:00');
+  return nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe, odISO: '2026-09-17' });
+})(), []);
+
+/* Otwarcie dnia, który był zamknięty, też nie jest powodem do wykluczania —
+   automat nie ma prawa niczego zamykać na podstawie dobrej nowiny. */
+eq('otwarcie zamkniętego dnia nie zakłada wykluczenia', (() => {
+  const stare = TYDZ(); stare[6] = null;
+  return nowoZamknieteDniTygodnia({ stare, nowe: TYDZ(), odISO: '2026-09-17' });
+})(), []);
+
+eq('dzień z pustą listą przedziałów liczy się jako zamknięty', (() => {
+  const nowe = TYDZ(); nowe[6] = { ranges: [] };
+  return nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe, odISO: '2026-09-17' });
+})(), ['2026-09-19']);
+
+/* Pierwsze uruchomienie: nie ma poprzedniego tygodnia, więc nie wiemy, co się
+   zmieniło — i wtedy nie ruszamy niczego. Gdyby było odwrotnie, pierwsze
+   wejście do panelu wykluczałoby wszystkie dni zamknięte od zawsze. */
+eq('brak poprzedniego tygodnia nie zamyka niczego',
+   nowoZamknieteDniTygodnia({ stare: null, nowe: TYDZ(), odISO: '2026-09-17' }), []);
+eq('brak nowego tygodnia też nie',
+   nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe: null, odISO: '2026-09-17' }), []);
+eq('brak daty też nie', nowoZamknieteDniTygodnia({ stare: TYDZ(), nowe: TYDZ() }), []);
+eq('brak wszystkiego nie wywala funkcji', nowoZamknieteDniTygodnia(), []);
 
 console.log(`\n================  ${pass} zaliczonych, ${fail} niezaliczonych  ================\n`);
 process.exit(fail ? 1 : 0);
