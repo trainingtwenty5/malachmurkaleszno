@@ -1416,7 +1416,8 @@ import { mountChrome, toast, $, $$, esc, money, humanMinutes, plWizyty, longDate
          seriesDates, openingFor, closingMinFor,
          bookingEndMin, playtimeRows, fmtCountdown, FREEZE_AFTER_MIN,
          nazwaAkcji, rodzinaAkcji, RODZINY, grupujPoDniach, godzinaWpisu,
-         pasujeDoFiltra, plWpisy } from './assets/mc-common.js';
+         pasujeDoFiltra, plWpisy, roznicaGodzin, etykietaGodzin,
+         jednorazoweZamkniecia, DAY_NAMES as DNI_TYGODNIA } from './assets/mc-common.js';
 import { auth, A, adminStatus, ADMIN_EMAILS, authError } from './assets/mc-firebase.js';
 import * as FIN from './assets/mc-finanse.js';
 import { mountGallery } from './assets/mc-galeria.js';
@@ -1433,7 +1434,10 @@ import { watchEvents, getEvent, saveEvent, deleteEvent, duplicateEvent,
          addVisitCount, recountVisitsFromDb, markBookingCounted,
          updateBooking, applyBookingToRanking, createWalkin, extendBooking,
          listRegistrations, listBookings, repeatOnDates,
-         watchAuditLog, listClientEvents } from './assets/mc-data.js';
+         watchAuditLog, listClientEvents, listExclusions, zapiszWDzienniku,
+         readSyncedHours, saveSyncedHours, addAutoExclusion } from './assets/mc-data.js';
+import { godzinyGotowe, GODZINY, GODZINY_WG_DAT, GODZINY_ZAPASOWE }
+  from './assets/mc-godziny.js';
 import { quote, discountSummary, DURATIONS, tariffLabel, tariffFor, PRICES,
          AGE_TIERS, SIBLING_DISCOUNT } from './assets/mc-cennik.js';
 
@@ -1582,8 +1586,144 @@ const SLOT = 34, PXM = SLOT / 30;
 let monday = weekStart(new Date());
 let EVENTS = [], REGS = [], PRESENCE = null, unsubEv = null, unsubReg = null;
 
+/* ==========================================================================
+   SYNCHRONIZACJA GODZIN Z WIZYTÓWKĄ GOOGLE
+   --------------------------------------------------------------------------
+   Strona pobiera godziny sama, ale nie ma komu o tym powiedzieć: dziennik
+   zapisuje wyłącznie obsługa. Dlatego to panel — jedyne miejsce, gdzie
+   ktoś jest zalogowany — porównuje świeżo pobrany tydzień z ostatnio
+   zapamiętanym i odnotowuje RÓŻNICĘ. Bez różnicy nie ma wpisu: dziennik ma
+   mówić „godziny się zmieniły”, a nie „ktoś otworzył panel”.
+
+   Przy okazji wyłapujemy dni zamknięte WBREW zwykłemu grafikowi (święto,
+   impreza na wyłączność wpisana w wizytówkę) i zakładamy na nie wykluczenie.
+   To nie jest kosmetyka: formularz rezerwacji patrzy na tygodniowy grafik,
+   więc taki dzień bez wykluczenia nadal przyjmowałby rezerwacje. Stała
+   sobota nieczynna NIE trafia tutaj — jej broni już sam grafik, a co tydzień
+   to samo ogłoszenie zasypałoby stronę główną.
+   ========================================================================== */
+async function synchronizujGodziny() {
+  await godzinyGotowe;
+
+  /* Pusta mapa dat = nie rozmawialiśmy z Google (brak klucza, błąd sieci,
+     zablokowany referer). Wtedy w SETTINGS siedzą godziny zapasowe z kodu
+     i nie ma o czym pisać — porównanie z nimi udawałoby zmianę. */
+  const wgDat = GODZINY_WG_DAT;
+  if (!wgDat || !Object.keys(wgDat).length) return;
+
+  let zapisane = null;
+  try { zapisane = await readSyncedHours(); }
+  catch (err) { console.warn('Synchronizacja godzin: nie udało się odczytać.', err); return; }
+
+  const opisTygodnia = dni => [1, 2, 3, 4, 5, 6, 0]
+    .map(i => `${DNI_TYGODNIA[(i + 6) % 7]}: ${etykietaGodzin(dni[i])}`);
+
+  const juzDodane = (zapisane && Array.isArray(zapisane.autoExcluded))
+    ? zapisane.autoExcluded : [];
+
+  try {
+    if (!zapisane || !Array.isArray(zapisane.days) || !zapisane.days.length) {
+      await saveSyncedHours(GODZINY, juzDodane);
+      zapiszWDzienniku({ action: 'hours.sync', subject: 'Wizytówka Google',
+                         changes: opisTygodnia(GODZINY) });
+    } else {
+      const roznice = roznicaGodzin(zapisane.days, GODZINY);
+      if (roznice.length) {
+        await saveSyncedHours(GODZINY, juzDodane);
+        zapiszWDzienniku({ action: 'hours.change', subject: 'Wizytówka Google',
+                           changes: roznice });
+      }
+    }
+  } catch (err) {
+    console.warn('Synchronizacja godzin: nie udało się zapisać.', err);
+  }
+
+  await odnotujRozjazdZZapasem(zapisane);
+  await zalozWykluczeniaZWizytowki(juzDodane);
+}
+
+/**
+ * Czy wizytówka rozjechała się z godzinami ZAPASOWYMI wpisanymi w kodzie.
+ *
+ * To osobne pytanie niż „czy Google coś zmienił”. Zapas z `firebase-config.js`
+ * widzi każdy, komu pobranie się nie uda — zerwany internet, wyczerpany limit,
+ * zablokowany klucz — i on też trafia do surowego HTML-a strony, więc czyta go
+ * wyszukiwarka, zanim cokolwiek się wykona. Jeżeli różni się od wizytówki choćby
+ * o minutę, ktoś gdzieś zobaczy nieprawdziwe godziny. Dziennik ma o tym
+ * powiedzieć, bo inaczej nikt się nie dowie: na ekranie wszystko wygląda dobrze.
+ *
+ * Zgłaszamy to raz na rozjazd, nie przy każdym otwarciu panelu — stąd podpis
+ * (`driftSig`) zapamiętany razem z godzinami.
+ */
+async function odnotujRozjazdZZapasem(zapisane) {
+  const roznice = roznicaGodzin(GODZINY_ZAPASOWE, GODZINY);
+  const podpis = roznice.join(' | ');
+  if (podpis === String((zapisane && zapisane.driftSig) || '')) return;
+
+  try {
+    await saveSyncedHours(GODZINY, (zapisane && zapisane.autoExcluded) || [],
+                          { driftSig: podpis });
+    if (roznice.length) {
+      zapiszWDzienniku({
+        action: 'hours.drift',
+        subject: 'Popraw godziny zapasowe w firebase-config.js',
+        changes: roznice
+      });
+    }
+  } catch (err) {
+    console.warn('Synchronizacja godzin: nie udało się odnotować rozjazdu.', err);
+  }
+}
+
+/**
+ * Dni zamknięte wbrew zwykłemu grafikowi dopisujemy do wykluczeń.
+ * Dwa bezpieczniki, oba potrzebne:
+ *   • nie dotykamy dnia, który ma już swoje wykluczenie — obsługa mogła
+ *     wpisać tam własny powód i tekst dla klienta,
+ *   • dzień raz dopisany zapamiętujemy na zawsze, więc cofnięte wykluczenie
+ *     nie wraca przy następnym otwarciu panelu. Automat podpowiada raz,
+ *     decyzja zostaje przy człowieku.
+ */
+async function zalozWykluczeniaZWizytowki(juzDodane) {
+  const zamkniete = jednorazoweZamkniecia({
+    regularne: GODZINY, wgDat: GODZINY_WG_DAT, odISO: todayISO()
+  });
+  if (!zamkniete.length) return;
+
+  let istniejace = new Set();
+  try {
+    istniejace = new Set((await listExclusions(todayISO())).map(e => e.date));
+  } catch (err) {
+    /* Bez pewności, co już jest w kartotece, wolimy nie dopisywać nic —
+       nadpisanie cudzego wykluczenia jest gorsze niż jego brak. */
+    console.warn('Synchronizacja godzin: nie udało się sprawdzić wykluczeń.', err);
+    return;
+  }
+
+  const znane = new Set(juzDodane);
+  const doDodania = zamkniete.filter(d => !znane.has(d) && !istniejace.has(d));
+  if (!doDodania.length) return;
+
+  for (const d of doDodania) {
+    try {
+      await addAutoExclusion(d, {
+        reason: 'Zamknięte według wizytówki Google',
+        publicNote: 'Tego dnia jesteśmy zamknięci.'
+      });
+    } catch (err) { console.warn(`Nie udało się wykluczyć ${d}.`, err); }
+  }
+
+  try { await saveSyncedHours(GODZINY, [...znane, ...doDodania]); }
+  catch (err) { console.warn('Synchronizacja godzin: nie zapamiętałem dopisanych dni.', err); }
+
+  toast(doDodania.length === 1
+    ? `Wizytówka Google: ${shortDate(doDodania[0])} zamknięte — dodano do wykluczeń.`
+    : `Wizytówka Google: ${doDodania.length} zamkniętych dni dodano do wykluczeń.`);
+}
+
 function start() {
   ensureSettings().catch(() => {});
+  synchronizujGodziny().catch(err => console.warn('Synchronizacja godzin:', err));
   loadWeek();
   startBookings();
   startTodoBadges();
@@ -3846,7 +3986,11 @@ function exWczytajDzien(dateISO) {
   exEditing = istnieje ? istnieje.date : null;
 
   $('#exReason').value = istnieje ? (istnieje.reason || '') : '';
-  $('#exShowOnSite').checked = istnieje ? istnieje.showOnSite === true : false;
+  /* Nowy dzień domyślnie JEST ogłaszany na stronie głównej. Wykluczenie
+     zakłada się wtedy, gdy ktoś ma nie przyjechać — a o tym trzeba powiedzieć
+     wcześniej, nie po fakcie. Odznaczenie zostaje pod ręką dla przypadków,
+     których nie ma po co ogłaszać (remont po godzinach). */
+  $('#exShowOnSite').checked = istnieje ? istnieje.showOnSite === true : true;
   $('#exPublicNote').value   = istnieje ? (istnieje.publicNote || '') : '';
   exPublicRender();
   $('#exTitle').textContent = istnieje ? 'Wykluczony dzień' : 'Wyklucz dzień z rezerwacji';

@@ -1913,6 +1913,112 @@ export function opisZmian(patch = {}, etykiety = ETYKIETY_POL) {
     .map(([k, v]) => `${etykiety[k] || k}: ${opisWartosci(v)}`);
 }
 
+/* ==========================================================================
+   GODZINY OTWARCIA — PORÓWNANIA
+   --------------------------------------------------------------------------
+   Pobieraniem zajmuje się mc-godziny.js. Tutaj jest to, co trzeba umieć
+   POWIEDZIEĆ o pobranych godzinach: czym różnią się od poprzednich i który
+   dzień wypadł z grafiku jednorazowo.
+   ========================================================================== */
+
+/** Godziny jednego dnia jako napis: „10:00 – 19:00”, „10:00 – 13:00, 15:00 – 19:00”
+    albo „nieczynne”. Ten sam napis idzie na stronę i do dziennika zmian. */
+export function etykietaGodzin(dzien) {
+  if (!dzien || !Array.isArray(dzien.ranges) || !dzien.ranges.length) return 'nieczynne';
+  return dzien.ranges.map(r => `${r.open} – ${r.close}`).join(', ');
+}
+
+/**
+ * Czym różnią się dwa tygodnie godzin — po ludzku, dzień po dniu.
+ * Puste `stare` znaczy „nie mieliśmy z czym porównać”, więc nie udajemy
+ * różnicy: zwracamy pustą listę, a wywołujący wie, że to pierwszy raz.
+ *
+ * @returns {string[]} np. ['piątek: 10:00 – 16:00 → 10:00 – 19:00', 'sobota: 10:00 – 19:00 → nieczynne']
+ */
+export function roznicaGodzin(stare, nowe) {
+  if (!Array.isArray(stare) || !Array.isArray(nowe)) return [];
+  const out = [];
+  /* Tydzień czytamy od poniedziałku, bo tak czyta go człowiek — indeksy
+     w tablicy są javascriptowe (0 = niedziela). */
+  for (const i of [1, 2, 3, 4, 5, 6, 0]) {
+    const a = etykietaGodzin(stare[i]);
+    const b = etykietaGodzin(nowe[i]);
+    if (a !== b) out.push(`${DAY_NAMES[(i + 6) % 7]}: ${a} → ${b}`);
+  }
+  return out;
+}
+
+/**
+ * Dni, w których bawialnia jest zamknięta WBREW swojemu zwykłemu grafikowi.
+ *
+ * To jest cały sens tej funkcji: sobota, która i tak jest nieczynna co tydzień,
+ * NIE jest tu wynikiem. Ona już widnieje w karcie godzin i formularz rezerwacji
+ * i tak jej nie przyjmie — dopisywanie jej do wykluczeń co tydzień zasypałoby
+ * kartotekę i okienko na stronie głównej. Wynikiem są wyłącznie odstępstwa:
+ * dzień, który normalnie jest otwarty, a w wizytówce na tę konkretną datę
+ * zamknięty (święto, impreza, remont). Takiego dnia NIC inaczej nie zablokuje,
+ * bo formularz patrzy na zwykły tygodniowy grafik.
+ *
+ * @param {object} o
+ * @param {Array}  o.regularne  tydzień [{ranges}|null] — indeks 0 = niedziela
+ * @param {object} o.wgDat      { 'YYYY-MM-DD': [{open,close}] } z wizytówki, na konkretne daty
+ * @param {string} o.odISO      pierwszy sprawdzany dzień
+ * @param {number} [o.dni]      ile dni do przodu (wizytówka podaje 7)
+ * @returns {string[]} daty ISO, rosnąco
+ */
+export function jednorazoweZamkniecia({ regularne, wgDat, odISO, dni = 7 } = {}) {
+  if (!Array.isArray(regularne) || !wgDat || !odISO) return [];
+  const start = parseDate(odISO);
+  if (isNaN(start)) return [];
+
+  const out = [];
+  for (let i = 0; i < Math.max(0, dni); i++) {
+    const d = addDays(start, i);
+    const iso = isoDate(d);
+    const zwykleOtwarty = !!regularne[d.getDay()];
+    const okresy = wgDat[iso];
+    const terazZamkniety = !Array.isArray(okresy) || okresy.length === 0;
+    if (zwykleOtwarty && terazZamkniety) out.push(iso);
+  }
+  return out;
+}
+
+/**
+ * Wyjątki do naniesienia na tygodniową kartę godzin.
+ *
+ * Karta pokazuje tydzień („niedziela: 10:00 – 15:00”), a wykluczenia dotyczą
+ * KONKRETNYCH DAT. Żeby jedno dało się pokazać na drugim, dla każdego dnia
+ * tygodnia szukamy najbliższej nadchodzącej daty, która jest wykluczona.
+ * Dzięki temu wiersz „Niedziela” potrafi powiedzieć „21 września nieczynne”,
+ * zamiast udawać, że w tę niedzielę jest normalnie otwarte.
+ *
+ * Patrzymy tylko do przodu i tylko w okno dwóch tygodni: wykluczenie sprzed
+ * miesiąca nikogo już nie obchodzi, a takie za pół roku nie ma prawa straszyć
+ * w karcie godzin dzisiaj.
+ *
+ * @param {string[]} daty   wykluczone dni, ISO
+ * @param {string} dzisISO  od kiedy patrzymy
+ * @param {number} [dni]    jak daleko w przód
+ * @returns {object} { 0: '2026-09-20', 3: '2026-09-23' } — klucz to dzień tygodnia JS
+ */
+export function wyjatkiNaTydzien(daty = [], dzisISO, dni = 14) {
+  const out = {};
+  if (!Array.isArray(daty) || !dzisISO) return out;
+  const start = parseDate(dzisISO);
+  if (isNaN(start)) return out;
+  const koniec = isoDate(addDays(start, Math.max(0, dni)));
+
+  for (const iso of [...daty].filter(Boolean).sort()) {
+    if (iso < dzisISO || iso > koniec) continue;
+    const d = parseDate(iso);
+    if (isNaN(d)) continue;
+    /* Pierwsza data wygrywa, bo listę przeszliśmy rosnąco — a interesuje nas
+       najbliższa, nie ostatnia. */
+    if (out[d.getDay()] === undefined) out[d.getDay()] = iso;
+  }
+  return out;
+}
+
 /** Nazwy akcji po ludzku — to one stoją w pierwszej linii wpisu. */
 export const NAZWY_AKCJI = {
   'event.create':        'Dodano zajęcia',
@@ -1931,6 +2037,10 @@ export const NAZWY_AKCJI = {
   'presence.capacity':   'Zmieniono liczbę miejsc',
   'visits.add':          'Poprawiono licznik odwiedzin',
   'visits.base':         'Ustawiono licznik odwiedzin',
+  'hours.sync':          'Włączono synchronizację godzin z Google',
+  'hours.change':        'Godziny otwarcia zmienione w wizytówce Google',
+  'exclusion.auto':      'Dzień zamknięty w wizytówce — dodany do wykluczeń',
+  'hours.drift':         'Godziny w wizytówce różnią się od zapasowych w kodzie',
   /* Poniższe nie powstają z zapisu do dziennika — panel dokłada je z dat
      utworzenia rezerwacji i zapisów, żeby oś czasu nie milczała o tym, co
      robią klienci. Patrz README, „Dziennik zmian”. */
@@ -1950,7 +2060,8 @@ export const RODZINY = {
   walkin:       'Wejścia z ulicy',
   exclusion:    'Wykluczenia',
   presence:     'Licznik w bawialni',
-  visits:       'Licznik odwiedzin'
+  visits:       'Licznik odwiedzin',
+  hours:        'Godziny otwarcia'
 };
 
 /**

@@ -28,6 +28,7 @@
                    godzinyGotowe.then(przerysujCoTrzeba);
    ========================================================================== */
 import { SETTINGS, GOOGLE_PLACE } from './firebase-config.js';
+import { etykietaGodzin, wyjatkiNaTydzien, isoDate, longDate } from './mc-common.js';
 
 /* Indeksy dni w Google Places są takie same jak w JavaScripcie:
    0 = niedziela … 6 = sobota. Jedna zgodność mniej do pilnowania. */
@@ -84,6 +85,30 @@ const doSettings = dni => dni.map(d =>
     close: d.ranges[d.ranges.length - 1].close
   });
 
+/**
+ * To samo, ale rozłożone na KONKRETNE DATY. Pole `currentOpeningHours`
+ * z wizytówki opisuje najbliższe siedem dni i uwzględnia godziny specjalne
+ * (święta, jednorazowe zamknięcia), więc każdy okres niesie ze sobą datę.
+ * Dzięki temu da się odróżnić „sobota jest nieczynna co tydzień” od
+ * „w tę sobotę wyjątkowo zamknięte”.
+ *
+ * @returns {object} { 'YYYY-MM-DD': [{open, close}] } — dni bez wpisu są zamknięte
+ */
+function zPeriodsWgDat(periods = []) {
+  const out = {};
+  for (const p of periods) {
+    const d = p && p.open && p.open.date;
+    if (!d || !d.year || !d.month || !d.day) continue;
+    const iso = `${d.year}-${pad(d.month)}-${pad(d.day)}`;
+    const close = !p.close || (p.close.date && (p.close.date.day !== d.day
+                 || p.close.date.month !== d.month || p.close.date.year !== d.year))
+      ? '23:59' : hhmm(p.close);
+    (out[iso] || (out[iso] = [])).push({ open: hhmm(p.open), close });
+  }
+  Object.values(out).forEach(l => l.sort((a, b) => a.open.localeCompare(b.open)));
+  return out;
+}
+
 /** Godziny zapasowe z konfiguracji, w tym samym kształcie co z Google. */
 const zSettings = () => (SETTINGS.openingHours || []).map(h =>
   h && h.open && h.close ? { ranges: [{ open: h.open, close: h.close }] } : null);
@@ -100,12 +125,16 @@ function zPamieci() {
     const s = JSON.parse(localStorage.getItem(KLUCZ) || 'null');
     if (!s || !Array.isArray(s.dni)) return null;
     const wiek = (Date.now() - (s.at || 0)) / 60000;
-    return wiek >= 0 && wiek < (GOOGLE_PLACE.cacheMinutes || 360) ? s.dni : null;
+    if (!(wiek >= 0 && wiek < (GOOGLE_PLACE.cacheMinutes || 360))) return null;
+    /* `wgDat` doszło później niż sama pamięć podręczna — wpis zapisany
+       starszą wersją strony go nie ma i wtedy pytamy Google od nowa,
+       zamiast udawać, że w najbliższym tygodniu nic nie jest zamknięte. */
+    return s.wgDat ? { dni: s.dni, wgDat: s.wgDat } : null;
   } catch { return null; }
 }
 
-function doPamieci(dni) {
-  try { localStorage.setItem(KLUCZ, JSON.stringify({ at: Date.now(), dni })); }
+function doPamieci(dni, wgDat) {
+  try { localStorage.setItem(KLUCZ, JSON.stringify({ at: Date.now(), dni, wgDat })); }
   catch { /* trudno — po prostu zapytamy następnym razem */ }
 }
 
@@ -113,7 +142,7 @@ function doPamieci(dni) {
 async function zGoogle() {
   const { placeId, apiKey } = GOOGLE_PLACE;
   const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`
-            + `?fields=regularOpeningHours&languageCode=pl&regionCode=PL`
+            + `?fields=regularOpeningHours,currentOpeningHours&languageCode=pl&regionCode=PL`
             + `&key=${encodeURIComponent(apiKey)}`;
 
   const odp = await fetch(url);
@@ -129,7 +158,12 @@ async function zGoogle() {
   if (!Array.isArray(periods) || !periods.length) {
     throw new Error('Wizytówka nie podaje godzin otwarcia.');
   }
-  return zPeriods(periods);
+  /* Brak `currentOpeningHours` nie jest błędem — wtedy po prostu nie wiemy
+     nic o odstępstwach i zostaje sam tygodniowy grafik. */
+  return {
+    dni:   zPeriods(periods),
+    wgDat: zPeriodsWgDat((dane.currentOpeningHours || {}).periods || [])
+  };
 }
 
 /* ==========================================================================
@@ -138,12 +172,48 @@ async function zGoogle() {
 
 /** Godziny, których strona faktycznie używa. Obowiązuje od pierwszej linijki:
     dopóki Google nie odpowie, są to godziny zapasowe. */
+/**
+ * Godziny zapasowe wpisane w kod — zapamiętane ZANIM cokolwiek je nadpisze.
+ * Panel porównuje z nimi to, co przyszło z wizytówki: jeżeli się rozjechały,
+ * znaczy to, że zapas w `firebase-config.js` jest już nieaktualny i zobaczy go
+ * każdy, komu pobranie się nie uda. Bez tej kopii nie dałoby się tego wykryć,
+ * bo `zastosuj()` podmienia SETTINGS w miejscu.
+ */
+export const GODZINY_ZAPASOWE = zSettings();
+
 export let GODZINY = zSettings();
+
+/**
+ * Godziny na konkretne daty z najbliższego tygodnia — `{}` , dopóki (albo
+ * jeżeli) Google nie odpowie. Czyta to panel administratora, żeby wyłapać
+ * dni zamknięte wbrew zwykłemu grafikowi.
+ */
+export let GODZINY_WG_DAT = {};
+
+/**
+ * Wykluczone dni ogłoszone klientom — nanoszone na kartę godzin jako wyjątki.
+ *
+ * Wizytówka Google zostaje źródłem tygodniowego grafiku; wykluczenie nie
+ * zmienia godzin, tylko dokłada nad nimi adnotację „w tę niedzielę nieczynne”.
+ * Dzięki temu po minięciu wyjątku (albo po jego cofnięciu) karta sama wraca
+ * do tego, co mówi Google — bez żadnego sprzątania.
+ *
+ * Dane podaje mc-nieczynne.js, który i tak nasłuchuje wykluczeń dla okienka.
+ * Ten moduł celowo nie sięga do bazy: jest wpięty także tam, gdzie Firebase
+ * nie jest potrzebny.
+ */
+export let WYJATKI = [];
+
+export function ustawWyjatki(lista = []) {
+  WYJATKI = (Array.isArray(lista) ? lista : []).filter(w => w && w.date);
+  rysuj(GODZINY);
+}
 
 /** Przepisuje ustalone godziny do SETTINGS, żeby `openingFor()` i wszystko,
     co z niego korzysta (formularz rezerwacji), widziało to samo. */
-function zastosuj(dni) {
+function zastosuj(dni, wgDat) {
   GODZINY = dni;
+  if (wgDat) GODZINY_WG_DAT = wgDat;
   SETTINGS.openingHours = doSettings(dni);
 }
 
@@ -155,12 +225,12 @@ export const godzinyGotowe = (async () => {
   if (!GOOGLE_PLACE.apiKey || !GOOGLE_PLACE.placeId) return GODZINY;
 
   const zapamietane = zPamieci();
-  if (zapamietane) { zastosuj(zapamietane); return GODZINY; }
+  if (zapamietane) { zastosuj(zapamietane.dni, zapamietane.wgDat); return GODZINY; }
 
   try {
-    const dni = await zGoogle();
-    doPamieci(dni);
-    zastosuj(dni);
+    const { dni, wgDat } = await zGoogle();
+    doPamieci(dni, wgDat);
+    zastosuj(dni, wgDat);
   } catch (err) {
     console.warn('Godziny z wizytówki Google: zostaję przy zapasowych.', err);
   }
@@ -175,27 +245,45 @@ export const godzinyGotowe = (async () => {
    danych.
    ========================================================================== */
 
-const opisDnia = d => !d || !d.ranges.length
-  ? 'nieczynne'
-  : d.ranges.map(r => `${r.open} – ${r.close}`).join(', ');
-
 /** Karta „Godziny otwarcia” w sekcji kontaktowej. */
+/** Dzień miesiąca w dopełniaczu, do adnotacji przy wierszu: „21 września”. */
+const dzienISlownieMiesiac = iso => {
+  const cz = longDate(iso).split(', ')[1] || iso;    // „21 września 2026”
+  return cz.replace(/\s\d{4}$/, '');
+};
+
 function rysujKarte(dni) {
   const ul = document.getElementById('mcGodziny');
   if (!ul) return;
 
-  const dzis = new Date().getDay();
+  const teraz = new Date();
+  const dzis = teraz.getDay();
   /* Tydzień zaczynamy od poniedziałku, tak jak czyta go człowiek,
      a nie od niedzieli, tak jak numeruje go JavaScript. */
   const kolejnosc = [1, 2, 3, 4, 5, 6, 0];
+
+  /* Wykluczenia nie zmieniają godzin — dokładają nad nimi wyjątek. Grafik
+     zostaje taki, jaki podaje wizytówka, więc gdy wyjątek minie albo ktoś go
+     cofnie, karta wraca do siebie bez żadnego sprzątania. */
+  const wyjatki = wyjatkiNaTydzien(WYJATKI.map(w => w.date), isoDate(teraz));
 
   ul.innerHTML = kolejnosc.map(i => {
     const klasy = [];
     if (i === 0 || i === 6) klasy.push('is-weekend');
     if (i === dzis) klasy.push('is-today');
     if (!dni[i]) klasy.push('is-closed');
+
+    const wyjatek = wyjatki[i];
+    /* Dzień i tak zamknięty co tydzień nie potrzebuje adnotacji „nieczynne” —
+       powiedziałby to samo dwa razy. */
+    const dopisek = wyjatek && dni[i]
+      ? `<span class="hours-wyjatek">${dzienISlownieMiesiac(wyjatek)} nieczynne</span>`
+      : '';
+    if (dopisek) klasy.push('has-wyjatek');
+
     return `<li${klasy.length ? ` class="${klasy.join(' ')}"` : ''}>`
-         + `<span>${NAZWY_PL[i]}</span><span>${opisDnia(dni[i])}</span></li>`;
+         + `<span>${NAZWY_PL[i]}${dopisek}</span>`
+         + `<span>${etykietaGodzin(dni[i])}</span></li>`;
   }).join('');
 }
 

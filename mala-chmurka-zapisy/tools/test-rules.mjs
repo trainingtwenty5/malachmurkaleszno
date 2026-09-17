@@ -404,6 +404,26 @@ await t('Anonim NIE oglosi nic na stronie glownej -> NIE', async () =>
   assertFails(setDoc(doc(anon(), 'exclusions/2026-10-01'),
     { ...WYKL, showOnSite: true, publicNote: 'zamkniete na zawsze' })));
 
+console.log('\n=== ZAPAMIETANE GODZINY (settings/openingHours) ===');
+
+/* Kopia tygodnia z wizytowki. Czyta ja kazdy (to jawna informacja, ta sama
+   co w karcie godzin), ale zapisuje wylacznie obsluga — inaczej ktokolwiek
+   podmienilby panelowi punkt odniesienia i "zmiana godzin" w dzienniku
+   znaczylaby tyle, co nic. */
+const GODZINY_DOK = {
+  days: [null, { ranges: [{ open: '15:00', close: '19:00' }] }],
+  autoExcluded: ['2026-11-01'], syncedAt: new Date()
+};
+
+await t('Zapamietane godziny czyta kazdy -> TAK', async () =>
+  assertSucceeds(getDoc(doc(anon(), 'settings/openingHours'))));
+await t('Admin zapisuje zapamietane godziny -> TAK', async () =>
+  assertSucceeds(setDoc(doc(user('a1', ADMIN, true), 'settings/openingHours'), GODZINY_DOK)));
+await t('Anonim NIE zapisze zapamietanych godzin -> NIE', async () =>
+  assertFails(setDoc(doc(anon(), 'settings/openingHours'), GODZINY_DOK)));
+await t('Zalogowany klient NIE zapisze zapamietanych godzin -> NIE', async () =>
+  assertFails(setDoc(doc(user('klient', 'k@example.com'), 'settings/openingHours'), GODZINY_DOK)));
+
 console.log('\n=== DZIENNIK ZMIAN (auditLog) ===');
 
 /* Dziennik ma dwie wlasciwosci, ktore albo dzialaja, albo jest ozdoba:

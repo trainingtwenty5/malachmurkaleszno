@@ -233,6 +233,87 @@ console.log('\n=== CO WIDAĆ NA STRONIE ===');
      SETTINGS.openingHours[6] === null);
 }
 
+console.log('\n=== GODZINY NA KONKRETNE DATY (currentOpeningHours) ===');
+{
+  /* Te same okresy co w tygodniu, ale z datami — Google dokłada je w polu
+     `currentOpeningHours` na najbliższe siedem dni i uwzględnia w nich
+     godziny specjalne. To jedyne źródło, z którego da się odczytać, że
+     akurat w ten piątek jest zamknięte. */
+  const zData = (r, m, d, h, mi) => ({ date: { year: r, month: m, day: d }, hour: h, minute: mi, day: 5 });
+  const odpowiedz = {
+    ...TYDZIEN,
+    currentOpeningHours: { periods: [
+      { open: zData(2026, 9, 18, 10, 0), close: zData(2026, 9, 18, 19, 0) },
+      { open: zData(2026, 9, 20, 10, 0), close: zData(2026, 9, 20, 15, 0) }
+    ] }
+  };
+
+  const mod = await przebieg({ odpowiedz });
+  eq('daty rozkładają się na mapę dzień → godziny',
+     mod.GODZINY_WG_DAT,
+     { '2026-09-18': [{ open: '10:00', close: '19:00' }],
+       '2026-09-20': [{ open: '10:00', close: '15:00' }] });
+  ok('pytamy Google także o godziny na konkretne daty',
+     /fields=regularOpeningHours,currentOpeningHours/.test(ostatniAdres), ostatniAdres);
+
+  /* Wizytówka bez godzin specjalnych po prostu nie ma tego pola. To nie błąd:
+     zostaje sam tygodniowy grafik, a odstępstw nie znamy. */
+  const bez = await przebieg({ odpowiedz: TYDZIEN });
+  eq('brak currentOpeningHours nie jest błędem', bez.GODZINY_WG_DAT, {});
+  eq('…a zwykłe godziny i tak wchodzą', SETTINGS.openingHours[1], { open: '15:00', close: '19:00' });
+
+  /* Zapis zapamiętany starszą wersją strony nie ma pola `wgDat`. Gdybyśmy go
+     przyjęli, panel uznałby, że w najbliższym tygodniu nic nie jest zamknięte
+     — i przegapił jednorazowe zamknięcie. Lepiej zapytać Google jeszcze raz. */
+  pamiec['mc-godziny-google'] = JSON.stringify({ at: Date.now(), dni: ZAPAS.map(d => d ? { ranges: [d] } : null) });
+  await przebieg({ odpowiedz, pamiecZostaje: true });
+  eq('stary wpis w pamięci (bez dat) wymusza ponowne pytanie', wywolanFetch, 1);
+}
+
+console.log('\n=== WYJĄTKI Z WYKLUCZEŃ NA KARCIE GODZIN ===');
+{
+  const mod = await przebieg({ odpowiedz: TYDZIEN });
+
+  /* Zapas z konfiguracji musi zostać zapamiętany PRZED nadpisaniem — panel
+     porównuje z nim to, co przyszło z wizytówki. Gdyby `zastosuj()` podmieniło
+     go w miejscu, rozjazdu nie dałoby się już wykryć. */
+  eq('godziny zapasowe zapamiętane osobno i nietknięte',
+     mod.GODZINY_ZAPASOWE.map(d => d && d.ranges[0].close),
+     [ '15:00', '19:00', '19:00', '19:00', '19:00', '19:00', null ]);
+
+  /* Wyjątek liczy się od DZISIAJ, więc bierzemy najbliższą środę — inaczej
+     test przechodziłby albo nie w zależności od dnia uruchomienia. */
+  const dzis = new Date();
+  const sroda = new Date(dzis);
+  sroda.setDate(sroda.getDate() + ((3 - dzis.getDay() + 7) % 7 || 7));
+  const iso = `${sroda.getFullYear()}-${String(sroda.getMonth() + 1).padStart(2, '0')}`
+            + `-${String(sroda.getDate()).padStart(2, '0')}`;
+
+  mod.ustawWyjatki([{ date: iso, publicNote: '' }]);
+  const html = el.mcGodziny.innerHTML;
+
+  ok('środa dostaje adnotację z datą', /Środa<span class="hours-wyjatek">\d+ \S+ nieczynne</.test(html), html);
+  ok('…i klasę, po której CSS ją przekreśla', /class="has-wyjatek"|has-wyjatek/.test(html), html);
+  /* Godziny ZOSTAJĄ. Grafik z wizytówki się nie zmienił — wyjątek jest nad nim,
+     a nie zamiast niego. Dzięki temu po minięciu daty karta wraca sama. */
+  ok('godziny z wizytówki zostają widoczne', /Środa[\s\S]{0,90}10:00 – 19:00/.test(html), html);
+  ok('pozostałe dni są nietknięte', !/Wtorek<span class="hours-wyjatek"/.test(html));
+
+  /* Sobota i tak jest nieczynna co tydzień — „nieczynne (nieczynne)” byłoby
+     powtórzeniem tej samej informacji dwa razy. */
+  const sobota = new Date(dzis);
+  sobota.setDate(sobota.getDate() + ((6 - dzis.getDay() + 7) % 7 || 7));
+  const isoSob = `${sobota.getFullYear()}-${String(sobota.getMonth() + 1).padStart(2, '0')}`
+               + `-${String(sobota.getDate()).padStart(2, '0')}`;
+  mod.ustawWyjatki([{ date: isoSob }]);
+  ok('dzień i tak zamknięty nie dostaje adnotacji',
+     !/Sobota<span class="hours-wyjatek"/.test(el.mcGodziny.innerHTML), el.mcGodziny.innerHTML);
+
+  mod.ustawWyjatki([]);
+  ok('cofnięte wykluczenie znika z karty',
+     !/hours-wyjatek/.test(el.mcGodziny.innerHTML), el.mcGodziny.innerHTML);
+}
+
 /* Sprzątamy po sobie: zostawiamy konfigurację taką, jaka leży w repozytorium. */
 GOOGLE_PLACE.apiKey = '';
 

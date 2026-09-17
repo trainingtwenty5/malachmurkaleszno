@@ -131,6 +131,33 @@ export function zapiszWDzienniku({ action, subject = '', targetId = '', changes 
   }).catch(err => console.warn('Dziennik zmian: wpis nie przeszedł.', err));
 }
 
+/* ==========================================================================
+   ZAPAMIĘTANE GODZINY OTWARCIA (settings/openingHours)
+   --------------------------------------------------------------------------
+   Kopia ostatnio pobranego tygodnia z wizytówki Google. Sama strona jej nie
+   potrzebuje — służy wyłącznie do ODPOWIEDZI NA PYTANIE „czy coś się zmieniło”.
+   Bez niej panel nie miałby z czym porównać świeżo pobranych godzin i albo
+   milczałby o zmianach, albo zgłaszał je przy każdym otwarciu.
+
+   `autoExcluded` to lista dat, które panel sam dopisał do wykluczeń. Dzień
+   raz dopisany nigdy nie wraca: gdyby obsługa świadomie cofnęła wykluczenie,
+   automat nie ma go zakładać od nowa przy następnym otwarciu panelu.
+   ========================================================================== */
+export const openingHoursRef = () => ref(PATHS.settings, 'openingHours');
+
+export async function readSyncedHours() {
+  const snap = await F.getDoc(openingHoursRef());
+  return snap.exists() ? snap.data() : null;
+}
+
+export const saveSyncedHours = (days, autoExcluded = [], extra = {}) =>
+  F.setDoc(openingHoursRef(), {
+    days:         Array.isArray(days) ? days : [],
+    autoExcluded: [...new Set(autoExcluded)].filter(Boolean).slice(-200),
+    syncedAt:     F.serverTimestamp(),
+    ...extra
+  }, { merge: true });
+
 /** Nasłuch na dziennik od podanej chwili — wyłącznie dla panelu. */
 export function watchAuditLog(odKiedy, cb, onError) {
   const q = F.query(col(PATHS.auditLog),
@@ -993,6 +1020,24 @@ export async function addExclusions(dates = [], reason = '', opcje = {}) {
     });
   }
   return ok;
+}
+
+/**
+ * Wykluczenie założone przez automat, nie przez człowieka.
+ *
+ * Osobna funkcja, a nie `addExclusion` z dodatkowym parametrem, bo w dzienniku
+ * ma zostać ślad, że to nie była decyzja obsługi tylko odczyt z wizytówki —
+ * inaczej nikt po tygodniu nie odróżni jednego od drugiego. Widoczność na
+ * stronie głównej jest tu włączona z założenia: dzień zamknięty wbrew
+ * zwykłemu grafikowi to dokładnie ten przypadek, o którym klient ma wiedzieć
+ * ZANIM przyjedzie.
+ */
+export async function addAutoExclusion(dateISO, { reason = '', publicNote = '' } = {}) {
+  await zapiszWykluczenie(dateISO, reason, { showOnSite: true, publicNote });
+  zapiszWDzienniku({
+    action: 'exclusion.auto', subject: `Dzień ${dateISO}`, targetId: dateISO,
+    changes: opisZmian({ reason, showOnSite: true, publicNote })
+  });
 }
 
 export async function removeExclusion(dateISO) {
